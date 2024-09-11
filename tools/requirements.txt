@@ -1,6 +1,0 @@
-ecdsa
-intelhex
-pyserial
-pyusb
-solo1
-wheel
