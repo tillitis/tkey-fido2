@@ -1,5 +1,0 @@
-libopencm3/
-*.bin
-*.elf
-bin/
-generated.stm32f407vgt6.ld

@@ -1,143 +1,116 @@
-include fido2/version.mk
+# Main Makefile
 
-#define uECC_arch_other 0
-#define uECC_x86        1
-#define uECC_x86_64     2
-#define uECC_arm        3
-#define uECC_arm_thumb  4
-#define uECC_arm_thumb2 5
-#define uECC_arm64      6
-#define uECC_avr        7
-ecc_platform=2
+# Directories for object files and binaries
+OBJDIR := _obj
+BINDIR := _bin
 
-src = pc/device.c pc/main.c
+# Ensure directories exist
+$(shell mkdir -p $(OBJDIR) $(BINDIR))
 
-obj = $(src:.c=.o)
+# List of target files
+TARGET_FILES := $(wildcard targets/*.mk)
 
-LIBCBOR = tinycbor/lib/libtinycbor.a
-LIBSOLO = fido2/libsolo.a
+# Global target list
+TARGETS := 
 
-ifeq ($(shell uname -s),Darwin)
-  export LDFLAGS = -Wl,-dead_strip
+# Include target files
+include $(TARGET_FILES)
+
+# Default target
+all: $(TARGETS)
+
+# Build rules for each target
+define BUILD_RULE
+# If target name ends with '.a' we make a library
+ifeq "$(suffix $(1))" ".a"
+    $(1): $(1)-prebuild_cmd $(BINDIR)/$(1)/$(1) $(1)-postbuild_cmd
+        $(1)-prebuild_cmd:
+	        $($(1)_PREBUILD_CMD)
+        $(BINDIR)/$(1)/$(1): $(addprefix $(OBJDIR)/$(1)/,$($(1)_OBJS))
+	        mkdir -p $$(dir $$@)
+            ifneq "$($(1)_AR)" ""
+	            $($(1)_AR) $($(1)_ARFLAGS) $$@ $(addprefix $(OBJDIR)/$(1)/,$($(1)_OBJS))
+            else
+	            @echo AR command missing for $(1)
+	            @exit 1
+            endif
+        $(1)-postbuild_cmd:
+	        $($(1)_POSTBUILD_CMD)
+# Otherwise we link
 else
-  export LDFLAGS = -Wl,--gc-sections
+    $(1): $(1)-prebuild_cmd $(BINDIR)/$(1)/$(1) $(1)-postbuild_cmd
+        $(1)-prebuild_cmd:
+	        $($(1)_PREBUILD_CMD)
+        $(BINDIR)/$(1)/$(1): $(addprefix $(OBJDIR)/$(1)/,$($(1)_OBJS)) \
+                             $(foreach target,$($(1)_NEEDS_TARGETS),$(BINDIR)/$(target)/$(target)) \
+                             $($(1)_EXT_LIBS)
+	        @mkdir -p $$(dir $$@)
+	        $($(1)_CC) $($(1)_LDFLAGS) -o $$@ \
+	                                   $(addprefix $(OBJDIR)/$(1)/,$($(1)_OBJS)) \
+                              $(foreach target,$($(1)_NEEDS_TARGETS),$(BINDIR)/$(target)/$(target)) \
+                              $($(1)_EXT_LIBS) \
+                              $($(1)_LINKER_SCRIPT) \
+                              > $(BINDIR)/$(1)/$(1).map
+            ifneq "$($(1)_OBJDUMP)" ""
+	            $($(1)_OBJDUMP) $($(1)_OBJDUMPFLAGS) $$@ >$(BINDIR)/$(1)/$(1).dmp
+            endif
+            ifneq "$($(1)_OBJCOPY)" ""
+	            $($(1)_OBJCOPY) $($(1)_OBJCOPYFLAGS) $$@ $$@.bin
+            endif
+        $(1)-postbuild_cmd:
+	        $($(1)_POSTBUILD_CMD)
 endif
-LDFLAGS += $(LIBSOLO) $(LIBCBOR) -lsodium
+endef
 
+# Apply build rules for each target
+$(foreach target, $(TARGETS), $(eval $(call BUILD_RULE,$(target))))
 
-CFLAGS = -O2 -fdata-sections -ffunction-sections -fcommon -g
-ECC_CFLAGS = -O2 -fdata-sections -ffunction-sections -DuECC_PLATFORM=$(ecc_platform)
+# Compilation rules for each object file
+define COMPILE_RULE
+$(OBJDIR)/$(1)/%.o: %.c
+	@mkdir -p $$(dir $$@)
+	$$($(1)_CC) $$($(1)_CFLAGS) $$($(1)_DEFINES) $$($(1)_INCLUDES) -o $$@ $$<
+$(OBJDIR)/$(1)/%.o: %.cpp # Extend to .C, .cc, .cpp, .CPP, .c++, .cp, or .cxx?
+	@mkdir -p $$(dir $$@)
+	$$($(1)_CXX) $$($(1)_CXXFLAGS) $$($(1)_DEFINES) $$($(1)_INCLUDES) -o $$@ $$<
+$(OBJDIR)/$(1)/%.o: %.S
+	@mkdir -p $$(dir $$@)
+	$$($(1)_AS) $$($(1)_ASFLAGS) $$($(1)_DEFINES) $$($(1)_INCLUDES) -o $$@ $$<
+endef
 
-INCLUDES =  -I../ -I./fido2/ -I./pc -I../pc -I./tinycbor/src
+# Apply compilation rules for each target
+$(foreach target, $(TARGETS), $(eval $(call COMPILE_RULE,$(target))))
 
-CFLAGS += $(INCLUDES)
-CFLAGS += -DAES256=1  -DSOLO_EXPERIMENTAL=1 -DDEBUG_LEVEL=1
+# Clean rule for each target
+define CLEAN_RULE
+clean: clean-$(1)
+.PHONY: clean-$(1)
+clean-$(1):
+	rm -f $(BINDIR)/$(1)/$(1) \
+          $(BINDIR)/$(1)/$(1).bin \
+          $(BINDIR)/$(1)/$(1).dmp \
+          $(BINDIR)/$(1)/$(1).map \
+          $(addprefix $(OBJDIR)/$(1)/,$($(1)_OBJS:%.o=%.d)) \
+          $(addprefix $(OBJDIR)/$(1)/,$($(1)_OBJS:%.o=%.o))
+endef
 
-name = main
+# Help rule
+define SHOW_TARGETS_RULE
+	echo "$1";
+endef
 
-.PHONY: all $(LIBCBOR) $(LIBSOLO) black blackcheck cppcheck wink fido2-test clean full-clean travis test clean version
-all: main
+# Include dependency files if they exist
+#-include $(wildcard $(OBJDIR)/*/*.d)
 
-tinycbor/Makefile crypto/tiny-AES-c/aes.c:
-	git submodule update --init
+# Clean for a specific target
+.PHONY: clean
+$(foreach target,$(TARGETS), $(eval $(call CLEAN_RULE,$(target))))
 
-.PHONY: cbor cborclean
-cbor: $(LIBCBOR)
+# Clean-all rule
+clean-all:
+	rm -rf $(OBJDIR) $(BINDIR)
 
-cborclean:
-	cd tinycbor && $(MAKE) clean
-
-$(LIBCBOR):
-	cd tinycbor/ && $(MAKE)  LDFLAGS='' -j8
-
-$(LIBSOLO):
-	cd fido2/ && $(MAKE) CFLAGS="$(CFLAGS)" ECC_CFLAGS="$(ECC_CFLAGS)" APP_CONFIG=app.h -j8
-
-version:
-	@git describe
-
-test: venv
-	$(MAKE) cborclean
-	$(MAKE) clean
-	$(MAKE) -C . main
-	$(MAKE) clean
-	$(MAKE) -C ./targets/stm32l432 test PREFIX=$(PREFIX) "VENV=$(VENV)" VERSION_FULL=${SOLO_VERSION_FULL}
-	$(MAKE) clean
-	$(MAKE) cppcheck
-
-$(name): $(obj) $(LIBCBOR) $(LIBSOLO)
-	$(CC) $(LDFLAGS) -o $@ $(obj) $(LDFLAGS)
-
-venv:
-	python3 -m venv venv
-	venv/bin/pip -q install --upgrade pip
-	venv/bin/pip -q install --upgrade -r tools/requirements.txt
-	venv/bin/pip -q install --upgrade black
-
-# selectively reformat our own code
-black: venv
-	venv/bin/black --skip-string-normalization --check tools/
-
-wink: venv
-	venv/bin/solo key wink
-
-fido2-test: venv
-	venv/bin/python tools/ctap_test.py
-
-update:
-	git fetch --tags
-	git checkout master
-	git rebase origin/master
-	git submodule update --init --recursive
-
-DOCKER_TOOLCHAIN_IMAGE := "solokeys/solo-firmware-toolchain"
-
-docker-build-toolchain:
-	docker build -t $(DOCKER_TOOLCHAIN_IMAGE) .
-	docker tag $(DOCKER_TOOLCHAIN_IMAGE):latest $(DOCKER_TOOLCHAIN_IMAGE):${SOLO_VERSION}
-	docker tag $(DOCKER_TOOLCHAIN_IMAGE):latest $(DOCKER_TOOLCHAIN_IMAGE):${SOLO_VERSION_MAJ}
-	docker tag $(DOCKER_TOOLCHAIN_IMAGE):latest $(DOCKER_TOOLCHAIN_IMAGE):${SOLO_VERSION_MAJ}.${SOLO_VERSION_MIN}
-
-uncached-docker-build-toolchain:
-	docker build --no-cache -t $(DOCKER_TOOLCHAIN_IMAGE) .
-	docker tag $(DOCKER_TOOLCHAIN_IMAGE):latest $(DOCKER_TOOLCHAIN_IMAGE):${SOLO_VERSION}
-	docker tag $(DOCKER_TOOLCHAIN_IMAGE):latest $(DOCKER_TOOLCHAIN_IMAGE):${SOLO_VERSION_MAJ}
-	docker tag $(DOCKER_TOOLCHAIN_IMAGE):latest $(DOCKER_TOOLCHAIN_IMAGE):${SOLO_VERSION_MAJ}.${SOLO_VERSION_MIN}
-
-docker-build-all:
-	docker run --rm -v "$(CURDIR)/builds:/builds" \
-					-v "$(CURDIR):/solo" \
-					-u $(shell id -u ${USER}):$(shell id -g ${USER}) \
-				    $(DOCKER_TOOLCHAIN_IMAGE) "solo/in-docker-build.sh" ${SOLO_VERSION_FULL}
-
-CPPCHECK_FLAGS=--quiet --error-exitcode=2
-
-cppcheck:
-	cppcheck $(CPPCHECK_FLAGS) crypto/aes-gcm
-	cppcheck $(CPPCHECK_FLAGS) crypto/sha256
-	cppcheck $(CPPCHECK_FLAGS) fido2
-	cppcheck $(CPPCHECK_FLAGS) pc
-
-clean:
-	rm -f *.o main.exe main $(obj)
-	for f in crypto/tiny-AES-c/Makefile tinycbor/Makefile ; do \
-	    if [ -f "$$f" ]; then \
-	    	(cd `dirname $$f` ; git checkout -- .) ;\
-	    fi ;\
-	done
-	cd fido2 && $(MAKE) clean
-
-full-clean: clean
-	rm -rf venv
-
-test-docker:
-	rm -rf builds/*
-	$(MAKE) uncached-docker-build-toolchain
-	# Check if there are 4 docker images/tas named "solokeys/solo-firmware-toolchain"
-	NTAGS=$$(docker images | grep -c "solokeys/solo-firmware-toolchain") && [ $$NTAGS -eq 4 ]
-	$(MAKE) docker-build-all
-
-travis:
-	$(MAKE) test VENV=". ../../venv/bin/activate;"
-	$(MAKE) test-docker
-	$(MAKE) black
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@$(foreach target,$(sort $(TARGETS)),$(call SHOW_TARGETS_RULE,$(target)))

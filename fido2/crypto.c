@@ -31,11 +31,7 @@
 #include APP_CONFIG
 #include "log.h"
 
-#if defined(STM32L432xx)
-#include "salty.h"
-#else
-#include <sodium/crypto_sign_ed25519.h>
-#endif
+#include "tweetnacl.h"
 
 typedef enum
 {
@@ -365,52 +361,33 @@ void crypto_aes256_encrypt(uint8_t * buf, int length)
 
 void crypto_ed25519_derive_public_key(uint8_t * data, int len, uint8_t * x)
 {
-#if defined(STM32L432xx)
-
-    uint8_t seed[salty_SECRETKEY_SEED_LENGTH];
-
-    generate_private_key(data, len, NULL, 0, seed);
-    salty_public_key(&seed, (uint8_t (*)[salty_PUBLICKEY_SERIALIZED_LENGTH])x);
-
-#else
-
     uint8_t seed[crypto_sign_ed25519_SEEDBYTES];
     uint8_t   sk[crypto_sign_ed25519_SECRETKEYBYTES];
 
     generate_private_key(data, len, NULL, 0, seed);
-    crypto_sign_ed25519_seed_keypair(x, sk, seed);
+    crypto_sign_ed25519_seed_keypair(x, sk, seed); // Generate secret key from seed and public key from secret key
 
-#endif
 }
 
 void crypto_ed25519_load_key(uint8_t * data, int len)
 {
-#if defined(STM32L432xx)
-
-    static uint8_t seed[salty_SECRETKEY_SEED_LENGTH];
-
-    generate_private_key(data, len, NULL, 0, seed);
-
-    _signing_key = seed;
-    _key_len = salty_SECRETKEY_SEED_LENGTH;
-
-#else
-
     uint8_t seed[crypto_sign_ed25519_SEEDBYTES];
     uint8_t   pk[crypto_sign_ed25519_PUBLICKEYBYTES];
     static uint8_t sk[crypto_sign_ed25519_SECRETKEYBYTES];
 
     generate_private_key(data, len, NULL, 0, seed);
-    crypto_sign_ed25519_seed_keypair(pk, sk, seed);
+    crypto_sign_ed25519_seed_keypair(pk, sk, seed); // Generate secret key from seed and public key from secret key
 
     _signing_key = sk;
     _key_len = crypto_sign_ed25519_SECRETKEYBYTES;
 
-#endif
 }
 
 void crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, uint8_t * sig)
 {
+    uint8_t *sig_tmp;
+    unsigned long long siglen;
+
     // ed25519 signature APIs need the message at once (by design!) and in one
     // contiguous buffer (could be changed).
 
@@ -427,18 +404,26 @@ void crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, u
     memcpy(data,        data1, len1);
     memcpy(data + len1, data2, len2);
 
-#if defined(STM32L432xx)
+    /*
+     * Sign the data, based on the keypair generated from the secret seed.
+     * Function declaration: int crypto_sign_ed25519(u8 *sm, u64 *smlen, const u8 *m, u64 n, const u8 *sk)
+     * sm = signed message, smlen = size out of signed message, m = message, n = message size, sk = secret key
+     * The sm buffer must be at least `sign_signature_size + message_size` bytes long
+     * where sign_signature_size is 64 bytes
+     */
+
+    // The maximum possible length smlen is mlen+crypto_sign_BYTES.
+    // The caller must allocate at least mlen+crypto_sign_BYTES bytes for sm.
+
+    sig_tmp = malloc(crypto_sign_ed25519_BYTES+len);
+    memset(sig_tmp, 0, 64+len);
 
     // TODO: check that correct load_key() had been called?
-    salty_sign((uint8_t (*)[salty_SECRETKEY_SEED_LENGTH])_signing_key, data, len,
-            (uint8_t (*)[salty_SIGNATURE_SERIALIZED_LENGTH])sig);
+    crypto_sign_ed25519(sig_tmp, &siglen, data, len, _signing_key);
 
-#else
-
-    // TODO: check that correct load_key() had been called?
-    crypto_sign_ed25519_detached(sig, NULL, data, len, _signing_key);
-
-#endif
+    if (siglen > 64)
+    memcpy(sig, sig_tmp, 64);
+    free(sig_tmp);
 }
 
 #endif
