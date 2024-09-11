@@ -15,6 +15,11 @@
 
 int __errno = 0;
 
+void randombytes(uint8_t *dst, size_t sz)
+{
+    rng_get_bytes(dst,sz);
+}
+
 void rng_get_bytes(uint8_t * dst, size_t sz)
 {
     uint8_t r[4];
