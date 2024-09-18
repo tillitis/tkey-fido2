@@ -20,6 +20,13 @@
 #include "memory_layout.h"
 #include "init.h"
 #include "sense.h"
+#include "tkey/assert.h"
+#include "tkey/led.h"
+#include "tkey/proto.h"
+#include "tkey/tk1_mem.h"
+#include "timer.h"
+
+static volatile uint32_t *timer		  = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
 
 #define LOW_FREQUENCY        1
 #define HIGH_FREQUENCY       0
@@ -133,8 +140,11 @@ void device_disable_up(bool disable)
 
 uint32_t millis(void)
 {
-    //return (((uint32_t)TIM6->CNT) + (__90_ms * 90));
-    return 0;
+    uint32_t timer_val = *timer;
+    if (timer_val == 0) {
+        assert(1 == 2);
+    }
+    return TIMER_MAX - timer_val;
 }
 
 void device_set_status(uint32_t status)
@@ -289,12 +299,12 @@ static void device_migrate(){
 void device_init()
 {
     hw_init(HIGH_FREQUENCY);
-    isLowFreq = 0;
-    device_init_button();
-    device_migrate();
-    usbhid_init();
-    ctaphid_init();
-    ctap_init();
+    // isLowFreq = 0;
+    // device_init_button();
+    // device_migrate();
+    // usbhid_init();
+    // ctaphid_init();
+    // ctap_init();
 }
 
 int device_is_nfc(void)

@@ -11,6 +11,14 @@
 #include "sense.h"
 #include APP_CONFIG
 
+#include "tkey/tk1_mem.h"
+#include "timer.h"
+
+static volatile uint32_t *timer             = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
+static volatile uint32_t *timer_prescaler   = (volatile uint32_t *)TK1_MMIO_TIMER_PRESCALER;
+static volatile uint32_t *timer_ctrl        = (volatile uint32_t *)TK1_MMIO_TIMER_CTRL;
+#define CPUFREQ 18000000
+
 // KHz
 #define MAX_CLOCK_RATE      24000
 
@@ -73,7 +81,7 @@ void hw_init(int lowfreq)
         init_pwm();
     }
 
-    init_millisecond_timer(lowfreq);
+    init_millisecond_timer();
 
 #if DEBUG_LEVEL > 0
     init_debug_uart();
@@ -593,34 +601,12 @@ void init_gpio(void)
 {
 }
 
-//void init_millisecond_timer(int lf)
-//{
-//    LL_TIM_InitTypeDef TIM_InitStruct;
-//    /* Peripheral clock enable */
-//    LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM6);
-//    // 48 MHz sys clock --> 6 MHz timer clock
-//    // 48 MHz / 48000 == 1000 Hz
-//    if (!lf)
-//        TIM_InitStruct.Prescaler = 48000;
-//    else
-//        TIM_InitStruct.Prescaler = MAX_CLOCK_RATE;
-//    TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
-//    TIM_InitStruct.Autoreload = 90;
-//    LL_TIM_Init(TIM6, &TIM_InitStruct);
-//    LL_TIM_DisableARRPreload(TIM6);
-//    LL_TIM_SetTriggerOutput(TIM6, LL_TIM_TRGO_RESET);
-//    LL_TIM_DisableMasterSlaveMode(TIM6);
-//    // enable interrupt
-//    TIM6->DIER |= 1;
-//    // Start immediately
-//    LL_TIM_EnableCounter(TIM6);
-//    TIM6->SR = 0;
-//    __enable_irq();
-//    NVIC_EnableIRQ(TIM6_IRQn);
-//}
 
-void init_millisecond_timer(int lf)
+void init_millisecond_timer()
 {
+    *timer_prescaler = CPUFREQ / 1000; // Divide CPUFREQ by 1000 to get 1 tick every ms.
+    *timer = TIMER_MAX;
+    *timer_ctrl = (1 << TK1_MMIO_TIMER_CTRL_START_BIT);
 }
 
 //void init_rng(void)
