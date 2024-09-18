@@ -26,7 +26,7 @@ void init_usb(void);
 void init_gpio(void);
 void init_debug_uart(void);
 void init_pwm(void);
-void init_millisecond_timer(int lf);
+void init_millisecond_timer();
 void init_rng(void);
 void init_spi(void);
 
