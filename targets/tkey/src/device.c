@@ -25,6 +25,7 @@
 #include "tkey/proto.h"
 #include "tkey/tk1_mem.h"
 #include "timer.h"
+#include "frame.h"
 
 static volatile uint32_t *timer		  = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
 
@@ -304,7 +305,7 @@ void device_init()
     // device_migrate();
     // usbhid_init();
     // ctaphid_init();
-    // ctap_init();
+    ctap_init();
 }
 
 int device_is_nfc(void)
@@ -359,12 +360,20 @@ int usbhid_recv(uint8_t * msg)
 //    USBD_LL_Transmit(&Solo_USBD_Device, HID_EPIN_ADDR, msg, HID_PACKET_SIZE);
 //}
 
+static void write_frame(uint8_t mode, uint8_t len, uint8_t *data)
+{
+    writebyte(mode);
+    writebyte(len);
+    for (int i = 0; i < len; i++) {
+        writebyte(data[i]);
+    }
+}
+
 void usbhid_send(uint8_t * msg)
 {
-
     printf1(TAG_DUMP2,"<< ");
     dump_hex1(TAG_DUMP2, msg, HID_PACKET_SIZE);
-    // TODO Add UART
+    write_frame(MODE_HID, HID_PACKET_SIZE, msg);
 }
 
 //void ctaphid_write_block(uint8_t * data)
