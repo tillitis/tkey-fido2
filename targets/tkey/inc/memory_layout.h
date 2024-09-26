@@ -7,6 +7,8 @@
 #ifndef _MEMORY_LAYOUT_H_
 #define _MEMORY_LAYOUT_H_
 
+#include <stdint.h>
+
 #define PAGE_SIZE		2048
 #define PAGES			128
 

@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #include "sense.h"
 #include "device.h"
 #include "log.h"

@@ -7,6 +7,8 @@
 
 #ifndef _RNG_H_
 #define _RNG_H_
+
+#include <stddef.h>
 #include <stdint.h>
 
 void rng_get_bytes(uint8_t * dst, size_t sz);

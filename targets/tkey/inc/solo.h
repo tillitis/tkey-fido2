@@ -1,6 +1,8 @@
 #ifndef _SOLO_H_
 #define _SOLO_H_
 
+#include <stdint.h>
+
 void device_init();
 
 void main_loop_delay();
