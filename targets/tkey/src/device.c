@@ -181,7 +181,7 @@ static void device_migrate(){
 void device_init()
 {
     hw_init();
-    // device_migrate();
+    device_migrate();
     // usbhid_init();
     ctaphid_init();
     ctap_init();
