@@ -308,7 +308,7 @@ void device_init()
     // device_init_button();
     // device_migrate();
     // usbhid_init();
-    // ctaphid_init();
+    ctaphid_init();
     ctap_init();
 }
 
