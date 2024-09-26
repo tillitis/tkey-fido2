@@ -6,7 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 //#include <math.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 

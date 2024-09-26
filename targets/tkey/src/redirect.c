@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#include <stdint.h>
+
 #include APP_CONFIG
 #include "fifo.h"
 #include "tkey/qemu_debug.h"
