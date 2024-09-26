@@ -1,4 +1,4 @@
-// Copyright 2019 SoloKeys Developers
+// Copyright 2024 Tillitis AB
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,7 +7,12 @@
 
 #include <stddef.h>
 #include <stdint.h>
+
 #include "rng.h"
+#include "tkey/tk1_mem.h"
+
+static volatile uint32_t *trng_status  = (volatile uint32_t *)TK1_MMIO_TRNG_STATUS;
+static volatile uint32_t *trng_entropy = (volatile uint32_t *)TK1_MMIO_TRNG_ENTROPY;
 
 void randombytes(uint8_t *dst, size_t sz)
 {
@@ -16,4 +21,10 @@ void randombytes(uint8_t *dst, size_t sz)
 
 void rng_get_bytes(uint8_t *dst, size_t sz)
 {
+    for (int i = 0; i < sz; i++) {
+        while ((*trng_status & (1 << TK1_MMIO_TRNG_STATUS_READY_BIT)) == 0) {
+        }
+        dst[i] = (uint8_t)*trng_entropy;
+    }
 }
+
