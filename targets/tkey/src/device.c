@@ -306,7 +306,7 @@ void device_init()
     hw_init(HIGH_FREQUENCY);
     // isLowFreq = 0;
     // device_init_button();
-    // device_migrate();
+    device_migrate();
     // usbhid_init();
     ctaphid_init();
     ctap_init();
