@@ -18,7 +18,4 @@ void flash_write(uint32_t addr, uint8_t * data, size_t sz);
 
 #define flash_addr(page)    (0x08000000 + ((page)*FLASH_PAGE_SIZE))
 
-#define FLASH_PAGE_START    0
-#define FLASH_PAGE_END      127
-
 #endif
