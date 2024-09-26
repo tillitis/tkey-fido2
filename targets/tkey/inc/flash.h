@@ -16,9 +16,11 @@ void flash_write(uint32_t addr, uint8_t * data, size_t sz);
 //void flash_write_fast(uint32_t addr, uint32_t * data);
 //void flash_option_bytes_init(int boot_from_dfu);
 
+#define FLASH_BASE_ADDRESS  0
 #define FLASH_PAGE_SIZE     2048
 
-#define flash_addr(page)    (0x08000000 + ((page)*FLASH_PAGE_SIZE))
+// #define flash_addr(page)    (FLASH_BASE_ADDRESS + ((page)*FLASH_PAGE_SIZE))
+uint32_t flash_addr(uint32_t page);
 
 // #define FLASH_PAGE_START    0
 // #define FLASH_PAGE_END      127
