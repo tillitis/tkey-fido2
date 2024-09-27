@@ -222,6 +222,8 @@ void usbhid_send(uint8_t * msg)
     printf1(TAG_DUMP2,"<< ");
     dump_hex1(TAG_DUMP2, msg, HID_PACKET_SIZE);
     write_frame(MODE_HID, HID_PACKET_SIZE, msg);
+    delay(10); // Wait a while for USB<->UART transceiver to keep up. 10 ms
+               // was arbitrarily chosen.
 }
 
 void usbhid_close(void)
