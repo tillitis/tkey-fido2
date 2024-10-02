@@ -51,6 +51,7 @@ TARGET_SRCS := \
                targets/tkey/newlib-quekto/src/stdio.c             \
                targets/tkey/newlib-quekto/src/stdlib.c            \
                targets/tkey/newlib-quekto/src/string.c            \
+               targets/tkey/printf-embedded/printf-emb.c          \
                tinycbor/src/cborencoder.c                         \
                tinycbor/src/cborencoder_close_container_checked.c \
                tinycbor/src/cborerrorstrings.c                    \
@@ -219,7 +220,8 @@ TARGET_DEFINES := \
                   -DAPP_CONFIG=\"app.h\" \
                   -DDEBUG_LEVEL=2 \
                   -DuECC_PLATFORM=0 \
-                  -DQEMU_DEBUG
+                  -DQEMU_DEBUG \
+                  -DENABLE_PRINTF
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \
@@ -233,6 +235,7 @@ TARGET_INCLUDES := \
                    -Ifido2/extensions \
                    -Itargets/tkey/inc \
                    -Itargets/tkey/newlib-quekto/inc \
+                   -Itargets/tkey/printf-embedded \
                    -Itinycbor/src \
                    -I../tkey-libs/include
 
