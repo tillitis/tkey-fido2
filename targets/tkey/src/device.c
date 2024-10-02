@@ -27,7 +27,8 @@
 #include "timer.h"
 #include "frame.h"
 
-static volatile uint32_t *timer		  = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
+static volatile uint32_t *timer = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
+static volatile uint32_t *touch = (volatile uint32_t *)TK1_MMIO_TOUCH_STATUS;
 
 #define SOLO_FLAG_LOCKED                    0x2
 
@@ -381,7 +382,21 @@ int ctap_user_presence_test(uint32_t up_delay)
         return 2;
     }
 
-    // Always fail
+    uint32_t start_time = millis();
+    uint32_t time;
+    bool led_on;
+
+    *touch = 0;
+    do {
+        if (*touch & (1 << TK1_MMIO_TOUCH_STATUS_EVENT_BIT)) {
+            return 1;
+        }
+
+        time = millis();
+        led_on = ((time - start_time) / 100 % 2);
+        led_set(led_on ? LED_GREEN : LED_BLACK);
+    } while ((time - start_time) < up_delay);
+
     return 0;
 }
 
