@@ -682,61 +682,67 @@ static int wait_for_button_release(uint32_t wait)
 
 int ctap_user_presence_test(uint32_t up_delay)
 {
-    int ret;
-
-    if (_up_disabled)
-    {
-        return 2;
-    }
-
-#if SKIP_BUTTON_CHECK_WITH_DELAY
-    int i=500;
-    while(i--)
-    {
-        delay(1);
-        ret = handle_packets();
-        if (ret) return ret;
-    }
-    goto done;
-#elif SKIP_BUTTON_CHECK_FAST
-    delay(2);
-    ret = handle_packets();
-    if (ret)
-        return ret;
-    goto done;
-#endif
-
-    // If button was pressed within last [2] seconds, succeed.
-    if (__last_button_press_time && (millis() - __last_button_press_time < 2000))
-    {
-        goto done;
-    }
-
-    // Set LED status and wait.
-    led_rgb(0xff3520);
-
-    // Block and wait for some time.
-    ret = wait_for_button_activate(up_delay);
-    if (ret) return ret;
-    ret = wait_for_button_release(up_delay);
-    if (ret) return ret;
-
-    // If button was pressed within last [2] seconds, succeed.
-    if (__last_button_press_time && (millis() - __last_button_press_time < 2000))
-    {
-        goto done;
-    }
-
-
-    return 0;
-
-
-done:
-    ret = wait_for_button_release(up_delay);
-    __last_button_press_time = 0;
     return 1;
 
 }
+
+// int ctap_user_presence_test(uint32_t up_delay)
+// {
+//     int ret;
+// 
+//     if (_up_disabled)
+//     {
+//         return 2;
+//     }
+// 
+// #if SKIP_BUTTON_CHECK_WITH_DELAY
+//     int i=500;
+//     while(i--)
+//     {
+//         delay(1);
+//         ret = handle_packets();
+//         if (ret) return ret;
+//     }
+//     goto done;
+// #elif SKIP_BUTTON_CHECK_FAST
+//     delay(2);
+//     ret = handle_packets();
+//     if (ret)
+//         return ret;
+//     goto done;
+// #endif
+// 
+//     // If button was pressed within last [2] seconds, succeed.
+//     if (__last_button_press_time && (millis() - __last_button_press_time < 2000))
+//     {
+//         goto done;
+//     }
+// 
+//     // Set LED status and wait.
+//     led_rgb(0xff3520);
+// 
+//     // Block and wait for some time.
+//     ret = wait_for_button_activate(up_delay);
+//     if (ret) return ret;
+//     ret = wait_for_button_release(up_delay);
+//     if (ret) return ret;
+// 
+//     // If button was pressed within last [2] seconds, succeed.
+//     if (__last_button_press_time && (millis() - __last_button_press_time < 2000))
+//     {
+//         goto done;
+//     }
+// 
+// 
+//     return 0;
+// 
+// 
+// done:
+//     ret = wait_for_button_release(up_delay);
+//     __last_button_press_time = 0;
+//     return 1;
+// 
+// }
 
 int ctap_generate_rng(uint8_t * dst, size_t num)
 {
