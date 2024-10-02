@@ -20,15 +20,7 @@ static volatile uint32_t *timer_ctrl        = (volatile uint32_t *)TK1_MMIO_TIME
 void hw_init()
 {
     init_millisecond_timer();
-
-#if DEBUG_LEVEL > 0
-    init_debug_uart();
-#endif
     init_rng();
-}
-
-void init_debug_uart(void)
-{
 }
 
 void init_millisecond_timer()

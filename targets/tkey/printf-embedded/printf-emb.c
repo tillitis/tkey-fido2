@@ -68,7 +68,9 @@
 /*
  * Always optimize this file.
  */
+#if !defined(__clang__)
 #pragma GCC optimize ("O3")
+#endif
 
 
 #include <stddef.h>
