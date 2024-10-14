@@ -2543,7 +2543,7 @@ void ctap_update_pin(uint8_t * pin, int len)
     authenticator_write_state(&STATE);
 
     printf1(TAG_CTAP, "New pin set: %s [%d]\n", pin, len);
-    dump_hex1(TAG_ERR, STATE.PIN_CODE_HASH, sizeof(STATE.PIN_CODE_HASH));
+    dump_hex1(TAG_CTAP, STATE.PIN_CODE_HASH, sizeof(STATE.PIN_CODE_HASH));
 }
 
 uint8_t ctap_decrement_pin_attempts()
