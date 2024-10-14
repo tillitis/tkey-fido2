@@ -123,6 +123,7 @@ TARGET_LDFLAGS := \
                   -flto \
                   -fuse-ld=lld \
                   -Wl,--cref,-M \
+                  -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
                   -Wl,--gc-sections \
 
 # Target-specific OBJCOPY FLAGS
