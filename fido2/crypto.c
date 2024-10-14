@@ -201,11 +201,13 @@ void crypto_ecc256_load_attestation_key(void)
 
 void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
 {
+    uint32_t t = millis();
     if ( uECC_sign(_signing_key, data, len, sig, _es256_curve) == 0)
     {
         printf2(TAG_ERR, "error, uECC failed\n");
         exit(1);
     }
+    printf1(TAG_TIME, "crypto_ecc256_sign time: %d ms\n", millis() - t);
 }
 
 void crypto_ecc256_load_key(uint8_t * data, int len, uint8_t * data2, int len2)
@@ -273,6 +275,7 @@ void generate_private_key(uint8_t * data, int len, uint8_t * data2, int len2, ui
 /*int uECC_compute_public_key(const uint8_t *private_key, uint8_t *public_key, uECC_Curve curve);*/
 void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8_t * y)
 {
+    uint32_t t = millis();
     uint8_t privkey[32];
     uint8_t pubkey[64];
 
@@ -282,10 +285,13 @@ void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8
     uECC_compute_public_key(privkey, pubkey, _es256_curve);
     memmove(x,pubkey,32);
     memmove(y,pubkey+32,32);
+    printf1(TAG_TIME, "crypto_ec256_derive_public_key time: %d ms\n", millis() - t);
 }
 void crypto_ecc256_compute_public_key(uint8_t * privkey, uint8_t * pubkey)
 {
+    uint32_t t = millis();
     uECC_compute_public_key(privkey, pubkey, _es256_curve);
+    printf1(TAG_TIME, "crypto_ec256_derive_public_key time: %d ms\n", millis() - t);
 }
 
 
@@ -307,11 +313,13 @@ void crypto_ecc256_make_key_pair(uint8_t * pubkey, uint8_t * privkey)
 
 void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey, uint8_t * shared_secret)
 {
+    uint32_t t = millis();
     if (uECC_shared_secret(pubkey, privkey, shared_secret, _es256_curve) != 1)
     {
         printf2(TAG_ERR, "Error, uECC_shared_secret failed\n");
         exit(1);
     }
+    printf1(TAG_TIME, "crypto_ec256_shared_secret time: %d ms\n", millis() - t);
 
 }
 

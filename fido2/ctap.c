@@ -2347,7 +2347,9 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
             break;
         case CTAP_GET_INFO:
             printf1(TAG_CTAP,"CTAP_GET_INFO\n");
+            timestamp();
             status = ctap_get_info(&encoder);
+            printf1(TAG_TIME,"get_info time: %d ms\n", timestamp());
 
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
@@ -2356,24 +2358,30 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
             break;
         case CTAP_CLIENT_PIN:
             printf1(TAG_CTAP,"CTAP_CLIENT_PIN\n");
+            timestamp();
             status = ctap_client_pin(&encoder, pkt_raw, length);
+            printf1(TAG_TIME,"client_pin time: %d ms\n", timestamp());
 
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
             dump_hex1(TAG_DUMP, buf, resp->length);
             break;
         case CTAP_RESET:
             printf1(TAG_CTAP,"CTAP_RESET\n");
+            timestamp();
             status = ctap2_user_presence_test();
             if (status == CTAP1_ERR_SUCCESS)
             {
                 ctap_reset();
             }
+            printf1(TAG_TIME,"reset time: %d ms\n", timestamp());
             break;
         case GET_NEXT_ASSERTION:
             printf1(TAG_CTAP,"CTAP_NEXT_ASSERTION\n");
             if (getAssertionState.lastcmd == CTAP_GET_ASSERTION)
             {
+                timestamp();
                 status = ctap_get_next_assertion(&encoder);
+                printf1(TAG_TIME,"get_next_assertion time: %d ms\n", timestamp());
                 resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
                 dump_hex1(TAG_DUMP, buf, resp->length);
                 if (status == 0)
