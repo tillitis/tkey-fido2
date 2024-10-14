@@ -46,6 +46,7 @@ TARGET_SRCS := \
                targets/tkey/src/redirect.c                        \
                targets/tkey/src/rng.c                             \
                targets/tkey/src/sense.c                           \
+               targets/tkey/src/bitbang_uart.c                    \
                targets/tkey/newlib-quekto/src/assert.c            \
                targets/tkey/newlib-quekto/src/math.c              \
                targets/tkey/newlib-quekto/src/stdio.c             \

@@ -4,7 +4,21 @@
 #ifdef ENABLE_PRINTF
 
 #include "printf-emb.h"
+
+#ifdef QEMU_DEBUG
 #include "tkey/qemu_debug.h"
+#define tkey_putchar(c) qemu_putchar(c)
+#define tkey_puts(s) qemu_puts(s)
+#else
+#include "bitbang_uart.h"
+#define tkey_putchar(c) bitbang_uart_send_byte(c)
+static void tkey_puts(const char *s) {
+    while (*s != '\0') {
+        tkey_putchar(*s);
+        s++;
+    }
+}
+#endif
 
 int printf(const char *format, ...)
 {
@@ -25,7 +39,7 @@ int vprintf(const char *format, va_list ap)
     int nc = vsnprintf(buf, sizeof(buf), format, ap);
 
     if (nc < 0) {
-        qemu_puts("[PRINTF ERROR]\n");
+        tkey_puts("[PRINTF ERROR]\n");
         return 0;
     }
 
@@ -36,10 +50,10 @@ int vprintf(const char *format, va_list ap)
     }
 
     for (int i = 0; i < n_out; i++) {
-        qemu_putchar(buf[i]);
+        tkey_putchar(buf[i]);
     }
     if (overflow) {
-        qemu_puts("...[PRINTF OVERFLOW]\n");
+        tkey_puts("...[PRINTF OVERFLOW]\n");
     }
 
     return 0;
