@@ -391,7 +391,11 @@ int ctap_user_presence_test(uint32_t up_delay)
 
 int ctap_generate_rng(uint8_t * dst, size_t num)
 {
+    uint32_t t = millis();
+
     rng_get_bytes(dst, num);
+
+    printf1(TAG_TIME,"ctap_generate_rng generated %d bytes in %d ms\n", num, millis() - t);
     return 1;
 }
 
