@@ -153,6 +153,7 @@ TARGET_LDFLAGS := \
                   -flto \
                   -fuse-ld=lld-16 \
                   -Wl,--cref,-M \
+                  -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
                   -Wl,--gc-sections \
 
                   #-fuse-ld=lld-16 \
