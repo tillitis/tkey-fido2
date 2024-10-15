@@ -14,7 +14,7 @@
 #if DEBUG_LEVEL > 0
 
 static uint32_t LOGMASK = TAG_FILENO;
-
+uint32_t fido2_log_profile_indent_level = 0;
 
 void set_logging_mask(uint32_t mask)
 {
@@ -52,6 +52,7 @@ struct logtag tagtable[] = {
     {TAG_NFC_APDU, "NAPDU"},
     {TAG_CCID, "CCID"},
     {TAG_CM, "CRED_MGMT"},
+    {TAG_PROF, "PROF"},
 };
 
 
@@ -112,6 +113,25 @@ uint32_t timestamp()
     uint32_t diff = t2 - t1;
     t1 = t2;
     return diff;
+}
+
+void LOG_PROFILE(const char *msg, uint8_t indent_level, uint32_t duration_ms, const char *filename, uint32_t start_line, uint32_t end_line) {
+    char indent[16];
+    if (indent_level > (sizeof(indent) - 1)) {
+        LOG(TAG_PROF, NULL, 0, "CALL STACK TOO DEEP!\r\n");
+    }
+    for (uint8_t i = 0; i < indent_level; i++) {
+        indent[i] = ' ';
+    }
+    indent[indent_level] = '\0';
+
+    LOG(TAG_PROF, NULL, 0, "%s+ %6u ms, %s, %s:%d-%d\r\n",
+        indent,
+        duration_ms,
+        msg,
+        filename,
+        start_line,
+        end_line);
 }
 
 #endif
