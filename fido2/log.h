@@ -46,6 +46,7 @@ typedef enum {
 	TAG_CCID = (1 << 21),
 	TAG_CM = (1 << 22),
 	TAG_COUNT = (1 << 23),
+	TAG_PROF = (1 << 24),
 
 	TAG_NO_TAG = (1UL << 30),
 	TAG_FILENO = (1UL << 31)
@@ -65,6 +66,35 @@ void set_logging_mask(uint32_t mask);
 
 uint32_t timestamp();
 
+extern uint32_t fido2_log_profile_indent_level;
+/**
+ * Begin a new profiling measurement
+ *
+ * Opens a new scope for profiling. Measuring is ended using PROFILE_END.
+ * PROFILE_BEGIN-PROFILE_END blocks can be nested.
+ */
+#define PROFILE_BEGIN                                                          \
+	{                                                                      \
+		uint32_t fido2_log_profile_start_line = __LINE__;              \
+		uint32_t fido2_log_profile_start_time = millis();              \
+		fido2_log_profile_indent_level++;
+
+/**
+ * End a profiling measurement
+ *
+ * Closes a profiling scope. The time spent inside the scope is logged. An
+ * optional message (msg) can be added to the log line.
+ */
+#define PROFILE_END(msg)                                                       \
+	fido2_log_profile_indent_level--;                                      \
+	LOG_PROFILE(msg, fido2_log_profile_indent_level,                       \
+		    millis() - fido2_log_profile_start_time, __FILE__,         \
+		    fido2_log_profile_start_line, __LINE__);                   \
+	}
+
+void LOG_PROFILE(const char *msg, uint8_t indent_level, uint32_t duration_ms,
+		 const char *filename, uint32_t start_line, uint32_t end_line);
+
 #else
 
 #define set_logging_mask(mask)
@@ -73,6 +103,9 @@ uint32_t timestamp();
 #define printf3(tag, fmt, ...)
 #define dump_hex1(tag, data, len)
 #define timestamp()
+
+#define PROFILE_BEGIN
+#define PROFILE_END(msg)
 
 #endif
 
