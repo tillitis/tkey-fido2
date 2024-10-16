@@ -17,7 +17,6 @@ TARGET_OBJDUMP := llvm-objdump-16 # Set if a dump file should be created
 TARGET_SRCS := \
                crypto/cifra/src/blockwise.c                       \
                crypto/cifra/src/sha512.c                          \
-               crypto/micro-ecc/uECC.c                            \
                crypto/sha256/sha256.c                             \
                crypto/tiny-AES-c/aes.c                            \
                crypto/tweetnacl/tweetnacl.c                       \
@@ -257,7 +256,7 @@ TARGET_PREBUILD_CMD :=
 TARGET_POSTBUILD_CMD :=
 
 # Targets to build before this target is built
-TARGET_NEEDS_TARGETS :=
+TARGET_NEEDS_TARGETS := tkey_uecc.a
 
 # Add the target to the global list of targets
 TARGETS += $(TARGET)
