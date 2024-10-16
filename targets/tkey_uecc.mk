@@ -42,7 +42,7 @@ TARGET_CFLAGS := \
                  -march=rv32iczmmul \
                  -mabi=ilp32 \
                  -mcmodel=medany \
-                 -Os \
+                 -O3 \
                  -ffast-math \
                  -fno-common \
                  -fno-builtin-printf \
