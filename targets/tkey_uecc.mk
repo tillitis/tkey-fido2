@@ -1,11 +1,10 @@
 # Target file
 
 # Target name
-TARGET := tkey_app
+TARGET := tkey_uecc.a
 
 # Programs to use for the target
 TARGET_AR      := llvm-ar
-#TARGET_AS      := llvm-as
 TARGET_AS      := clang -x assembler-with-cpp
 TARGET_CC      := clang
 TARGET_CXX     :=
@@ -13,57 +12,13 @@ TARGET_LD      := lld
 TARGET_OBJCOPY := llvm-objcopy # Set if a binary file should be created
 TARGET_OBJDUMP := llvm-objdump # Set if a dump file should be created
 
-LIBDIR := ../tkey-libs
-
-FLASH_IMPL ?= targets/tkey/src/flash.c
-
 # Source files for the target
 TARGET_SRCS := \
-               crypto/cifra/src/blockwise.c                       \
-               crypto/cifra/src/sha512.c                          \
-               crypto/sha256/sha256.c                             \
-               crypto/tiny-AES-c/aes.c                            \
-               fido2/apdu.c                                       \
-               fido2/crypto.c                                     \
-               fido2/ctap.c                                       \
-               fido2/ctaphid.c                                    \
-               fido2/ctap_parse.c                                 \
-               fido2/data_migration.c                             \
-               fido2/extensions/extensions.c                      \
-               fido2/extensions/solo.c                            \
-               fido2/extensions/wallet.c                          \
-               fido2/log.c                                        \
-               fido2/stubs.c                                      \
-               fido2/test_power.c                                 \
-               fido2/u2f.c                                        \
-               fido2/util.c                                       \
-               fido2/version.c                                    \
-               targets/tkey/src/attestation.c                     \
-               targets/tkey/src/device.c                          \
-               targets/tkey/src/fifo.c                            \
-               targets/tkey/src/init.c                            \
-               targets/tkey/src/main.c                            \
-               targets/tkey/src/rng.c                             \
-               targets/tkey/libc/newlib/libc/search/qsort.c       \
-               targets/tkey/libc/newlib/libc/string/memcmp.c      \
-               targets/tkey/libc/newlib/libc/string/memcpy.c      \
-               targets/tkey/libc/newlib/libc/string/memmove.c     \
-               targets/tkey/libc/newlib/libc/string/memset.c      \
-               targets/tkey/libc/newlib/libc/string/strcmp.c      \
-               targets/tkey/libc/newlib/libc/string/strlen.c      \
-               targets/tkey/libc/newlib/libc/string/strncmp.c     \
-               targets/tkey/libc/abort.c                          \
-               targets/tkey/libc/exit.c                           \
-               targets/tkey/libc/stdio.c                          \
-               targets/tkey/printf-embedded/printf-emb.c          \
-               tinycbor/src/cborencoder.c                         \
-               tinycbor/src/cborencoder_close_container_checked.c \
-               tinycbor/src/cborerrorstrings.c                    \
-               tinycbor/src/cborparser.c                          \
-               $(FLASH_IMPL)                                      \
+               crypto/micro-ecc/uECC.c
 
 # Target-specific ARFLAGS
-TARGET_ARFLAGS :=
+TARGET_ARFLAGS := \
+                  r
 
 # Target-specific ASFLAGS
 TARGET_ASFLAGS := \
@@ -77,7 +32,7 @@ TARGET_ASFLAGS := \
                  -fdata-sections \
                  -fomit-frame-pointer \
                  -ggdb3 \
-                 -O0
+                 -O2
 
 # Target-specific CFLAGS
 TARGET_CFLAGS := \
@@ -123,7 +78,7 @@ TARGET_LDFLAGS := \
                   -Wall \
                   -Werror=implicit-function-declaration \
                   -flto \
-                  -fuse-ld=lld \
+                  -fuse-ld=lld-16 \
                   -Wl,--cref,-M \
                   -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
                   -Wl,--gc-sections \
@@ -140,41 +95,17 @@ TARGET_OBJDUMPFLAGS := \
 
 # Target-specific DEFINES
 TARGET_DEFINES := \
-                  -DAES256=1 \
-                  -DAPP_CONFIG=\"app.h\" \
-                  -DDEBUG_LEVEL=2 \
                   -DuECC_PLATFORM=0 \
-                  #-DENABLE_PRINTF \
-                  #-DTKEY_DEBUG \
-                  #-DQEMU_DEBUG \
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \
-                   -Icrypto/cifra/src \
-                   -Icrypto/cifra/src/ext \
-                   -Icrypto/micro-ecc \
-                   -Icrypto/sha256 \
-                   -Icrypto/tiny-AES-c \
-                   -Ifido2 \
-                   -Ifido2/extensions \
-                   -Itargets/tkey/inc \
-                   -Itargets/tkey/libc/include \
-                   -Itargets/tkey/libc/newlib/libc/include \
-                   -Itargets/tkey/printf-embedded \
-                   -Itinycbor/src \
-                   -I$(LIBDIR)/include \
-                   -I$(LIBDIR)/monocypher
+                   -Icrypto/micro-ecc
 
 # Target-specific EXTERNAL LIBRARIES to be included
-TARGET_EXT_LIBS := \
-                   $(LIBDIR)/libcrt0.a \
-                   $(LIBDIR)/libcommon.a \
-                   $(LIBDIR)/libsyscall.a \
-                   $(LIBDIR)/libmonocypher.a
+TARGET_EXT_LIBS :=
 
 # Target-specific LINKER SCRIPT
-TARGET_LINKER_SCRIPT := \
-                        targets/tkey/linker/tkey.ld
+TARGET_LINKER_SCRIPT :=
 
 # Target-specific SHELL COMMAND to execute before build start
 TARGET_PREBUILD_CMD :=
@@ -183,7 +114,7 @@ TARGET_PREBUILD_CMD :=
 TARGET_POSTBUILD_CMD :=
 
 # Targets to build before this target is built
-TARGET_NEEDS_TARGETS := tkey_uecc.a
+TARGET_NEEDS_TARGETS :=
 
 # Add the target to the global list of targets
 TARGETS += $(TARGET)
