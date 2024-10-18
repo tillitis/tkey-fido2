@@ -1,0 +1,36 @@
+site_name: Solo Technical Documentation
+site_author: SoloKeys
+site_description: 'Documentation for the SoloKeys solo software'
+site_url: 'https://docs.solokeys.dev/'
+repo_url: 'https://github.com/solokeys/solo'
+repo_name: 'solokeys/solo'
+copyright: 'Copyright &copy; 2018 - 2020 SoloKeys'
+
+nav:
+    - Home: index.md
+    - FIDO2 Implementation: fido2-impl.md
+    - Metadata Statements: metadata-statements.md
+    - Build instructions: building.md
+    - Programming instructions: programming.md
+    - Bootloader mode: bootloader-mode.md
+    - Customization: customization.md
+    - Solo Extras: solo-extras.md
+    - Application Ideas: application-ideas.md
+    - Running on Nucleo32 board: nucleo32-board.md
+    - Signed update process: signed-updates.md
+    - Usage and Porting guide: porting.md
+    - Tutorial – Getting Started: tutorial-getting-started.md
+    - Tutorial - Writing extensions: tutorial-writing-extensions.md
+    - Code documentation: code-overview.md
+    - Contributing Code: contributing.md
+    - Contributing Docs: documenting.md
+    - udev Rules: udev.md
+    - About: repo-readme.md
+
+theme:
+  name: material
+  logo: 'images/logo.svg'
+  favicon: 'images/favicon.ico'
+
+markdown_extensions:
+  - markdown_include.include
