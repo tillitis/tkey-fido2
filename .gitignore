@@ -1,0 +1,88 @@
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+targets/*/*.hex
+targets/*/*.sha2
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+*.swp
+*.pem
+*.der
+*.csr
+*.stackdump
+
+tools/attest
+
+sdk_15.0.0/
+_build/
+
+GNU\ *
+Keil\ *
+efm32/hw
+
+mbedtls/
+sl_crypto/
+tools/python-fido2/*
+*.pem
+*.bin
+*.key
+site/
+_site/
+venv/
+env2/
+env3/
+.project
+.tags*
+targets/*/docs/
+main
+
+builds/*
+tools/testing/.idea/*
+tools/testing/tests/__pycache__/*
