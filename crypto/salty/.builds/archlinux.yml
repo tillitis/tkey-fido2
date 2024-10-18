@@ -1,0 +1,46 @@
+image: archlinux
+packages:
+- arm-none-eabi-gcc
+- make
+- qemu-headless
+- qemu-arch-extra
+sources:
+- https://github.com/nickray/salty
+shell: false
+
+tasks:
+
+- setup: |
+    curl -sSf https://sh.rustup.rs | sh -s -- -y -q
+    source $HOME/.cargo/env
+    rustup target add thumbv7em-none-eabi
+    rustup target add thumbv7em-none-eabihf
+    rustup target add thumbv8m.main-none-eabi
+
+- build-tweetnacl: |
+    cd salty
+    source $HOME/.cargo/env
+    RUSTFLAGS="-D warnings" cargo build --release --features tweetnacl-on-cortex-m4 --target thumbv7em-none-eabi
+- build-haase: |
+    cd salty
+    source $HOME/.cargo/env
+    RUSTFLAGS="-D warnings" cargo build --release --target thumbv7em-none-eabi
+
+- test-assemble: |
+    cd salty
+    mv bin/salty-asm.a distributed-salty-asm.a
+    scripts/assemble.sh
+    diff bin/salty-asm.a distributed-salty-asm.a
+
+- test-tweetnacl: |
+    cd salty
+    source $HOME/.cargo/env
+    cargo test --release
+- test-haase: |
+    cd salty/qemu-tests
+    source $HOME/.cargo/env
+    make main-test
+- test-c-api: |
+    cd salty/c-api
+    source $HOME/.cargo/env
+    make

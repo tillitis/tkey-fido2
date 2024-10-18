@@ -1,3 +1,0 @@
-[submodule "crypto/salty"]
-	path = crypto/salty
-	url = https://github.com/ycrypto/salty.git
