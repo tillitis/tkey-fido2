@@ -6,7 +6,7 @@
 #ifdef ENABLE_PRINTF
 
 #include "printf-emb.h"
-#include "tkey/qemu_debug.h"
+#include "tkey/debug.h"
 
 int printf(const char *format, ...)
 {
@@ -27,21 +27,20 @@ int vprintf(const char *format, va_list ap)
     int nc = vsnprintf(buf, sizeof(buf), format, ap);
 
     if (nc < 0) {
-        qemu_puts("[PRINTF ERROR]\n");
+        debug_puts("[PRINTF ERROR]\n");
         return 0;
     }
 
     n_out = nc;
     if (n_out >= sizeof(buf)) {
         overflow = 1;
-        n_out = sizeof(buf) - 1;
+        buf[sizeof(buf) - 1] = 0;
     }
 
-    for (int i = 0; i < n_out; i++) {
-        qemu_putchar(buf[i]);
-    }
+    debug_puts(buf);
+
     if (overflow) {
-        qemu_puts("...[PRINTF OVERFLOW]\n");
+        debug_puts("...[PRINTF OVERFLOW]\n");
     }
 
     return 0;

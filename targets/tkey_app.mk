@@ -145,6 +145,7 @@ TARGET_DEFINES := \
                   -DDEBUG_LEVEL=2 \
                   -DuECC_PLATFORM=0 \
                   #-DENABLE_PRINTF \
+                  #-DTKEY_DEBUG \
                   #-DQEMU_DEBUG \
 
 # Target-specific INCLUDES
