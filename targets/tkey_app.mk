@@ -13,6 +13,8 @@ TARGET_LD      := lld
 TARGET_OBJCOPY := llvm-objcopy # Set if a binary file should be created
 TARGET_OBJDUMP := llvm-objdump # Set if a dump file should be created
 
+LIBDIR := ../tkey-libs
+
 # Source files for the target
 TARGET_SRCS := \
                crypto/cifra/src/blockwise.c                       \
@@ -160,12 +162,12 @@ TARGET_INCLUDES := \
                    -Itargets/tkey/libc/newlib/libc/include \
                    -Itargets/tkey/printf-embedded \
                    -Itinycbor/src \
-                   -I../tkey-libs/include
+                   -I$(LIBDIR)/include
 
 # Target-specific EXTERNAL LIBRARIES to be included
 TARGET_EXT_LIBS := \
-                   ../tkey-libs/libcrt0.a \
-                   ../tkey-libs/libcommon.a
+                   $(LIBDIR)/libcrt0.a \
+                   $(LIBDIR)/libcommon.a
 
 # Target-specific LINKER SCRIPT
 TARGET_LINKER_SCRIPT := \

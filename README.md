@@ -11,7 +11,8 @@ The FIDO2 device app is a fork of Solokeys [Solo1 firmware](https://github.com/s
 ## Building
 
 The build scripts assume that the [TKey device libraries](https://github.com/tillitis/tkey-libs/)
-are located in `../tkey-libs`.
+are located in `../tkey-libs`. The location of tkey-libs can be configured using
+the LIBDIR variable.
 
 To build, run `make tkey_app`
 
