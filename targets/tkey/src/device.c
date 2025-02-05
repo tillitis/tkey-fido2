@@ -21,8 +21,8 @@
 #include "memory_layout.h"
 #include "init.h"
 #include "tkey/assert.h"
+#include "tkey/io.h"
 #include "tkey/led.h"
-#include "tkey/proto.h"
 #include "tkey/tk1_mem.h"
 #include "timer.h"
 #include "frame.h"
@@ -209,22 +209,11 @@ int usbhid_recv(uint8_t * msg)
     return 0;
 }
 
-static void write_frame(uint8_t mode, uint8_t len, uint8_t *data)
-{
-    writebyte(mode);
-    writebyte(len);
-    for (int i = 0; i < len; i++) {
-        writebyte(data[i]);
-    }
-}
-
 void usbhid_send(uint8_t * msg)
 {
     printf1(TAG_DUMP2,"<< ");
     dump_hex1(TAG_DUMP2, msg, HID_PACKET_SIZE);
-    write_frame(MODE_HID, HID_PACKET_SIZE, msg);
-    delay(10); // Wait a while for USB<->UART transceiver to keep up. 10 ms
-               // was arbitrarily chosen.
+    write(IO_FIDO, msg, HID_PACKET_SIZE);
 }
 
 void usbhid_close(void)

@@ -12,11 +12,13 @@
 #include "fifo.h"
 #include APP_CONFIG
 
-#include "tkey/qemu_debug.h"
+#include "tkey/debug.h"
 #include "tkey/tk1_mem.h"
 #include "tkey/led.h"
 #include "tkey/proto.h"
 #include "frame.h"
+
+#define HID_PACKET_SIZE 64
 
 // clang-format off
 //static volatile uint32_t *cdi           = (volatile uint32_t *) TK1_MMIO_TK1_CDI_FIRST;
@@ -27,29 +29,10 @@ static volatile uint32_t *app_addr      = (volatile uint32_t *) TK1_MMIO_TK1_APP
 static volatile uint32_t *app_size      = (volatile uint32_t *) TK1_MMIO_TK1_APP_SIZE;
 // clang-format on
 
-static int read_frame(struct header *hdr, uint8_t *data)
-{
-    memset(hdr, 0, sizeof(struct header));
-    memset(data, 0, MAX_FRAME_SIZE);
-
-    hdr->mode = readbyte();
-    hdr->len  = readbyte();
-
-    if (hdr->mode == MODE_HID) {
-        if (read(data, HID_FRAME_SIZE, hdr->len) != 0) {
-            qemu_puts("read: buffer overrun\n");
-            return -1;
-        }
-    }
-
-    return 0;
-}
-
 int main()
 {
-    uint8_t hidmsg[64];
-
-    struct frame pkt = {0};
+    uint8_t hidmsg[HID_PACKET_SIZE];
+    uint8_t data[HID_PACKET_SIZE];
 
     // Use Execution Monitor on RAM after app
     *cpu_mon_first = *app_addr + *app_size;
@@ -85,18 +68,32 @@ int main()
 
     while(1)
     {
-        if (read_frame(&pkt.hdr, pkt.data) == 0) {
-            if (fifo_hidmsg_add(pkt.data) != 0) {
-                return -1;
-            }
+        enum ioend ep;
+        uint8_t available;
 
-            if (usbhid_recv(hidmsg) > 0) {
-                ctaphid_handle_packet(hidmsg);
-                memset(hidmsg, 0, sizeof(hidmsg));
-            } else {
-            }
-            ctaphid_check_timeouts();
+        if (readselect(IO_FIDO, &ep, &available) != 0) {
+            assert(1 == 2);
         }
+
+        if (available != HID_PACKET_SIZE) {
+            continue;
+        }
+
+        if (read(IO_FIDO, data, sizeof(data), available) != HID_PACKET_SIZE) {
+            assert(1 == 2);
+        }
+
+        if (fifo_hidmsg_add(data) != 0) {
+            return -1;
+        }
+
+        if (usbhid_recv(hidmsg) > 0) {
+            ctaphid_handle_packet(hidmsg);
+            memset(hidmsg, 0, sizeof(hidmsg));
+        } else {
+        }
+
+        ctaphid_check_timeouts();
     }
 
     // Should never get here

@@ -9,6 +9,7 @@
 #include "init.h"
 #include APP_CONFIG
 
+#include "tkey/io.h"
 #include "tkey/tk1_mem.h"
 #include "timer.h"
 
@@ -21,6 +22,7 @@ void hw_init()
 {
     init_millisecond_timer();
     init_rng();
+    init_usb();
 }
 
 void init_millisecond_timer()
@@ -34,3 +36,13 @@ void init_rng(void)
 {
 }
 
+void init_usb(void)
+{
+    enum ioend eps = IO_CDC | IO_FIDO;
+
+#ifdef TKEY_DEBUG
+    eps |= IO_DEBUG;
+#endif
+
+    config_endpoints(eps);
+}
