@@ -142,8 +142,8 @@ TARGET_DEFINES := \
                   -DAPP_CONFIG=\"app.h\" \
                   -DDEBUG_LEVEL=2 \
                   -DuECC_PLATFORM=0 \
-                  -DQEMU_DEBUG \
-                  -DENABLE_PRINTF
+                  #-DENABLE_PRINTF \
+                  #-DQEMU_DEBUG \
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \
