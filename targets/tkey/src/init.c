@@ -16,7 +16,7 @@
 static volatile uint32_t *timer             = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
 static volatile uint32_t *timer_prescaler   = (volatile uint32_t *)TK1_MMIO_TIMER_PRESCALER;
 static volatile uint32_t *timer_ctrl        = (volatile uint32_t *)TK1_MMIO_TIMER_CTRL;
-#define CPUFREQ 18000000
+#define CPUFREQ 24000000
 
 void hw_init()
 {
