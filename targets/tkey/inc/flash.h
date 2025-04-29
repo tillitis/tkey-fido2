@@ -15,7 +15,7 @@ void flash_write_dword(uint32_t addr, uint64_t data);
 void flash_write(uint32_t addr, uint8_t * data, size_t sz);
 
 #define FLASH_BASE_ADDRESS  0
-#define FLASH_PAGE_SIZE     2048
+#define FLASH_PAGE_SIZE     1024
 
 uint32_t flash_addr(uint32_t page);
 
