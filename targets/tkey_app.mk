@@ -162,12 +162,14 @@ TARGET_INCLUDES := \
                    -Itargets/tkey/libc/newlib/libc/include \
                    -Itargets/tkey/printf-embedded \
                    -Itinycbor/src \
-                   -I$(LIBDIR)/include
+                   -I$(LIBDIR)/include \
+                   -I$(LIBDIR)/blake2s
 
 # Target-specific EXTERNAL LIBRARIES to be included
 TARGET_EXT_LIBS := \
                    $(LIBDIR)/libcrt0.a \
-                   $(LIBDIR)/libcommon.a
+                   $(LIBDIR)/libcommon.a \
+                   $(LIBDIR)/libblake2s.a
 
 # Target-specific LINKER SCRIPT
 TARGET_LINKER_SCRIPT := \
