@@ -11,7 +11,7 @@
 #include "flash.h"
 
 #define FLASH_BASE_ADDRESS	0
-#define PAGE_SIZE		2048
+#define PAGE_SIZE		1024
 #define PAGES			6
 
 // Location of counter page and it's backup page
