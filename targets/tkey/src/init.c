@@ -11,6 +11,7 @@
 
 #include "tkey/io.h"
 #include "tkey/tk1_mem.h"
+#include "rng.h"
 #include "timer.h"
 
 static volatile uint32_t *timer             = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
@@ -21,8 +22,8 @@ static volatile uint32_t *timer_ctrl        = (volatile uint32_t *)TK1_MMIO_TIME
 void hw_init()
 {
     init_millisecond_timer();
-    init_rng();
     init_usb();
+    init_rng();
 }
 
 void init_millisecond_timer()
@@ -34,6 +35,7 @@ void init_millisecond_timer()
 
 void init_rng(void)
 {
+    rng_init();
 }
 
 void init_usb(void)

@@ -8,23 +8,117 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "blake2s.h"
 #include "rng.h"
+#include "tkey/lib.h"
 #include "tkey/tk1_mem.h"
 
+// clang-format off
+static volatile uint32_t *cdi          = (volatile uint32_t *)TK1_MMIO_TK1_CDI_FIRST;
 static volatile uint32_t *trng_status  = (volatile uint32_t *)TK1_MMIO_TRNG_STATUS;
 static volatile uint32_t *trng_entropy = (volatile uint32_t *)TK1_MMIO_TRNG_ENTROPY;
+// clang-format on
+
+#define RESEED_TIME 4096
+
+typedef struct {
+    uint32_t state_ctr_lsb;
+    uint32_t state_ctr_msb;
+    uint32_t reseed_ctr;
+    uint32_t state[16];
+    uint32_t digest[8];
+} rng_ctx;
+
+static rng_ctx ctx;
+
+static uint8_t rng_initalized = 0;
+
+static uint32_t entropy_get()
+{
+    while ((*trng_status & (1 << TK1_MMIO_TRNG_STATUS_READY_BIT)) == 0) {
+    }
+    return *trng_entropy;
+}
+
+static void rng_update(rng_ctx *ctx)
+{
+    for (int i = 0; i < 8; i++) {
+        ctx->state[i] = ctx->digest[i];
+    }
+
+    ctx->state_ctr_lsb += 1;
+    if (ctx->state_ctr_lsb == 0) {
+        ctx->state_ctr_msb += 1;
+    }
+    ctx->state[14] += ctx->state_ctr_msb;
+    ctx->state[15] += ctx->state_ctr_lsb;
+
+    ctx->reseed_ctr += 1;
+    if (ctx->reseed_ctr == RESEED_TIME) {
+        for (int i = 0; i < 8; i++) {
+            ctx->state[i + 8] = entropy_get();
+        }
+        ctx->reseed_ctr = 0;
+    }
+}
+
+void rng_init(void)
+{
+    for (int i = 0; i < 8; i++) {
+        ctx.state[i] = cdi[i] + entropy_get();
+        ctx.state[i + 8] = entropy_get();
+    }
+
+    ctx.state_ctr_lsb = entropy_get();
+    ctx.state_ctr_msb = entropy_get();
+
+    ctx.reseed_ctr = 0;
+
+    // Perform initial mixing of state.
+    blake2s(ctx.digest, 32, NULL, 0, ctx.state, 64);
+    rng_update(&ctx);
+
+    rng_initalized = 1;
+}
+
+static int rng_get(uint32_t *output, int size)
+{
+    if (size < 1 || rng_initalized == 0) {
+        return -1;
+    }
+
+    int left = size;
+
+    int i = 0;
+    int gen_size = 16; // max output in one round
+    while (left > 0) {
+
+        blake2s(ctx.digest, 32, NULL, 0, ctx.state, 64);
+        memcpy(&output[i], ctx.digest, gen_size);
+        rng_update(&ctx);
+        left -= gen_size;
+        i += 4;
+    }
+
+    return 0;
+}
 
 void randombytes(uint8_t *dst, size_t sz)
 {
     rng_get_bytes(dst, sz);
 }
 
-void rng_get_bytes(uint8_t *dst, size_t sz)
+int rng_get_bytes(uint8_t *dst, size_t sz)
 {
     for (int i = 0; i < sz; i++) {
-        while ((*trng_status & (1 << TK1_MMIO_TRNG_STATUS_READY_BIT)) == 0) {
+        uint32_t data[4] = {0}; // rng_get() always write 16 bytes
+
+        if (rng_get(data, 4) != 0) {
+            return -1;
         }
-        dst[i] = (uint8_t)*trng_entropy;
+        dst[i] = data[0] & 0xff;
     }
+
+    return 0;
 }
 
