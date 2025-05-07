@@ -22,6 +22,9 @@
 
 #include "rng.h"
 
+// P-256
+#include "p256-m.h"
+
 // MbedTLS
 #include "mbedtls/ecdsa.h"
 
@@ -213,11 +216,39 @@ static void sign_with_mbedtls(void)
     test_ecdsa_prim_random(MBEDTLS_ECP_DP_SECP256R1);
 }
 
+// p256_generate_random is needed by p256-m
+int p256_generate_random(uint8_t * output, unsigned output_size) {
+    return rng_get_bytes(output, output_size);
+}
+
+static void sign_with_p256(void)
+{
+    uint8_t priv[32] = {0};
+    uint8_t pub[64] = {0};
+    uint8_t data[256] = {0};
+    int len = sizeof(data);
+    uint8_t sig[64];
+    int ret = 1;
+
+    PROFILE_BEGIN
+    p256_gen_keypair(priv, pub);
+    PROFILE_END("p256_gen_keypair");
+
+    PROFILE_BEGIN
+    ret = p256_ecdsa_sign(sig, priv, data, len);
+    if (ret != P256_SUCCESS) {
+        printf1(TAG_CTAP, "error, p256_ecdsa_sign failed: %d\n", ret);
+        assert(1 == 2);
+    }
+    PROFILE_END("p256_ecdsa_sign");
+}
+
 static void sign_stuff(void)
 {
     rng_init();
 
     debug_puts("Signing\n");
     sign_with_mbedtls();
+    sign_with_p256();
     debug_puts("Signing done\n");
 }

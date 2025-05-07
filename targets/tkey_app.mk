@@ -156,6 +156,7 @@ TARGET_INCLUDES := \
                    -Icrypto/cifra/src/ext \
                    -Icrypto/mbedtls/include/ \
                    -Icrypto/micro-ecc \
+                   -Icrypto/p256-m \
                    -Icrypto/sha256 \
                    -Icrypto/tiny-AES-c \
                    -Icrypto/tweetnacl \
@@ -188,6 +189,7 @@ TARGET_POSTBUILD_CMD :=
 
 # Targets to build before this target is built
 TARGET_NEEDS_TARGETS := tkey_uecc.a
+TARGET_NEEDS_TARGETS += tkey_p256-m.a
 TARGET_NEEDS_TARGETS += tkey_libmbedcrypto.a
 
 # Add the target to the global list of targets
