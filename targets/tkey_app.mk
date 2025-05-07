@@ -55,6 +55,9 @@ TARGET_SRCS := \
                targets/tkey/libc/abort.c                          \
                targets/tkey/libc/exit.c                           \
                targets/tkey/libc/stdio.c                          \
+               targets/tkey/llvm-math/udivsi3.c                   \
+               targets/tkey/llvm-math/udivdi3.c                   \
+               targets/tkey/llvm-math/udivmoddi4.c                \
                targets/tkey/printf-embedded/printf-emb.c          \
                tinycbor/src/cborencoder.c                         \
                tinycbor/src/cborencoder_close_container_checked.c \
@@ -143,14 +146,15 @@ TARGET_DEFINES := \
                   -DAPP_CONFIG=\"app.h\" \
                   -DDEBUG_LEVEL=2 \
                   -DuECC_PLATFORM=0 \
-                  #-DENABLE_PRINTF \
-                  #-DTKEY_DEBUG \
+                  -DENABLE_PRINTF \
+                  -DTKEY_DEBUG \
                   #-DQEMU_DEBUG \
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \
                    -Icrypto/cifra/src \
                    -Icrypto/cifra/src/ext \
+                   -Icrypto/mbedtls/include/ \
                    -Icrypto/micro-ecc \
                    -Icrypto/sha256 \
                    -Icrypto/tiny-AES-c \
@@ -160,6 +164,7 @@ TARGET_INCLUDES := \
                    -Itargets/tkey/inc \
                    -Itargets/tkey/libc/include \
                    -Itargets/tkey/libc/newlib/libc/include \
+                   -Itargets/tkey/llvm-math \
                    -Itargets/tkey/printf-embedded \
                    -Itinycbor/src \
                    -I$(LIBDIR)/include \
@@ -183,6 +188,7 @@ TARGET_POSTBUILD_CMD :=
 
 # Targets to build before this target is built
 TARGET_NEEDS_TARGETS := tkey_uecc.a
+TARGET_NEEDS_TARGETS += tkey_libmbedcrypto.a
 
 # Add the target to the global list of targets
 TARGETS += $(TARGET)

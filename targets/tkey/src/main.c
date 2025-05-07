@@ -6,6 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
+
 
 #include "ctaphid.h"
 #include "log.h"
@@ -18,6 +20,15 @@
 #include "tkey/proto.h"
 #include "frame.h"
 
+#include "rng.h"
+
+// MbedTLS
+#include "mbedtls/ecdsa.h"
+
+#define TIME_CRYPTO_FUNCTIONS // Instead of being a FIDO2 app, time some crypto
+                              // functions every time a message comes on the
+                              // FIDO endpoint.
+
 #define HID_PACKET_SIZE 64
 
 // clang-format off
@@ -28,6 +39,8 @@ static volatile uint32_t *cpu_mon_last  = (volatile uint32_t *) TK1_MMIO_TK1_CPU
 static volatile uint32_t *app_addr      = (volatile uint32_t *) TK1_MMIO_TK1_APP_ADDR;
 static volatile uint32_t *app_size      = (volatile uint32_t *) TK1_MMIO_TK1_APP_SIZE;
 // clang-format on
+
+static void sign_stuff(void);
 
 int main()
 {
@@ -58,12 +71,19 @@ int main()
             // TAG_RED |
             // TAG_EXT |
             // TAG_CCID |
-            // TAG_PROF |
+            TAG_PROF |
             // TAG_ERR |
             0
     );
 
+#ifdef TIME_CRYPTO_FUNCTIONS
+#include "init.h"
+    init_millisecond_timer();
+    init_usb();
+    init_rng();
+#else
     device_init();
+#endif
 
     memset(hidmsg,0,sizeof(hidmsg));
 
@@ -75,6 +95,15 @@ int main()
         if (readselect(IO_FIDO, &ep, &available) != 0) {
             assert(1 == 2);
         }
+
+#ifdef TIME_CRYPTO_FUNCTIONS
+        if (read(IO_FIDO, data, sizeof(data), available) != HID_PACKET_SIZE) {
+            assert(1 == 2);
+        }
+
+        sign_stuff();
+        continue;
+#else
 
         if (available != HID_PACKET_SIZE) {
             continue;
@@ -95,6 +124,7 @@ int main()
         }
 
         ctaphid_check_timeouts();
+#endif
     }
 
     // Should never get here
@@ -102,4 +132,92 @@ int main()
     printf1(TAG_GREEN, "done\n");
     assert(1 == 2);
     return 0;
+}
+
+static int random_mbedtls(void *p_rng, unsigned char *output, size_t output_len)
+{
+    return rng_get_bytes(output, output_len);
+}
+
+// Sign a randomly generated value (the value which normally would be a hash of
+// the message). Then verify the signature.
+//
+// Adapted from crypto/mbedtls/tests/suites/test_suite_ecdsa.function testcase
+// test_ecdsa_prim_random.
+static void test_ecdsa_prim_random(int id)
+{
+    mbedtls_ecp_group grp;
+    mbedtls_ecp_point Q;
+    mbedtls_mpi d, r, s;
+    unsigned char buf[32];
+
+    mbedtls_ecp_group_init(&grp);
+    mbedtls_ecp_point_init(&Q);
+    mbedtls_mpi_init(&d); mbedtls_mpi_init(&r); mbedtls_mpi_init(&s);
+    memset(buf, 0, sizeof(buf));
+    rng_get_bytes(buf, sizeof(buf));
+
+    int ret = 0;
+
+    /* prepare material for signature */
+    PROFILE_BEGIN
+    if ((ret = mbedtls_ecp_group_load(&grp, id)) != 0) {
+        debug_puts("mbedtls_ecp_group_load failed. error: ");
+        debug_putinthex(ret);
+        debug_lf();
+
+        goto exit;
+    }
+    PROFILE_END("mbedtls_ecp_group_load");
+
+    PROFILE_BEGIN
+    if ((ret = mbedtls_ecp_gen_keypair(&grp, &d, &Q, random_mbedtls,
+                                       NULL)) != 0) {
+        debug_puts("mbedtls_ecp_gen_keypair failed. error: ");
+        debug_putinthex(ret);
+        debug_lf();
+
+        goto exit;
+    }
+    PROFILE_END("mbedtls_ecp_gen_keypair");
+
+    PROFILE_BEGIN
+    if ((ret = mbedtls_ecdsa_sign(&grp, &r, &s, &d, buf, sizeof(buf),
+                                   random_mbedtls, NULL)) != 0) {
+        debug_puts("mbedtls_ecdsa_sign failed. error: ");
+        debug_putinthex(ret);
+        debug_lf();
+
+        goto exit;
+    }
+    PROFILE_END("mbedtls_ecdsa_sign");
+
+    PROFILE_BEGIN
+    if ((ret = mbedtls_ecdsa_verify(&grp, buf, sizeof(buf), &Q, &r, &s)) != 0) {
+        debug_puts("mbedtls_ecdsa_verify failed. error: ");
+        debug_putinthex(ret);
+        debug_lf();
+
+        goto exit;
+    }
+    PROFILE_END("mbedtls_ecdsa_verify");
+
+exit:
+    mbedtls_ecp_group_free(&grp);
+    mbedtls_ecp_point_free(&Q);
+    mbedtls_mpi_free(&d); mbedtls_mpi_free(&r); mbedtls_mpi_free(&s);
+}
+
+static void sign_with_mbedtls(void)
+{
+    test_ecdsa_prim_random(MBEDTLS_ECP_DP_SECP256R1);
+}
+
+static void sign_stuff(void)
+{
+    rng_init();
+
+    debug_puts("Signing\n");
+    sign_with_mbedtls();
+    debug_puts("Signing done\n");
 }
