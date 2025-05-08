@@ -33,22 +33,10 @@
 
 #include "tweetnacl.h"
 
-typedef enum
-{
-    MBEDTLS_ECP_DP_NONE = 0,
-    MBEDTLS_ECP_DP_SECP192R1,      /*!< 192-bits NIST curve  */
-    MBEDTLS_ECP_DP_SECP224R1,      /*!< 224-bits NIST curve  */
-    MBEDTLS_ECP_DP_SECP256R1,      /*!< 256-bits NIST curve  */
-    MBEDTLS_ECP_DP_SECP384R1,      /*!< 384-bits NIST curve  */
-    MBEDTLS_ECP_DP_SECP521R1,      /*!< 521-bits NIST curve  */
-    MBEDTLS_ECP_DP_BP256R1,        /*!< 256-bits Brainpool curve */
-    MBEDTLS_ECP_DP_BP384R1,        /*!< 384-bits Brainpool curve */
-    MBEDTLS_ECP_DP_BP512R1,        /*!< 512-bits Brainpool curve */
-    MBEDTLS_ECP_DP_CURVE25519,           /*!< Curve25519               */
-    MBEDTLS_ECP_DP_SECP192K1,      /*!< 192-bits "Koblitz" curve */
-    MBEDTLS_ECP_DP_SECP224K1,      /*!< 224-bits "Koblitz" curve */
-    MBEDTLS_ECP_DP_SECP256K1,      /*!< 256-bits "Koblitz" curve */
-} mbedtls_ecp_group_id;
+#include "rng.h"
+#include "mbedtls/ecdsa.h"
+#include "mbedtls/ecp.h"
+#include <tkey/debug.h>
 
 
 static SHA256_CTX sha256_ctx;
@@ -61,6 +49,14 @@ static int _key_len = 0;
 static uint8_t master_secret[64];
 static uint8_t transport_secret[32];
 
+// #define CRYPTO_MBEDTLS_COMP_PUB_KEY // Call mbedtls instead of uECC in crypto_ecc256_compute_public_key()
+
+#ifdef CRYPTO_MBEDTLS_COMP_PUB_KEY
+static int random_mbedtls(void *p_rng, unsigned char *output, size_t output_len)
+{
+    return rng_get_bytes(output, output_len);
+}
+#endif
 
 void crypto_sha256_init(void)
 {
@@ -285,14 +281,81 @@ void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8
     uECC_compute_public_key(privkey, pubkey, _es256_curve);
     memmove(x,pubkey,32);
     memmove(y,pubkey+32,32);
+}
+
+#ifdef CRYPTO_MBEDTLS_COMP_PUB_KEY
+static int ecdsa_compute_public_key_mbed(const uint8_t *private_key, uint8_t *public_key)
+{
+    const mbedtls_ecp_group_id GRP_ID = MBEDTLS_ECP_DP_SECP256R1;
+    mbedtls_ecp_keypair keypair;
+    int ret = 0;
+
+    mbedtls_ecp_keypair_init(&keypair);
+
+    PROFILE_BEGIN
+    if ((ret = mbedtls_ecp_read_key(GRP_ID, &keypair, private_key, 32)) != 0) {
+        puts(IO_DEBUG, "mbedtls_ecp_read_key failed. error: ");
+        putinthex(IO_DEBUG, ret);
+        puts(IO_DEBUG, "\n");
+
+        goto exit;
+    } else {
+        puts(IO_DEBUG, "mbedtls_ecp_read_key success\n");
+    }
+    PROFILE_END("mbedtls_ecp_read_key");
+
+    PROFILE_BEGIN
+    if ((ret = mbedtls_ecp_keypair_calc_public(&keypair, random_mbedtls, NULL)) != 0) {
+        puts(IO_DEBUG, "mbedtls_ecp_keypair_calc_public failed. error: ");
+        putinthex(IO_DEBUG, ret);
+        puts(IO_DEBUG, "\n");
+
+        goto exit;
+    }
+    PROFILE_END("mbedtls_ecp_keypair_calc_public");
+
+    {
+        PROFILE_BEGIN
+        size_t olen = 0;
+
+        uint8_t pubkey[65];
+
+        if ((ret = mbedtls_ecp_write_public_key(&keypair, MBEDTLS_ECP_PF_UNCOMPRESSED, &olen, pubkey, 65)) != 0) {
+            puts(IO_DEBUG, "mbedtls_ecp_write_public_key failed. error: ");
+            putinthex(IO_DEBUG, ret);
+            puts(IO_DEBUG, "\n");
+
+            goto exit;
+        } else {
+            puts(IO_DEBUG, "mbedtls_ecp_write_public_key success\n");
+            memcpy(public_key, pubkey + 1, 64);
+        }
+        PROFILE_END("mbedtls_ecp_write_public_key");
+    }
+
+exit:
+    mbedtls_ecp_keypair_free(&keypair);
+
+    return ret;
+}
+
+void crypto_ecc256_compute_public_key(uint8_t * privkey, uint8_t * pubkey)
+{
+    uint32_t t = millis();
+    PROFILE_BEGIN
+    // uECC_compute_public_key(privkey, pubkey, _es256_curve);
+    ecdsa_compute_public_key_mbed(privkey, pubkey);
+    PROFILE_END("crypto_ecc256_compute_public_key");
     printf1(TAG_TIME, "crypto_ec256_derive_public_key time: %d ms\n", millis() - t);
 }
+#else
 void crypto_ecc256_compute_public_key(uint8_t * privkey, uint8_t * pubkey)
 {
     uint32_t t = millis();
     uECC_compute_public_key(privkey, pubkey, _es256_curve);
     printf1(TAG_TIME, "crypto_ec256_derive_public_key time: %d ms\n", millis() - t);
 }
+#endif // CRYPTO_MBEDTLS_COMP_PUB_KEY
 
 
 void crypto_load_external_key(uint8_t * key, int len)
