@@ -195,15 +195,24 @@ static void test_ecdsa_prim_random(int id)
     }
     PROFILE_END("mbedtls_ecdsa_sign");
 
-    PROFILE_BEGIN
-    if ((ret = mbedtls_ecdsa_verify(&grp, buf, sizeof(buf), &Q, &r, &s)) != 0) {
-        debug_puts("mbedtls_ecdsa_verify failed. error: ");
-        debug_putinthex(ret);
-        debug_lf();
+    // If verifying. Increase memory in malloc_block.c:
+    //
+    // struct block {
+    //     uint8_t data[192];
+    //     ...
+    //     uint8_t padding[31];
+    // }
+    // _Static_assert(sizeof(struct block) == 224 ...
+    // struct block blocks[60] __attribute__((aligned(16))) = {0};
+    // PROFILE_BEGIN
+    // if ((ret = mbedtls_ecdsa_verify(&grp, buf, sizeof(buf), &Q, &r, &s)) != 0) {
+    //     debug_puts("mbedtls_ecdsa_verify failed. error: ");
+    //     debug_putinthex(ret);
+    //     debug_lf();
 
-        goto exit;
-    }
-    PROFILE_END("mbedtls_ecdsa_verify");
+    //     goto exit;
+    // }
+    // PROFILE_END("mbedtls_ecdsa_verify");
 
 exit:
     mbedtls_ecp_group_free(&grp);

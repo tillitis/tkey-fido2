@@ -8,14 +8,14 @@
 #include <tkey/lib.h>
 
 struct block {
-    uint8_t data[192];
+    uint8_t data[160];
     uint8_t is_used;
     uint8_t padding[31];
 };
 
-// TODO: Figure out alignment requirements
-_Static_assert(sizeof(struct block) == 224, "struct block size not a multiple of 32");
-struct block blocks[60] __attribute__((aligned(16))) = {0};
+// TODO: Figure out how much alignment is necessary
+_Static_assert(sizeof(struct block) == 160+32, "struct block size not a multiple of 32");
+struct block blocks[25] __attribute__((aligned(16))) = {0};
 
 static struct block *find_empty()
 {
