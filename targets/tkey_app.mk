@@ -188,7 +188,8 @@ TARGET_PREBUILD_CMD :=
 TARGET_POSTBUILD_CMD :=
 
 # Targets to build before this target is built
-TARGET_NEEDS_TARGETS := tkey_uecc.a
+TARGET_NEEDS_TARGETS :=
+TARGET_NEEDS_TARGETS += tkey_uecc.a
 TARGET_NEEDS_TARGETS += tkey_p256-m.a
 TARGET_NEEDS_TARGETS += tkey_libmbedcrypto.a
 

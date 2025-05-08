@@ -22,6 +22,9 @@
 
 #include "rng.h"
 
+// uECC
+#include "uECC.h"
+
 // P-256
 #include "p256-m.h"
 
@@ -252,12 +255,41 @@ static void sign_with_p256(void)
     PROFILE_END("p256_ecdsa_sign");
 }
 
+static int random_uecc(uint8_t * dst, size_t num)
+{
+    int ret = 0;
+
+    if (rng_get_bytes(dst, num) == 0) {
+        ret = 1;
+    }
+    return ret;
+}
+
+static void sign_with_uecc(void)
+{
+    uint8_t signing_key[32];
+    uint8_t fake_hash[32];
+    uint8_t signature[64];
+
+    rng_get_bytes(signing_key, sizeof(signing_key));
+    rng_get_bytes(fake_hash, sizeof(fake_hash));
+
+    uECC_set_rng((uECC_RNG_Function)random_uecc);
+
+    PROFILE_BEGIN
+    if (uECC_sign(signing_key, fake_hash, sizeof(fake_hash), signature, uECC_secp256r1()) == 0)
+    {
+        printf2(TAG_ERR, "error, uECC failed\n");
+        exit(1);
+    }
+    PROFILE_END("uECC_sign");
+}
+
 static void sign_stuff(void)
 {
-    rng_init();
-
     debug_puts("Signing\n");
     sign_with_mbedtls();
+    sign_with_uecc();
     sign_with_p256();
     debug_puts("Signing done\n");
 }
