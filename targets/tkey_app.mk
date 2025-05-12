@@ -15,6 +15,8 @@ TARGET_OBJDUMP := llvm-objdump # Set if a dump file should be created
 
 LIBDIR := ../tkey-libs
 
+FLASH_IMPL ?= targets/tkey/src/flash.c
+
 # Source files for the target
 TARGET_SRCS := \
                crypto/cifra/src/blockwise.c                       \
@@ -41,7 +43,6 @@ TARGET_SRCS := \
                targets/tkey/src/attestation.c                     \
                targets/tkey/src/device.c                          \
                targets/tkey/src/fifo.c                            \
-               targets/tkey/src/flash_fake.c                      \
                targets/tkey/src/init.c                            \
                targets/tkey/src/main.c                            \
                targets/tkey/src/rng.c                             \
@@ -61,6 +62,7 @@ TARGET_SRCS := \
                tinycbor/src/cborencoder_close_container_checked.c \
                tinycbor/src/cborerrorstrings.c                    \
                tinycbor/src/cborparser.c                          \
+               $(FLASH_IMPL)                                      \
 
 # Target-specific ARFLAGS
 TARGET_ARFLAGS :=
