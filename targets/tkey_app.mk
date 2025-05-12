@@ -41,7 +41,7 @@ TARGET_SRCS := \
                targets/tkey/src/attestation.c                     \
                targets/tkey/src/device.c                          \
                targets/tkey/src/fifo.c                            \
-               targets/tkey/src/flash.c                           \
+               targets/tkey/src/flash_fake.c                      \
                targets/tkey/src/init.c                            \
                targets/tkey/src/main.c                            \
                targets/tkey/src/rng.c                             \
@@ -98,10 +98,10 @@ TARGET_CFLAGS := \
                  -Wall \
                  -Werror=implicit-function-declaration \
                  -static \
-                 -flto 
+                 -flto
 
 # Target-specific CXXFLAGS
-TARGET_CXXFLAGS := 
+TARGET_CXXFLAGS :=
 
 # Target-specific LDFLAGS
 TARGET_LDFLAGS := \
@@ -131,7 +131,7 @@ TARGET_LDFLAGS := \
 # Target-specific OBJCOPY FLAGS
 TARGET_OBJCOPYFLAGS := \
                        --input-target=elf32-littleriscv \
-                       --output-target=binary 
+                       --output-target=binary
 
 # Target-specific OBJDUMP FLAGS
 TARGET_OBJDUMPFLAGS := \
