@@ -108,7 +108,10 @@ static void device_migrate(){
     extern uint8_t attestation_solo_cert_der[];
     extern uint8_t attestation_hacker_cert_der[];
 
-    uint64_t device_settings = ((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->device_settings;
+    flash_attestation_page attestation;
+    flash_read(ATTESTATION_PAGE_ADDR, (uint8_t*)&attestation, sizeof(attestation));
+
+    uint64_t device_settings = attestation.device_settings;
     uint32_t configure_tag = (uint32_t)(device_settings >> 32);
 
     if (configure_tag != ATTESTATION_CONFIGURED_TAG)
@@ -118,24 +121,12 @@ static void device_migrate(){
         device_settings = ATTESTATION_CONFIGURED_TAG;
         device_settings <<= 32;
 
-        // Read current device lock level.
-        //        uint32_t optr = FLASH->OPTR;
-        //        if ((optr & 0xff) != 0xAA){
-        //            device_settings |= SOLO_FLAG_LOCKED;
-        //        }
-
         uint8_t tmp_attestation_key[32];
 
-        memmove(tmp_attestation_key,
-            ((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->attestation_key,
-            32);
-
+        memmove(tmp_attestation_key, attestation.attestation_key, 32);
+        memset(&attestation, 0xff, sizeof(attestation));
+        memmove(&attestation.attestation_key, tmp_attestation_key, 32);
         flash_erase_page(ATTESTATION_PAGE);
-        flash_write(
-            (uint32_t)((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->attestation_key,
-            tmp_attestation_key,
-            32
-        );
 
         // Check if this is Solo Hacker attestation (not confidential)
         // then write solo or hacker attestation cert to flash page.
@@ -143,39 +134,11 @@ static void device_migrate(){
                                                   "\xb2\x36\xd7\x64\x66\xba\x12\xac\x16\xc3\xab"
                                                   "\x57\x50\xba\x06\x4e\x8b\x90\xe0\x24\x48";
 
-        if (memcmp(solo_hacker_attestation_key,
-                   tmp_attestation_key,
-                   32) == 0)
-        {
-            printf1(TAG_GREEN,"Updating solo hacker cert\r\n");
-            flash_write_dword(
-             (uint32_t)&((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->attestation_cert_size,
-             (uint64_t)attestation_hacker_cert_der_size
-             );
-            flash_write(
-                (uint32_t)((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->attestation_cert,
-                attestation_hacker_cert_der,
-                attestation_hacker_cert_der_size
-            );
-        }
-        else
-        {
-            printf1(TAG_GREEN,"Updating solo secure cert\r\n");
-            flash_write_dword(
-             (uint32_t)&((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->attestation_cert_size,
-             (uint64_t)attestation_solo_cert_der_size
-             );
-            flash_write(
-                (uint32_t)((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->attestation_cert,
-                attestation_solo_cert_der,
-                attestation_solo_cert_der_size
-            );
-        }
+        memmove(&attestation.attestation_cert_size, &attestation_solo_cert_der_size, 8);
+        memmove(&attestation.attestation_cert, &attestation_solo_cert_der, attestation_solo_cert_der_size);
+        memmove(&attestation.device_settings, &device_settings, sizeof(device_settings));
 
-        // Save / done.
-        flash_write_dword(
-            (uint32_t) & ((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->device_settings,
-            (uint64_t)device_settings);
+        flash_write(ATTESTATION_PAGE_ADDR, (uint8_t *)&attestation, sizeof(attestation));
     }
 }
 

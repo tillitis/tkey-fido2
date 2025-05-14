@@ -99,19 +99,19 @@ const uint8_t attestation_hacker_cert_der[] =
 const uint16_t attestation_solo_cert_der_size = sizeof(attestation_solo_cert_der)-1;
 const uint16_t attestation_hacker_cert_der_size = sizeof(attestation_hacker_cert_der)-1;
 
+const uint8_t attestation_key[32] = {0};
 
 uint8_t * device_get_attestation_key(){
-    flash_attestation_page * page =(flash_attestation_page *)ATTESTATION_PAGE_ADDR;
-    return page->attestation_key;
+    return (uint8_t*)attestation_key;
 }
 
 uint16_t device_attestation_cert_der_get_size(){
-    uint16_t sz = (uint16_t)((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->attestation_cert_size;
+    uint16_t sz = attestation_solo_cert_der_size;
     return sz;
 }
 
 void device_attestation_read_cert_der(uint8_t * dst){
-    const uint8_t * der = ((flash_attestation_page *)ATTESTATION_PAGE_ADDR)->attestation_cert;
+    const uint8_t * der = attestation_solo_cert_der;
     uint16_t sz = device_attestation_cert_der_get_size();
     memmove(dst, der, sz);
 }
