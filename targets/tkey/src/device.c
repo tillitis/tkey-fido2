@@ -231,9 +231,10 @@ void authenticator_write_state(AuthenticatorState * a)
 uint32_t ctap_atomic_count(uint32_t amount)
 {
     int offset = 0;
-    uint32_t * ptr = (uint32_t *)flash_addr(COUNTER1_PAGE);
-    uint32_t erases = *(uint32_t *)flash_addr(COUNTER2_PAGE);
+    uint32_t erases = 0; // *(uint32_t *)flash_addr(COUNTER2_PAGE);
     static uint32_t sc = 0;
+
+    flash_read(flash_addr(COUNTER2_PAGE), (uint8_t*)&erases, sizeof(erases));
     if (erases == 0xffffffff)
     {
         erases = 1;
@@ -253,13 +254,16 @@ uint32_t ctap_atomic_count(uint32_t amount)
 
     for (offset = 0; offset < PAGE_SIZE/4; offset += 2) // wear-level the flash
     {
-        if (ptr[offset] != 0xffffffff)
+        uint32_t val;
+        flash_read(flash_addr(COUNTER1_PAGE) + offset * sizeof(val), (uint8_t*)&val, sizeof(val));
+
+        if (val != 0xffffffff)
         {
-            if (ptr[offset] < lastc)
+            if (val < lastc)
             {
                 printf2(TAG_ERR,"Error, count went down!\r\n");
             }
-            lastc = ptr[offset];
+            lastc = val;
         }
         else
         {
