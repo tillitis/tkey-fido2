@@ -231,23 +231,20 @@ void device_wink(void)
 static int authenticator_is_backup_initialized(void)
 {
     uint8_t header[16];
-    uint32_t * ptr = (uint32_t *)flash_addr(STATE2_PAGE);
-    memmove(header,ptr,16);
+    flash_read(flash_addr(STATE2_PAGE), header, sizeof(header));
     AuthenticatorState * state = (AuthenticatorState*)header;
     return state->is_initialized == INITIALIZED_MARKER;
 }
 
 int authenticator_read_state(AuthenticatorState * a)
 {
-    uint32_t * ptr = (uint32_t *) flash_addr(STATE1_PAGE);
-    memmove(a, ptr, sizeof(AuthenticatorState));
+    flash_read(flash_addr(STATE1_PAGE), (uint8_t*)a, sizeof(AuthenticatorState));
 
     if (a->is_initialized != INITIALIZED_MARKER){
 
         if (authenticator_is_backup_initialized()){
             printf1(TAG_ERR,"Warning: memory corruption detected.  restoring from backup..\n");
-            ptr = (uint32_t *) flash_addr(STATE2_PAGE);
-            memmove(a, ptr, sizeof(AuthenticatorState));
+            flash_read(flash_addr(STATE2_PAGE), (uint8_t*)a, sizeof(AuthenticatorState));
             authenticator_write_state(a);
             return 1;
         }
