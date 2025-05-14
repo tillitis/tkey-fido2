@@ -9,8 +9,10 @@
 #include "init.h"
 #include APP_CONFIG
 
+#include "tkey/assert.h"
 #include "tkey/io.h"
 #include "tkey/tk1_mem.h"
+#include "flash.h"
 #include "timer.h"
 
 static volatile uint32_t *timer             = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
@@ -23,6 +25,10 @@ void hw_init()
     init_millisecond_timer();
     init_rng();
     init_usb();
+
+    if (flash_init() != 0) {
+        assert(1 == 2);
+    }
 }
 
 void init_millisecond_timer()

@@ -1,4 +1,5 @@
 // Copyright 2019 SoloKeys Developers
+// Copyright 2025 Tillitis AB
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,188 +8,79 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "stm32l4xx.h"
+#include <tkey/assert.h>
+#include <tkey/syscall.h>
 
-#include APP_CONFIG
-#include "flash.h"
 #include "log.h"
-#include "device.h"
+#include "flash.h"
 
-static void flash_lock(void)
-{
-    FLASH->CR |= (1U<<31);
-}
-
-static void flash_unlock(void)
-{
-    if (FLASH->CR & FLASH_CR_LOCK)
-    {
-        FLASH->KEYR = 0x45670123;
-        FLASH->KEYR = 0xCDEF89AB;
-    }
-}
-
-// Locks flash and turns off DFU
-void flash_option_bytes_init(int boot_from_dfu)
-{
-    uint32_t val = 0xfffff8aa;
-
-    if (boot_from_dfu){
-        val &= ~(1<<27); // nBOOT0 = 0  (boot from system rom)
-    }
-    else {
-        if (solo_is_locked())
-        {
-            val = 0xfffff8cc;
-        }
-    }
-
-    val &= ~(1<<26); // nSWBOOT0 = 0  (boot from nBoot0)
-    val &= ~(1<<25); // SRAM2_RST = 1 (erase sram on reset)
-    val &= ~(1<<24); // SRAM2_PE = 1 (parity check en)
-
-    if ((FLASH->OPTR & 0xb3f77ff) == (val & 0xb3f77ff))
-    {
-        return;
-    }
-
-    __disable_irq();
-    while (FLASH->SR & (1<<16))
-        ;
-    flash_unlock();
-    if (FLASH->CR & (1<<30))
-    {
-        FLASH->OPTKEYR = 0x08192A3B;
-        FLASH->OPTKEYR = 0x4C5D6E7F;
-    }
-
-    FLASH->OPTR =val;
-    FLASH->CR |= (1<<17);
-
-    while (FLASH->SR & (1<<16))
-        ;
-
-    if (FLASH->CR & (1<<30))
-    {
-        FLASH->OPTKEYR = 0x08192A3B;
-        FLASH->OPTKEYR = 0x4C5D6E7F;
-    }
-
-    /* Perform option byte loading which triggers a device reset. */
-    FLASH->CR |= FLASH_CR_OBL_LAUNCH;
-
-    while (true)
-        ;
-}
+const uint32_t FLASH_PAGE_ALIGN_MASK = (~(FLASH_PAGE_SIZE - 1));
 
 void flash_erase_page(uint8_t page)
 {
-    __disable_irq();
+    int ret = 0;
+    uint32_t addr = page * FLASH_PAGE_SIZE;
 
-    // Wait if flash is busy
-    while (FLASH->SR & (1<<16))
-        ;
-    flash_unlock();
-
-    FLASH->SR = FLASH->SR;
-
-    // enable flash erase and select page
-    FLASH->CR &= ~((0xff<<3) | 7);
-    FLASH->CR |= (page<<3) | (1<<1);
-
-    // Go!
-    FLASH->CR |= (1<<16);
-    while (FLASH->SR & (1<<16))
-        ;
-
-    if(FLASH->SR & (1<<1))
+    ret = sys_erase(addr, FLASH_PAGE_SIZE);
+    if(ret != 0)
     {
-        printf2(TAG_ERR,"erase NOT successful %lx\r\n", FLASH->SR);
+        printf2(TAG_ERR,"erase NOT successful addr=%lx, len=%lx, ret=%lx\r\n", addr, FLASH_PAGE_SIZE, ret);
     }
-
-    FLASH->CR &= ~(0x7);
-    __enable_irq();
 }
 
 void flash_write_dword(uint32_t addr, uint64_t data)
 {
-    __disable_irq();
-    while (FLASH->SR & (1<<16))
-        ;
-    FLASH->SR = FLASH->SR;
-
-    // Select program action
-    FLASH->CR |= (1<<0);
-
-    *(volatile uint32_t*)addr = data;
-    *(volatile uint32_t*)(addr+4) = data>>32;
-
-    while (FLASH->SR & (1<<16))
-        ;
-
-    if(FLASH->SR & (1<<1))
-    {
-        printf2(TAG_ERR,"program NOT successful %lx\r\n", FLASH->SR);
-    }
-
-    FLASH->SR = (1<<0);
-    FLASH->CR &= ~(1<<0);
-    __enable_irq();
+    flash_write(addr, (uint8_t*)&data, 2);
 }
 
 void flash_write(uint32_t addr, uint8_t * data, size_t sz)
 {
-    unsigned int i;
-    uint8_t buf[8];
-    while (FLASH->SR & (1<<16))
-        ;
-    flash_unlock();
+    uint8_t buf[FLASH_PAGE_SIZE];
 
-    // dword align
-    addr &= ~(0x07);
+    uint32_t buf_offset = addr & ~FLASH_PAGE_ALIGN_MASK;
+    size_t len = 0;
 
-    for(i = 0; i < sz; i+=8)
+    printf2(TAG_GREEN,"flash write addr=%lx, size=%lx\r\n", addr, sz);
+
+    for(size_t i = 0; i < sz; i += len)
     {
-        memmove(buf, data + i, (sz - i) > 8 ? 8 : sz - i);
-        if (sz - i < 8)
-        {
-            memset(buf + sz - i, 0xff, 8 - (sz - i));
-        }
-        flash_write_dword(addr, *(uint64_t*)buf);
-        addr += 8;
-    }
+        size_t bytes_left = sz - i;
+        size_t dst_max_len = FLASH_PAGE_SIZE - buf_offset;
+        size_t src_max_len = bytes_left < FLASH_PAGE_SIZE ? bytes_left : FLASH_PAGE_SIZE;
+        len = src_max_len < dst_max_len ? src_max_len : dst_max_len;
 
+        memset(buf, 0xff, sizeof(buf));
+        memcpy(buf + buf_offset, data + i, len);
+
+        int ret = sys_write(addr & FLASH_PAGE_ALIGN_MASK, buf, FLASH_PAGE_SIZE);
+        if (ret != 0) {
+            printf2(TAG_ERR,"flash write NOT successful addr=%lx, ret=%lx\r\n", addr, ret);
+        }
+
+        buf_offset = 0;
+        addr += len;
+    }
 }
 
-// NOT YET working
-void flash_write_fast(uint32_t addr, uint32_t * data)
+void flash_read(uint32_t addr, uint8_t * dst, size_t sz)
 {
-    __disable_irq();
-    while (FLASH->SR & (1<<16))
-        ;
-    FLASH->SR = FLASH->SR;
+    int ret = 0;
 
-    // Select fast program action
-    FLASH->CR |= (1<<18);
+    printf2(TAG_GREEN,"flash read addr=%lx, size=%lx\r\n", addr, sz);
+    ret = sys_read(addr, dst, sz);
+    if (ret != 0) {
+        printf2(TAG_ERR,"flash read NOT successful addr=%lx, len=%lx, ret=%lx\r\n", addr, sz, ret);
+    }
+}
 
-    int i;
-    for(i = 0; i < 64; i++)
-    {
-        *(volatile uint32_t*)addr = (*data);
-        addr+=4;
-        data++;
+int flash_init()
+{
+    int ret = 0;
+
+    ret = sys_alloc();
+    if (ret != 0) {
+        printf2(TAG_ERR,"flash alloc NOT successful %lx\r\n", ret);
     }
 
-    while (FLASH->SR & (1<<16))
-        ;
-
-    if(FLASH->SR & (1<<1))
-    {
-        printf2(TAG_ERR,"program NOT successful %lx\r\n", FLASH->SR);
-    }
-
-    FLASH->SR = (1<<0);
-    FLASH->CR &= ~(1<<18);
-    __enable_irq();
-
+    return ret;
 }

@@ -170,7 +170,8 @@ TARGET_INCLUDES := \
 # Target-specific EXTERNAL LIBRARIES to be included
 TARGET_EXT_LIBS := \
                    $(LIBDIR)/libcrt0.a \
-                   $(LIBDIR)/libcommon.a
+                   $(LIBDIR)/libcommon.a \
+                   $(LIBDIR)/libsyscall.a
 
 # Target-specific LINKER SCRIPT
 TARGET_LINKER_SCRIPT := \

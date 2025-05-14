@@ -11,8 +11,8 @@
 #include "flash.h"
 
 #define FLASH_BASE_ADDRESS	0
-#define PAGE_SIZE		2048
-#define PAGES			6
+#define PAGE_SIZE		4096
+#define PAGES			(128*1024/PAGE_SIZE)
 
 // Location of counter page and it's backup page
 // The flash is wear leveled and counter should be fault tolerant
@@ -30,7 +30,7 @@
 
 // where attestation key is located
 #define ATTESTATION_PAGE        (PAGES - 6)
-#define ATTESTATION_PAGE_ADDR   (flash_addr(FLASH_BASE_ADDRESS + ATTESTATION_PAGE*PAGE_SIZE))
+#define ATTESTATION_PAGE_ADDR   (FLASH_BASE_ADDRESS + ATTESTATION_PAGE*PAGE_SIZE)
 
 #include <assert.h>
 
