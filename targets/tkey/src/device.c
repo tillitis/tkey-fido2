@@ -430,8 +430,7 @@ void ctap_load_rk(int index,CTAP_residentKey * rk)
     printf1(TAG_GREEN, "reading RK %d @ %04x\r\n", index, addr);
     if (page_offset < RK_NUM_PAGES)
     {
-        uint32_t * ptr = (uint32_t *)addr;
-        memmove((uint8_t*)rk,ptr,sizeof(CTAP_residentKey));
+        flash_read(addr, (uint8_t*)rk, sizeof(CTAP_residentKey));
     }
     else
     {
@@ -453,7 +452,7 @@ void ctap_overwrite_rk(int index,CTAP_residentKey * rk)
         );
     if (page_offset < RK_NUM_PAGES)
     {
-        memmove(tmppage, (uint8_t*)flash_addr(RK_START_PAGE + page_offset), PAGE_SIZE);
+        flash_read(flash_addr(RK_START_PAGE + page_offset), tmppage, sizeof(tmppage));
 
         memmove(tmppage + byte_offset_into_page, rk, sizeof(CTAP_residentKey));
         flash_erase_page(RK_START_PAGE + page_offset);
