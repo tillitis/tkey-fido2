@@ -342,6 +342,7 @@ int ctap_user_presence_test(uint32_t up_delay)
     *touch = 0;
     do {
         if (*touch & (1 << TK1_MMIO_TOUCH_STATUS_EVENT_BIT)) {
+            led_set(LED_GREEN | LED_RED);
             return 1;
         }
 
@@ -349,6 +350,8 @@ int ctap_user_presence_test(uint32_t up_delay)
         led_on = ((time - start_time) / 100 % 2);
         led_set(led_on ? LED_GREEN : LED_BLACK);
     } while ((time - start_time) < up_delay);
+
+    led_set(LED_BLACK);
 
     return 0;
 }
