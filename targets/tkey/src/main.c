@@ -91,6 +91,7 @@ int main()
         }
 
         if (usbhid_recv(hidmsg) > 0) {
+            led_set(LED_GREEN | LED_RED);
             ctaphid_handle_packet(hidmsg);
             memset(hidmsg, 0, sizeof(hidmsg));
         } else {
