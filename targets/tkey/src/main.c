@@ -16,6 +16,7 @@
 #include "tkey/tk1_mem.h"
 #include "tkey/led.h"
 #include "tkey/proto.h"
+#include "tkey/syscall.h"
 #include "frame.h"
 
 #define HID_PACKET_SIZE 64
@@ -74,8 +75,18 @@ int main()
 
         led_set(LED_BLUE);
 
-        if (readselect(IO_FIDO, &ep, &available) != 0) {
+        if (readselect(IO_CDC | IO_FIDO, &ep, &available) != 0) {
             assert(1 == 2);
+        }
+
+        if (ep == IO_CDC) {
+            uint8_t b;
+            read(IO_CDC, &b, sizeof(b), 1);
+            struct reset rst = {0};
+            rst.type = b - '0' + START_DEFAULT;
+            sys_reset(&rst, 0);
+            printf2(TAG_ERR, "Device not reset\r\n");
+            while(1);
         }
 
         if (available != HID_PACKET_SIZE) {
