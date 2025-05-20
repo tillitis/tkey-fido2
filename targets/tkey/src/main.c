@@ -72,6 +72,8 @@ int main()
         enum ioend ep;
         uint8_t available;
 
+        led_set(LED_BLUE);
+
         if (readselect(IO_FIDO, &ep, &available) != 0) {
             assert(1 == 2);
         }
