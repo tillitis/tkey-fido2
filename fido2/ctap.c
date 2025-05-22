@@ -354,7 +354,7 @@ static int ctap_generate_cose_key(CborEncoder * cose_key, uint8_t * hmac_input, 
             break;
         case COSE_ALG_EDDSA:
             if (device_is_nfc() == NFC_IS_ACTIVE) device_set_clock_rate(DEVICE_LOW_POWER_FAST);
-            crypto_ed25519_derive_public_key(hmac_input, len, x);
+            fido2_crypto_ed25519_derive_public_key(hmac_input, len, x);
             if (device_is_nfc() == NFC_IS_ACTIVE) device_set_clock_rate(DEVICE_LOW_POWER_IDLE);
             break;
         default:
@@ -815,7 +815,7 @@ int ctap_calculate_signature(uint8_t * data, int datalen, uint8_t * clientDataHa
     // calculate attestation sig
     if (alg == COSE_ALG_EDDSA)
     {
-        crypto_ed25519_sign(data, datalen, clientDataHash, CLIENT_DATA_HASH_SIZE, sigder); // not DER, just plain binary!
+        fido2_crypto_ed25519_sign(data, datalen, clientDataHash, CLIENT_DATA_HASH_SIZE, sigder); // not DER, just plain binary!
         return 64;
     }
     else
@@ -1326,7 +1326,7 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
     int32_t cose_alg = read_cose_alg_from_masked_credential(&cred->credential.id);
     if (cose_alg == COSE_ALG_EDDSA)
     {
-        crypto_ed25519_load_key((uint8_t*)&cred->credential.id, cred_size);
+        fido2_crypto_ed25519_load_key((uint8_t*)&cred->credential.id, cred_size);
     }
     else
     {
