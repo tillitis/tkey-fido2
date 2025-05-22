@@ -17,9 +17,9 @@ void crypto_sha256_final(uint8_t * hash);
 void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac);
 void crypto_sha256_hmac_final(uint8_t * key, uint32_t klen, uint8_t * hmac);
 
-void crypto_sha512_init();
-void crypto_sha512_update(const uint8_t * data, size_t len);
-void crypto_sha512_final(uint8_t * hash);
+void fido2_crypto_sha512_init();
+void fido2_crypto_sha512_update(const uint8_t * data, size_t len);
+void fido2_crypto_sha512_final(uint8_t * hash);
 
 void crypto_ecc256_init();
 void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8_t * y);
@@ -31,9 +31,9 @@ void crypto_load_external_key(uint8_t * key, int len);
 void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig);
 void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_ID);
 
-void crypto_ed25519_derive_public_key(uint8_t * data, int len, uint8_t * x);
-void crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, uint8_t * sig);
-void crypto_ed25519_load_key(uint8_t * data, int len);
+void fido2_crypto_ed25519_derive_public_key(uint8_t * data, int len, uint8_t * x);
+void fido2_crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, uint8_t * sig);
+void fido2_crypto_ed25519_load_key(uint8_t * data, int len);
 
 void generate_private_key(uint8_t * data, int len, uint8_t * data2, int len2, uint8_t * privkey);
 void crypto_ecc256_make_key_pair(uint8_t * pubkey, uint8_t * privkey);

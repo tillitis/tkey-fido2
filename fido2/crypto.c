@@ -31,7 +31,11 @@
 #include APP_CONFIG
 #include "log.h"
 
-#include "tweetnacl.h"
+#define crypto_sign_ed25519_PUBLICKEYBYTES 32
+#define crypto_sign_ed25519_SECRETKEYBYTES 64
+#define crypto_sign_ed25519_SEEDBYTES 32
+
+#include "monocypher-ed25519.h"
 
 typedef enum
 {
@@ -67,7 +71,7 @@ void crypto_sha256_init(void)
     sha256_init(&sha256_ctx);
 }
 
-void crypto_sha512_init(void)
+void fido2_crypto_sha512_init(void)
 {
     cf_sha512_init(&sha512_ctx);
 }
@@ -95,7 +99,7 @@ void crypto_sha256_update(uint8_t * data, size_t len)
     sha256_update(&sha256_ctx, data, len);
 }
 
-void crypto_sha512_update(const uint8_t * data, size_t len) {
+void fido2_crypto_sha512_update(const uint8_t * data, size_t len) {
     cf_sha512_update(&sha512_ctx, data, len);
 }
 
@@ -109,7 +113,7 @@ void crypto_sha256_final(uint8_t * hash)
     sha256_final(&sha256_ctx, hash);
 }
 
-void crypto_sha512_final(uint8_t * hash)
+void fido2_crypto_sha512_final(uint8_t * hash)
 {
     // NB: there is also cf_sha512_digest
     cf_sha512_digest_final(&sha512_ctx, hash);
@@ -359,34 +363,31 @@ void crypto_aes256_encrypt(uint8_t * buf, int length)
     AES_CBC_encrypt_buffer(&aes_ctx, buf, length);
 }
 
-void crypto_ed25519_derive_public_key(uint8_t * data, int len, uint8_t * x)
+void fido2_crypto_ed25519_derive_public_key(uint8_t * data, int len, uint8_t * x)
 {
     uint8_t seed[crypto_sign_ed25519_SEEDBYTES];
     uint8_t   sk[crypto_sign_ed25519_SECRETKEYBYTES];
 
     generate_private_key(data, len, NULL, 0, seed);
-    crypto_sign_ed25519_seed_keypair(x, sk, seed); // Generate secret key from seed and public key from secret key
-
+    crypto_ed25519_key_pair(sk, x, seed);
 }
 
-void crypto_ed25519_load_key(uint8_t * data, int len)
+void fido2_crypto_ed25519_load_key(uint8_t * data, int len)
 {
     uint8_t seed[crypto_sign_ed25519_SEEDBYTES];
     uint8_t   pk[crypto_sign_ed25519_PUBLICKEYBYTES];
     static uint8_t sk[crypto_sign_ed25519_SECRETKEYBYTES];
 
     generate_private_key(data, len, NULL, 0, seed);
-    crypto_sign_ed25519_seed_keypair(pk, sk, seed); // Generate secret key from seed and public key from secret key
+    crypto_ed25519_key_pair(sk, pk, seed);
 
     _signing_key = sk;
     _key_len = crypto_sign_ed25519_SECRETKEYBYTES;
 
 }
 
-void crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, uint8_t * sig)
+void fido2_crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, uint8_t * sig)
 {
-    unsigned long long siglen;
-
     // ed25519 signature APIs need the message at once (by design!) and in one
     // contiguous buffer (could be changed).
 
@@ -403,25 +404,8 @@ void crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, u
     memcpy(data,        data1, len1);
     memcpy(data + len1, data2, len2);
 
-    /*
-     * Sign the data, based on the keypair generated from the secret seed.
-     * Function declaration: int crypto_sign_ed25519(u8 *sm, u64 *smlen, const u8 *m, u64 n, const u8 *sk)
-     * sm = signed message, smlen = size out of signed message, m = message, n = message size, sk = secret key
-     * The sm buffer must be at least `sign_signature_size + message_size` bytes long
-     * where sign_signature_size is 64 bytes
-     */
-
-    // The maximum possible length smlen is mlen+crypto_sign_BYTES.
-    // The caller must allocate at least mlen+crypto_sign_BYTES bytes for sm.
-
-    uint8_t sig_tmp[crypto_sign_ed25519_BYTES+len];
-    memset(sig_tmp, 0, 64+len);
-
     // TODO: check that correct load_key() had been called?
-    crypto_sign_ed25519(sig_tmp, &siglen, data, len, _signing_key);
-
-    if (siglen > 64)
-    memcpy(sig, sig_tmp, 64);
+    crypto_ed25519_sign(sig, _signing_key, data, len);
 }
 
 #endif

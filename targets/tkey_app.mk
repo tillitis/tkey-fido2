@@ -24,7 +24,6 @@ TARGET_SRCS := \
                crypto/micro-ecc/uECC.c                            \
                crypto/sha256/sha256.c                             \
                crypto/tiny-AES-c/aes.c                            \
-               crypto/tweetnacl/tweetnacl.c                       \
                fido2/apdu.c                                       \
                fido2/crypto.c                                     \
                fido2/ctap.c                                       \
@@ -157,7 +156,6 @@ TARGET_INCLUDES := \
                    -Icrypto/micro-ecc \
                    -Icrypto/sha256 \
                    -Icrypto/tiny-AES-c \
-                   -Icrypto/tweetnacl \
                    -Ifido2 \
                    -Ifido2/extensions \
                    -Itargets/tkey/inc \
@@ -165,13 +163,15 @@ TARGET_INCLUDES := \
                    -Itargets/tkey/libc/newlib/libc/include \
                    -Itargets/tkey/printf-embedded \
                    -Itinycbor/src \
-                   -I$(LIBDIR)/include
+                   -I$(LIBDIR)/include \
+                   -I$(LIBDIR)/monocypher
 
 # Target-specific EXTERNAL LIBRARIES to be included
 TARGET_EXT_LIBS := \
                    $(LIBDIR)/libcrt0.a \
                    $(LIBDIR)/libcommon.a \
-                   $(LIBDIR)/libsyscall.a
+                   $(LIBDIR)/libsyscall.a \
+                   $(LIBDIR)/libmonocypher.a
 
 # Target-specific LINKER SCRIPT
 TARGET_LINKER_SCRIPT := \
