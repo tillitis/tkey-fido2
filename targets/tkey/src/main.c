@@ -58,6 +58,7 @@ int main()
             // TAG_RED |
             // TAG_EXT |
             // TAG_CCID |
+            // TAG_COUNT |
             // TAG_ERR |
             0
     );
