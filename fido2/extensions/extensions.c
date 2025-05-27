@@ -9,8 +9,6 @@
 #include "extensions.h"
 #include "u2f.h"
 #include "ctap.h"
-#include "wallet.h"
-#include "solo.h"
 #include "device.h"
 
 #include "log.h"
@@ -20,19 +18,13 @@
 
 int is_extension_request(uint8_t * kh, int len)
 {
-    wallet_request * req = (wallet_request *) kh;
-
-    if (len < WALLET_MIN_LENGTH)
-        return 0;
-
-    return memcmp(req->tag, WALLET_TAG, sizeof(WALLET_TAG)-1) == 0;
+    return 0;
 }
 
 
 int extension_needs_atomic_count(uint8_t klen, uint8_t * keyh)
 {
-    return ((wallet_request *) keyh)->operation == WalletRegister
-            || ((wallet_request *) keyh)->operation == WalletSign;
+    return 0;
 }
 
 static uint8_t * output_buffer_ptr;
@@ -78,7 +70,7 @@ int16_t bridge_u2f_to_extensions(uint8_t * _chal, uint8_t * _appid, uint8_t klen
 #ifdef IS_BOOTLOADER
     ret = bootloader_bridge(klen, keyh);
 #else
-    ret = bridge_u2f_to_solo(sig, keyh, klen);
+    // ret = bridge_u2f_to_solo(sig, keyh, klen);
     u2f_response_writeback(sig,72);
 #endif
 
@@ -103,7 +95,7 @@ int16_t extend_fido2(CredentialId * credid, uint8_t * output)
     if (is_extension_request((uint8_t*)credid, sizeof(CredentialId)))
     {
         printf1(TAG_EXT,"IS EXT REQ\r\n");
-        output[0] = bridge_u2f_to_solo(output+1, (uint8_t*)credid, sizeof(CredentialId));
+        // output[0] = bridge_u2f_to_solo(output+1, (uint8_t*)credid, sizeof(CredentialId));
         return 1;
     }
     else

@@ -21,7 +21,6 @@
 #include "log.h"
 #include "device.h"
 #include APP_CONFIG
-#include "wallet.h"
 #include "extensions.h"
 
 #include "device.h"
