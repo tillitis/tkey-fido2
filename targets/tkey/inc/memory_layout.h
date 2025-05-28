@@ -10,26 +10,26 @@
 #include <stdint.h>
 #include "flash.h"
 
-#define FLASH_BASE_ADDRESS	0
-#define PAGE_SIZE		4096
-#define PAGES			(128*1024/PAGE_SIZE)
+#define FLASH_BASE_ADDRESS  0
+#define PAGE_SIZE           4096
+#define PAGES               (128*1024/PAGE_SIZE) // 32 pages, numbered 0-31
 
 // Location of counter page and it's backup page
 // The flash is wear leveled and counter should be fault tolerant
-#define	COUNTER2_PAGE	(PAGES - 4)
-#define	COUNTER1_PAGE	(PAGES - 3)
+#define COUNTER2_PAGE       (PAGES - 4) // Page 28
+#define COUNTER1_PAGE       (PAGES - 3) // Page 29
 
 // State of FIDO2 application
-#define	STATE2_PAGE		      (PAGES - 2)
-#define	STATE1_PAGE		      (PAGES - 1)
+#define STATE2_PAGE         (PAGES - 2) // Page 30
+#define STATE1_PAGE         (PAGES - 1) // Page 31
 
 // Storage of FIDO2 resident keys
-#define RK_NUM_PAGES    1
-#define RK_START_PAGE   (PAGES - 5)
-#define RK_END_PAGE     (PAGES - 5 + RK_NUM_PAGES)     // not included
+#define RK_NUM_PAGES        27
+#define RK_START_PAGE       (PAGES - 31) // Page 1
+#define RK_END_PAGE         (PAGES - 31 + RK_NUM_PAGES)     // Page 28, not included
 
 // where attestation key is located
-#define ATTESTATION_PAGE        (PAGES - 6)
+#define ATTESTATION_PAGE        (PAGES - 32) // Page 0
 #define ATTESTATION_PAGE_ADDR   (FLASH_BASE_ADDRESS + ATTESTATION_PAGE*PAGE_SIZE)
 
 #include <assert.h>
