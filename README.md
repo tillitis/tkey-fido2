@@ -36,3 +36,11 @@ of specific parts of the system (see `targets/tkey/src/main.c`).
 This only works on the Castor version of the TKey. See the main repo:
 
 https://github.com/tillitis/tillitis-key1
+
+## Licenses
+
+This project is licensed under the terms and conditions of the "Apache-2.0" or
+the "MIT" license. See [LICENSE-APACHE](LICENSE-APACHE) and
+[LICENSE-MIT](LICENSE-MIT) for the full license texts.
+
+Imported libraries are isolated in their own directories. They may be released
