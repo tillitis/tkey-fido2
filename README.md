@@ -25,14 +25,14 @@ support.
 
 Logging can be enabled by uncommenting `-DENABLE_PRINTF` and one of
 `-DQEMU_DEBUG` and `-DTKEY_DEBUG` in `targets/tkey_app.mk`. See the
-tkey-libs README for more information on the `*_DEBUG` defines. The
-function `set_loggin_mask()` can then be used to enable logging of
-specific parts of the system (see `targets/tkey/src/main.c`).
+[tkey-libs README](https://github.com/tillitis/tkey-libs) for more
+information on the `*_DEBUG` defines.
+
+The function `set_logging_mask()` can then be used to enable logging
+of specific parts of the system (see `targets/tkey/src/main.c`).
 
 ## Tkey requirements
 
-The TKey need to present itself as a USB HID device, as well as the
-usual CDC device. An experimental
-[branch](https://github.com/tillitis/tillitis-key1/tree/ch552_hid_cdc/),
-is available, containing bitstream for the FPGA and a firmware for the
-USB interface.
+This only works on the Castor version of the TKey. See the main repo:
+
+https://github.com/tillitis/tillitis-key1
