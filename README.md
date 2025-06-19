@@ -19,6 +19,14 @@ To build, run `make tkey_app`
 See [Tillitis Developer Handbook](https://dev.tillitis.se/) for tool
 support.
 
+## Logging
+
+Logging can be enabled by uncommenting `-DENABLE_PRINTF` and one of
+`-DQEMU_DEBUG` and `-DTKEY_DEBUG` in `targets/tkey_app.mk`. See the tkey-libs
+README for more information on the `*_DEBUG` defines. The function
+`set_loggin_mask()` can then be used to enable logging of specific parts of the
+system (see `targets/tkey/src/main.c`).
+
 ## Tkey requirements
 
 The TKey need to present itself as a USB HID device, as well as the
