@@ -90,6 +90,9 @@ int main()
         }
 
         if (available != HID_PACKET_SIZE) {
+            // Discard data
+            printf2(TAG_ERR, "Got incomplete HID frame, discard\r\n");
+            read(IO_FIDO, data, sizeof(data), available);
             continue;
         }
 
