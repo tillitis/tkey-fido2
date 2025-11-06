@@ -187,8 +187,13 @@ void usbhid_close(void)
 
 void device_wink(void)
 {
-    printf1(TAG_ERR,"WINK not implemented\n");
-    assert(1 == 2);
+    for (uint8_t i = 0; i < 2; i++) {
+        led_set(LED_GREEN);
+        delay(300);
+        led_set(LED_BLACK);
+        delay(300);
+
+    }
 }
 
 static int authenticator_is_backup_initialized(void)
