@@ -151,7 +151,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
                 check_ret(ret);
                 ret = cbor_encode_text_stringz(&array, "FIDO_2_0");
                 check_ret(ret);
-                ret = cbor_encode_text_stringz(&array, "FIDO_2_1_PRE");
+                ret = cbor_encode_text_stringz(&array, "FIDO_2_1");
                 check_ret(ret);
             }
             ret = cbor_encoder_close_container(&map, &array);
