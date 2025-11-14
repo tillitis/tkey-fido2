@@ -13,6 +13,7 @@ void crypto_sha256_init();
 void crypto_sha256_update(uint8_t *data, size_t len);
 void crypto_sha256_update_secret();
 void crypto_sha256_final(uint8_t *hash);
+void crypto_sha256(uint8_t *digest, uint8_t *data, size_t len);
 
 void crypto_sha256_hmac_init(uint8_t *key, uint32_t klen, uint8_t *hmac);
 void crypto_sha256_hmac_final(uint8_t *key, uint32_t klen, uint8_t *hmac);
