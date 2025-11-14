@@ -6,14 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 #ifndef _APP_H_
 #define _APP_H_
-#include <stdint.h>
-#include "version.h"
 #include "solo.h"
+#include "version.h"
+#include <stdint.h>
 
 #define SOLO
 
 #ifndef DEBUG_LEVEL
-#define DEBUG_LEVEL     0
+#define DEBUG_LEVEL 0
 #endif
 
 // #define ENABLE_U2F_EXTENSIONS
@@ -30,7 +30,7 @@ void hw_init();
 // Return 1 if Solo is secure/locked.
 int solo_is_locked();
 
-//#define TEST
-//#define TEST_POWER
+// #define TEST
+// #define TEST_POWER
 
 #endif
