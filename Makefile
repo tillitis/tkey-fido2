@@ -11,7 +11,7 @@ $(shell mkdir -p $(OBJDIR) $(BINDIR))
 TARGET_FILES := $(wildcard targets/*.mk)
 
 # Global target list
-TARGETS := 
+TARGETS :=
 
 # Include target files
 include $(TARGET_FILES)
@@ -102,6 +102,24 @@ endef
 # Include dependency files if they exist
 #-include $(wildcard $(OBJDIR)/*/*.d)
 
+# Format code
+FMTFILES := \
+			targets/tkey/inc/*.[ch]  \
+			targets/tkey/libc/*.[ch] \
+			targets/tkey/src/*.[ch]  \
+			fido2/*.[ch]			 \
+			fido2/extensions/*.[ch]  \
+			pc/*.[ch]
+
+
+.PHONY: fmt
+fmt:
+	clang-format --dry-run --ferror-limit=0 $(FMTFILES)
+	clang-format --verbose -i $(FMTFILES)
+.PHONY: checkfmt
+checkfmt:
+	clang-format --dry-run --ferror-limit=0 --Werror $(FMTFILES)
+
 # Clean for a specific target
 .PHONY: clean
 $(foreach target,$(TARGETS), $(eval $(call CLEAN_RULE,$(target))))
@@ -114,3 +132,9 @@ clean-all:
 help:
 	@echo "Available targets:"
 	@$(foreach target,$(sort $(TARGETS)),$(call SHOW_TARGETS_RULE,$(target)))
+	@echo
+	@echo "Other:"
+	@echo "fmt"
+	@echo "checkfmt"
+	@echo "Clean"
+	@echo "Clean-all"
