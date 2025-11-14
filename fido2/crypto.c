@@ -110,6 +110,14 @@ void crypto_sha256_final(uint8_t *hash)
 	sha256_final(&sha256_ctx, hash);
 }
 
+void crypto_sha256(uint8_t *digest, uint8_t *data, size_t len)
+{
+	SHA256_CTX ctx;
+	sha256_init(&ctx);
+	sha256_update(&ctx, data, len);
+	sha256_final(&ctx, digest);
+}
+
 void fido2_crypto_sha512_final(uint8_t *hash)
 {
 	// NB: there is also cf_sha512_digest
