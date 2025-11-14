@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2024 Tillitis AB
  */
 #ifndef _INIT_H_

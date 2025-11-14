@@ -7,7 +7,7 @@ void device_init();
 
 void usbhid_init();
 void usbhid_close();
-int usbhid_recv(uint8_t * msg);
+int usbhid_recv(uint8_t *msg);
 
 void boot_solo_bootloader();
 

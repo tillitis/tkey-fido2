@@ -10,25 +10,27 @@
 
 #include "flash.h"
 
-__attribute__((__aligned__(4))) volatile static uint8_t fake_flash[6 * FLASH_PAGE_SIZE];
+__attribute__((
+    __aligned__(4))) volatile static uint8_t fake_flash[6 * FLASH_PAGE_SIZE];
 
-uint32_t flash_addr(uint32_t page) {
-    uint32_t addr = (uint32_t)(fake_flash + page * FLASH_PAGE_SIZE);
-    return addr;
+uint32_t flash_addr(uint32_t page)
+{
+	uint32_t addr = (uint32_t)(fake_flash + page * FLASH_PAGE_SIZE);
+	return addr;
 }
 
 void flash_erase_page(uint8_t page)
 {
-    memset((uint8_t*)fake_flash + page * FLASH_PAGE_SIZE, 0xff, FLASH_PAGE_SIZE);
+	memset((uint8_t *)fake_flash + page * FLASH_PAGE_SIZE, 0xff,
+	       FLASH_PAGE_SIZE);
 }
 
 void flash_write_dword(uint32_t addr, uint64_t data)
 {
-    memcpy((uint8_t*)addr, &data, sizeof(data));
+	memcpy((uint8_t *)addr, &data, sizeof(data));
 }
 
-void flash_write(uint32_t addr, uint8_t * data, size_t sz)
+void flash_write(uint32_t addr, uint8_t *data, size_t sz)
 {
-    memmove((uint8_t*)addr, data, sz);
+	memmove((uint8_t *)addr, data, sz);
 }
-

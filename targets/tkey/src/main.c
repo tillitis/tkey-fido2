@@ -4,20 +4,20 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "ctaphid.h"
-#include "log.h"
 #include "fifo.h"
+#include "log.h"
 #include APP_CONFIG
 
+#include "frame.h"
 #include "tkey/debug.h"
-#include "tkey/tk1_mem.h"
 #include "tkey/led.h"
 #include "tkey/proto.h"
 #include "tkey/syscall.h"
-#include "frame.h"
+#include "tkey/tk1_mem.h"
 
 #define HID_PACKET_SIZE 64
 
@@ -32,91 +32,92 @@ static volatile uint32_t *app_size      = (volatile uint32_t *) TK1_MMIO_TK1_APP
 
 int main()
 {
-    uint8_t hidmsg[HID_PACKET_SIZE];
-    uint8_t data[HID_PACKET_SIZE];
+	uint8_t hidmsg[HID_PACKET_SIZE];
+	uint8_t data[HID_PACKET_SIZE];
 
-    // Use Execution Monitor on RAM after app
-    *cpu_mon_first = *app_addr + *app_size;
-    *cpu_mon_last = TK1_RAM_BASE + TK1_RAM_SIZE;
-    *cpu_mon_ctrl = 1;
+	// Use Execution Monitor on RAM after app
+	*cpu_mon_first = *app_addr + *app_size;
+	*cpu_mon_last = TK1_RAM_BASE + TK1_RAM_SIZE;
+	*cpu_mon_ctrl = 1;
 
-    led_set(LED_BLUE);
+	led_set(LED_BLUE);
 
-    set_logging_mask(
-            // TAG_GEN |
-            // TAG_MC |
-            // TAG_GA |
-            // TAG_WALLET |
-            // TAG_STOR |
-            // TAG_CP |
-            // TAG_CTAP |
-            // TAG_HID |
-            // TAG_U2F |
-            // TAG_PARSE |
-            // TAG_TIME |
-            // TAG_DUMP |
-            // TAG_GREEN |
-            // TAG_RED |
-            // TAG_EXT |
-            // TAG_CCID |
-            // TAG_COUNT |
-            // TAG_ERR |
-            0
-    );
+	set_logging_mask(
+	    // TAG_GEN |
+	    // TAG_MC |
+	    // TAG_GA |
+	    // TAG_WALLET |
+	    // TAG_STOR |
+	    // TAG_CP |
+	    // TAG_CTAP |
+	    // TAG_HID |
+	    // TAG_U2F |
+	    // TAG_PARSE |
+	    // TAG_TIME |
+	    // TAG_DUMP |
+	    // TAG_GREEN |
+	    // TAG_RED |
+	    // TAG_EXT |
+	    // TAG_CCID |
+	    // TAG_COUNT |
+	    // TAG_ERR |
+	    0);
 
-    device_init();
+	device_init();
 
-    memset(hidmsg,0,sizeof(hidmsg));
+	memset(hidmsg, 0, sizeof(hidmsg));
 
-    while(1)
-    {
-        enum ioend ep;
-        uint8_t available;
+	while (1) {
+		enum ioend ep;
+		uint8_t available;
 
-        led_set(LED_BLUE);
+		led_set(LED_BLUE);
 
-        if (readselect(IO_CDC | IO_FIDO, &ep, &available) != 0) {
-            assert(1 == 2);
-        }
+		if (readselect(IO_CDC | IO_FIDO, &ep, &available) != 0) {
+			assert(1 == 2);
+		}
 
-        if (ep == IO_CDC) {
-            uint8_t b;
-            read(IO_CDC, &b, sizeof(b), 1);
-            struct reset rst = {0};
-            rst.type = b - '0' + START_DEFAULT;
-            sys_reset(&rst, 0);
-            printf2(TAG_ERR, "Device not reset\r\n");
-            while(1);
-        }
+		if (ep == IO_CDC) {
+			uint8_t b;
+			read(IO_CDC, &b, sizeof(b), 1);
+			struct reset rst = {0};
+			rst.type = b - '0' + START_DEFAULT;
+			sys_reset(&rst, 0);
+			printf2(TAG_ERR, "Device not reset\r\n");
+			while (1)
+				;
+		}
 
-        if (available != HID_PACKET_SIZE) {
-            // Discard data
-            printf2(TAG_ERR, "Got incomplete HID frame, discard\r\n");
-            read(IO_FIDO, data, sizeof(data), available);
-            continue;
-        }
+		if (available != HID_PACKET_SIZE) {
+			// Discard data
+			printf2(TAG_ERR,
+				"Got incomplete HID frame, discard\r\n");
+			read(IO_FIDO, data, sizeof(data), available);
+			continue;
+		}
 
-        if (read(IO_FIDO, data, sizeof(data), available) != HID_PACKET_SIZE) {
-            assert(1 == 2);
-        }
+		if (read(IO_FIDO, data, sizeof(data), available) !=
+		    HID_PACKET_SIZE) {
+			assert(1 == 2);
+		}
 
-        if (fifo_hidmsg_add(data) != 0) {
-            return -1;
-        }
+		if (fifo_hidmsg_add(data) != 0) {
+			return -1;
+		}
 
-        if (usbhid_recv(hidmsg) > 0) {
-            led_set(LED_GREEN | LED_RED);
-            ctaphid_handle_packet(hidmsg);
-            memset(hidmsg, 0, sizeof(hidmsg));
-        } else {
-        }
+		if (usbhid_recv(hidmsg) > 0) {
+			led_set(LED_GREEN | LED_RED);
+			ctaphid_handle_packet(hidmsg);
+			memset(hidmsg, 0, sizeof(hidmsg));
+		} else {
+		}
 
-        ctaphid_check_timeouts();
-    }
+		ctaphid_check_timeouts();
+	}
 
-    // Should never get here
-    usbhid_close();
-    printf1(TAG_GREEN, "done\n");
-    assert(1 == 2);
-    return 0;
+	// Should never get here
+	usbhid_close();
+	printf1(TAG_GREEN, "done\n");
+	assert(1 == 2);
+	return 0;
 }
