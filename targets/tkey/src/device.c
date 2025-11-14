@@ -398,8 +398,10 @@ int ctap_user_presence_test(uint32_t up_delay)
 
 int ctap_generate_rng(uint8_t *dst, size_t num)
 {
-	rng_get_bytes(dst, num);
-	return 1;
+	if (rng_get_bytes(dst, num)) {
+		return 0; // Error
+	}
+	return 1; // success
 }
 
 void ctap_reset_rk(void)

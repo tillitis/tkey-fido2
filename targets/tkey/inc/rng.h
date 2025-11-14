@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void rng_get_bytes(uint8_t *dst, size_t sz);
+void rng_init(void);
+int rng_get_bytes(uint8_t *dst, size_t sz);
 
 #endif
