@@ -47,7 +47,7 @@ void device_disable_up(bool disable)
 uint32_t millis(void)
 {
 	uint32_t timer_val = *timer;
-	if (timer_val == 0) {
+	if (timer_val <= 1) {
 		assert(1 == 2);
 	}
 	return TIMER_MAX - timer_val;
