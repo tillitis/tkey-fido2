@@ -65,7 +65,6 @@ TARGET_INCLUDES := \
                    -Icrypto/micro-ecc \
                    -Icrypto/sha256 \
                    -Icrypto/tiny-AES-c \
-                   -Icrypto/tweetnacl \
                    -Ifido2 \
                    -Ifido2/extensions \
                    -Itinycbor/src \
