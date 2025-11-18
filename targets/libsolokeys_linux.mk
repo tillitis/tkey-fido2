@@ -67,12 +67,10 @@ TARGET_CFLAGS := \
                  -Wno-unused-parameter
 
 # Target-specific CXXFLAGS
-TARGET_CXXFLAGS := 
+TARGET_CXXFLAGS :=
 
 # Target-specific LDFLAGS
-TARGET_LDFLAGS := \
-                  -Wl,--cref,-M \
-                  -Wl,--gc-sections
+TARGET_LDFLAGS :=
 
 # Target-specific OBJCOPY FLAGS
 TARGET_OBJCOPYFLAGS := \
