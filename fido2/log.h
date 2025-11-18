@@ -44,8 +44,8 @@ typedef enum {
 	TAG_DUMP2 = (1 << 16),
 	TAG_BOOT = (1 << 17),
 	TAG_EXT = (1 << 18),
-	TAG_NFC = (1 << 19),
-	TAG_NFC_APDU = (1 << 20),
+	TAG_NFC = (1 << 19),	  // Removed, can be reused
+	TAG_NFC_APDU = (1 << 20), // Removed, can be reused
 	TAG_CCID = (1 << 21),
 	TAG_CM = (1 << 22),
 	TAG_COUNT = (1 << 23),

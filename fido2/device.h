@@ -183,37 +183,6 @@ void ctap_overwrite_rk(int index, CTAP_residentKey *rk);
  */
 void device_wink();
 
-typedef enum {
-	DEVICE_LOW_POWER_IDLE = 0,
-	DEVICE_LOW_POWER_FAST = 1,
-	DEVICE_FAST = 2,
-} DEVICE_CLOCK_RATE;
-
-/**
- * Set the clock rate for the device.  This gets called only when the device is
-running in NFC mode.
- * Before Register and authenticate operations, the clock rate will be set to
-(1), and otherwise back to (0).
- * @param param
-    0: Lowest clock rate for NFC.
-    1: fastest clock rate supported at a low power setting for NFC FIDO.
-    2: fastest clock rate.  Generally for USB interface.
-* *Optional*, by default nothing happens.
-*/
-void device_set_clock_rate(DEVICE_CLOCK_RATE param);
-
-// Returns NFC_IS_NA, NFC_IS_ACTIVE, or NFC_IS_AVAILABLE
-#define NFC_IS_NA 0
-#define NFC_IS_ACTIVE 1
-#define NFC_IS_AVAILABLE 2
-
-/** Returns NFC status of the device.
- * @return 0 - NFC is not available.
- *         1 - NFC is active, and is powering the chip for a transaction.
- *         2 - NFC is available, but not currently being used.
- */
-int device_is_nfc();
-
 /** Return pointer to attestation key.
  * @return pointer to attestation private key, raw encoded.  For P256, this is
  * 32 bytes.

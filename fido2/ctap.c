@@ -364,18 +364,10 @@ static int ctap_generate_cose_key(CborEncoder *cose_key, uint8_t *hmac_input,
 	}
 	switch (algtype) {
 	case COSE_ALG_ES256:
-		if (device_is_nfc() == NFC_IS_ACTIVE)
-			device_set_clock_rate(DEVICE_LOW_POWER_FAST);
 		crypto_ecc256_derive_public_key(hmac_input, len, x, y);
-		if (device_is_nfc() == NFC_IS_ACTIVE)
-			device_set_clock_rate(DEVICE_LOW_POWER_IDLE);
 		break;
 	case COSE_ALG_EDDSA:
-		if (device_is_nfc() == NFC_IS_ACTIVE)
-			device_set_clock_rate(DEVICE_LOW_POWER_FAST);
 		fido2_crypto_ed25519_derive_public_key(hmac_input, len, x);
-		if (device_is_nfc() == NFC_IS_ACTIVE)
-			device_set_clock_rate(DEVICE_LOW_POWER_IDLE);
 		break;
 	default:
 		printf2(TAG_ERR, "Error, COSE alg %d not supported\n", algtype);
@@ -2194,12 +2186,8 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		ret = cbor_encode_int(&map, RESP_keyAgreement);
 		check_ret(ret);
 
-		if (device_is_nfc() == NFC_IS_ACTIVE)
-			device_set_clock_rate(DEVICE_LOW_POWER_FAST);
 		crypto_ecc256_compute_public_key(KEY_AGREEMENT_PRIV,
 						 KEY_AGREEMENT_PUB);
-		if (device_is_nfc() == NFC_IS_ACTIVE)
-			device_set_clock_rate(DEVICE_LOW_POWER_IDLE);
 
 		ret = ctap_add_cose_key(
 		    &map, KEY_AGREEMENT_PUB, KEY_AGREEMENT_PUB + 32,
@@ -2505,7 +2493,6 @@ void ctap_init()
 	}
 
 	ctap_reset_key_agreement();
-
 }
 
 uint8_t ctap_is_pin_set()

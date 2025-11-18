@@ -34,8 +34,6 @@ int main(int argc, char *argv[])
 	    // TAG_MC |
 	    // TAG_GA |
 	    TAG_STOR |
-	    // TAG_NFC_APDU |
-	    TAG_NFC |
 	    // TAG_CP |
 	    // TAG_CTAP|
 	    // TAG_HID|

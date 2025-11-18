@@ -164,11 +164,6 @@ void device_init()
 	ctap_init();
 }
 
-int device_is_nfc(void)
-{
-	return 0;
-}
-
 void usbhid_init(void)
 {
 }

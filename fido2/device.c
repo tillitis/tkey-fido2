@@ -161,18 +161,9 @@ __attribute__((weak)) int ctap_generate_rng(uint8_t *dst, size_t num)
 	}
 }
 
-__attribute__((weak)) int device_is_nfc()
-{
-	return 0;
-}
-
 __attribute__((weak)) void device_wink()
 {
 	printf1(TAG_GREEN, "*WINK*\n");
-}
-
-__attribute__((weak)) void device_set_clock_rate(DEVICE_CLOCK_RATE param)
-{ /**/
 }
 
 static AuthenticatorState _tmp_state = {0};

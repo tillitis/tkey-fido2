@@ -114,17 +114,6 @@ end:
 	dump_hex1(TAG_U2F, _u2f_resp->data, _u2f_resp->length);
 }
 
-void u2f_request_nfc(uint8_t *header, uint8_t *data, int datalen,
-		     CTAP_RESPONSE *resp)
-{
-	if (!header)
-		return;
-
-	device_disable_up(true); // disable presence test
-	u2f_request_ex((APDU_HEADER *)header, data, datalen, resp);
-	device_disable_up(false); // enable presence test
-}
-
 void u2f_request(struct u2f_request_apdu *req, CTAP_RESPONSE *resp)
 {
 	uint32_t len = ((req->LC3) | ((uint32_t)req->LC2 << 8) |
