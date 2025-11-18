@@ -8,6 +8,7 @@
 #define _CRYPTO_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 void crypto_sha256_init();
 void crypto_sha256_update(uint8_t *data, size_t len);
