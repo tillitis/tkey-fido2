@@ -37,22 +37,6 @@
 
 #include "monocypher-ed25519.h"
 
-typedef enum {
-	MBEDTLS_ECP_DP_NONE = 0,
-	MBEDTLS_ECP_DP_SECP192R1,  /*!< 192-bits NIST curve  */
-	MBEDTLS_ECP_DP_SECP224R1,  /*!< 224-bits NIST curve  */
-	MBEDTLS_ECP_DP_SECP256R1,  /*!< 256-bits NIST curve  */
-	MBEDTLS_ECP_DP_SECP384R1,  /*!< 384-bits NIST curve  */
-	MBEDTLS_ECP_DP_SECP521R1,  /*!< 521-bits NIST curve  */
-	MBEDTLS_ECP_DP_BP256R1,	   /*!< 256-bits Brainpool curve */
-	MBEDTLS_ECP_DP_BP384R1,	   /*!< 384-bits Brainpool curve */
-	MBEDTLS_ECP_DP_BP512R1,	   /*!< 512-bits Brainpool curve */
-	MBEDTLS_ECP_DP_CURVE25519, /*!< Curve25519               */
-	MBEDTLS_ECP_DP_SECP192K1,  /*!< 192-bits "Koblitz" curve */
-	MBEDTLS_ECP_DP_SECP224K1,  /*!< 224-bits "Koblitz" curve */
-	MBEDTLS_ECP_DP_SECP256K1,  /*!< 256-bits "Koblitz" curve */
-} mbedtls_ecp_group_id;
-
 static SHA256_CTX sha256_ctx;
 static cf_sha512_context sha512_ctx;
 static const struct uECC_Curve_t *_es256_curve = NULL;
@@ -209,48 +193,6 @@ void crypto_ecc256_load_key(uint8_t *data, int len, uint8_t *data2, int len2)
 	generate_private_key(data, len, data2, len2, privkey);
 	_signing_key = privkey;
 	_key_len = 32;
-}
-
-void crypto_ecdsa_sign(uint8_t *data, int len, uint8_t *sig, int MBEDTLS_ECP_ID)
-{
-
-	const struct uECC_Curve_t *curve = NULL;
-
-	switch (MBEDTLS_ECP_ID) {
-	case MBEDTLS_ECP_DP_SECP192R1:
-		curve = uECC_secp192r1();
-		if (_key_len != 24)
-			goto fail;
-		break;
-	case MBEDTLS_ECP_DP_SECP224R1:
-		curve = uECC_secp224r1();
-		if (_key_len != 28)
-			goto fail;
-		break;
-	case MBEDTLS_ECP_DP_SECP256R1:
-		curve = uECC_secp256r1();
-		if (_key_len != 32)
-			goto fail;
-		break;
-	case MBEDTLS_ECP_DP_SECP256K1:
-		curve = uECC_secp256k1();
-		if (_key_len != 32)
-			goto fail;
-		break;
-	default:
-		printf2(TAG_ERR, "error, invalid ECDSA alg specifier\n");
-		exit(1);
-	}
-
-	if (uECC_sign(_signing_key, data, len, sig, curve) == 0) {
-		printf2(TAG_ERR, "error, uECC failed\n");
-		exit(1);
-	}
-	return;
-
-fail:
-	printf2(TAG_ERR, "error, invalid key length\n");
-	exit(1);
 }
 
 void generate_private_key(uint8_t *data, int len, uint8_t *data2, int len2,
