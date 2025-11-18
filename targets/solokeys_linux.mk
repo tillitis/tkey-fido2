@@ -38,12 +38,18 @@ TARGET_CFLAGS := \
                  -Wno-unused-parameter
 
 # Target-specific CXXFLAGS
-TARGET_CXXFLAGS := 
+TARGET_CXXFLAGS :=
 
 # Target-specific LDFLAGS
-TARGET_LDFLAGS := \
-                  -Wl,--cref,-M \
-                  -Wl,--gc-sections
+ifeq ($(shell uname),Darwin)
+    TARGET_LDFLAGS := \
+                    -Wl,-map,$(BINDIR)/solokeys_linux/solokeys_linux.map \
+                    -Wl,-dead_strip
+else
+    TARGET_LDFLAGS := \
+                    -Wl,--cref,-M \
+                    -Wl,--gc-sections
+endif
 
 # Target-specific OBJCOPY FLAGS
 TARGET_OBJCOPYFLAGS := \
