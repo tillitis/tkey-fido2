@@ -2506,9 +2506,6 @@ void ctap_init()
 
 	ctap_reset_key_agreement();
 
-#ifdef BRIDGE_TO_WALLET
-	wallet_init();
-#endif
 }
 
 uint8_t ctap_is_pin_set()

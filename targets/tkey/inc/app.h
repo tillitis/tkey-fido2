@@ -17,7 +17,6 @@
 #endif
 
 // #define ENABLE_U2F_EXTENSIONS
-// #define ENABLE_WALLET
 
 #define ENABLE_U2F
 

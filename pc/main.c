@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	    // TAG_GEN|
 	    // TAG_MC |
 	    // TAG_GA |
-	    TAG_WALLET | TAG_STOR |
+	    TAG_STOR |
 	    // TAG_NFC_APDU |
 	    TAG_NFC |
 	    // TAG_CP |

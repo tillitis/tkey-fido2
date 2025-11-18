@@ -46,7 +46,6 @@ int main()
 	    // TAG_GEN |
 	    // TAG_MC |
 	    // TAG_GA |
-	    // TAG_WALLET |
 	    // TAG_STOR |
 	    // TAG_CP |
 	    // TAG_CTAP |

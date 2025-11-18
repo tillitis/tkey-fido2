@@ -39,7 +39,7 @@ typedef enum {
 	TAG_TIME = (1 << 11),
 	TAG_HID = (1 << 12),
 	TAG_USB = (1 << 13),
-	TAG_WALLET = (1 << 14),
+	TAG_WALLET = (1 << 14), // Wallet is removed, can be reused
 	TAG_STOR = (1 << 15),
 	TAG_DUMP2 = (1 << 16),
 	TAG_BOOT = (1 << 17),
