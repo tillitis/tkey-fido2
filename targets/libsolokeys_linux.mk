@@ -19,6 +19,8 @@ TARGET_SRCS := \
                crypto/micro-ecc/uECC.c                            \
                crypto/sha256/sha256.c                             \
                crypto/tiny-AES-c/aes.c                            \
+               crypto/monocypher/monocypher-ed25519.c             \
+               crypto/monocypher/monocypher.c                     \
                fido2/apdu.c                                       \
                fido2/crypto.c                                     \
                fido2/ctap.c                                       \
@@ -103,6 +105,7 @@ TARGET_INCLUDES := \
                    -Ifido2 \
                    -Ifido2/extensions \
                    -Itinycbor/src \
+                   -Icrypto/monocypher \
                    -Ipc
 
 # Target-specific EXTERNAL LIBRARIES to be included
