@@ -1,6 +1,6 @@
-
 {
   "aaguid": "8876631b-d4a0-427f-5773-0ec71c9e0279",
+  "friendlyNames": {"en-US": "TKEY FIDO2 Security Key"},
   "description": "TKey FIDO2 CTAP2 Authenticator",
   "authenticatorVersion": 5,
   "protocolFamily": "fido2",
