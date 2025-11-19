@@ -648,41 +648,18 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 {
 	ctap_response_init(ctap_resp);
 
-#if !defined(IS_BOOTLOADER) && (defined(SOLO_EXPERIMENTAL))
+#if (defined(SOLO_EXPERIMENTAL))
 	uint32_t param;
-#endif
-#if defined(IS_BOOTLOADER)
-	uint8_t is_busy;
 #endif
 
 	switch (wb->cmd) {
-#if defined(IS_BOOTLOADER)
-	case CTAPHID_BOOT:
-		printf1(TAG_HID, "CTAPHID_BOOT\n");
-		u2f_set_writeback_buffer(ctap_resp);
-		is_busy = bootloader_bridge(len, ctap_buffer);
-		wb->bcnt = 1 + ctap_resp->length;
 
-		ctaphid_write(wb, &is_busy, 1);
-		ctaphid_write(wb, ctap_resp->data, ctap_resp->length);
-		ctaphid_write(wb, NULL, 0);
-		return 1;
-#endif
-#if defined(SOLO)
-	case CTAPHID_ENTERBOOT:
-		printf1(TAG_HID, "CTAPHID_ENTERBOOT\n");
-		boot_solo_bootloader();
-		wb->bcnt = 0;
-		ctaphid_write(wb, NULL, 0);
-		return 1;
-#endif
 #if defined(SOLO)
 	case CTAPHID_REBOOT:
 		device_reboot();
 		return 1;
 #endif
 
-#if !defined(IS_BOOTLOADER)
 	case CTAPHID_GETRNG:
 		printf1(TAG_HID, "CTAPHID_GETRNG\n");
 		wb->bcnt = ctap_buffer[0];
@@ -694,7 +671,6 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 		ctaphid_write(wb, NULL, 0);
 		return 1;
 		break;
-#endif
 
 	case CTAPHID_GETVERSION:
 		printf1(TAG_HID, "CTAPHID_GETVERSION\n");
@@ -713,7 +689,7 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 		break;
 
 		// Remove on next release
-#if !defined(IS_BOOTLOADER) && defined(SOLO)
+#if defined(SOLO)
 	case 0x99:
 		solo_lock_if_not_already();
 		wb->bcnt = 0;
@@ -722,7 +698,7 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 		break;
 #endif
 
-#if !defined(IS_BOOTLOADER) && (defined(SOLO_EXPERIMENTAL))
+#if (defined(SOLO_EXPERIMENTAL))
 	case CTAPHID_LOADKEY:
 		/**
 		 * Load external key.  Useful for enabling backups.

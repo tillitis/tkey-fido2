@@ -63,12 +63,9 @@ int16_t bridge_u2f_to_extensions(uint8_t *_chal, uint8_t *_appid, uint8_t klen,
 	u2f_response_writeback(&up, 1);
 	u2f_response_writeback((uint8_t *)&count, 4);
 	u2f_response_writeback((uint8_t *)&ret, 1);
-#ifdef IS_BOOTLOADER
-	ret = bootloader_bridge(klen, keyh);
-#else
+
 	// ret = bridge_u2f_to_solo(sig, keyh, klen);
 	u2f_response_writeback(sig, 72);
-#endif
 
 	if (ret != 0) {
 		u2f_reset_response();

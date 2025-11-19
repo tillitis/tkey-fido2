@@ -9,8 +9,6 @@ void usbhid_init();
 void usbhid_close();
 int usbhid_recv(uint8_t *msg);
 
-void boot_solo_bootloader();
-
 void delay(uint32_t ms);
 
 #endif

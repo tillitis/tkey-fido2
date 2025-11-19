@@ -475,12 +475,6 @@ void ctap_overwrite_rk(int index, CTAP_residentKey *rk)
 	printf1(TAG_GREEN, "4\r\n");
 }
 
-void boot_solo_bootloader(void)
-{
-	printf1(TAG_ERR, "Bootloader not implemented\n");
-	assert(1 == 2);
-}
-
 void device_read_aaguid(uint8_t *dst)
 {
 	uint8_t *aaguid = (uint8_t *)"\x88\x76\x63\x1b\xd4\xa0\x42\x7f\x57\x73"
