@@ -23,7 +23,6 @@
 #include APP_CONFIG
 #include "extensions.h"
 
-#include "data_migration.h"
 #include "device.h"
 
 uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];
@@ -2473,8 +2472,6 @@ void ctap_init()
 		ctap_state_init();
 		authenticator_write_state(&STATE);
 	}
-
-	do_migration_if_required(&STATE);
 
 	crypto_load_master_secret(STATE.key_space);
 

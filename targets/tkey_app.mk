@@ -28,7 +28,6 @@ TARGET_SRCS := \
                fido2/ctap.c                                       \
                fido2/ctaphid.c                                    \
                fido2/ctap_parse.c                                 \
-               fido2/data_migration.c                             \
                fido2/extensions/extensions.c                      \
                fido2/log.c                                        \
                fido2/stubs.c                                      \
