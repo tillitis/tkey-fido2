@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -429,23 +430,6 @@ static void ctap_decrement_rk_store()
 static int ctap_rk_is_valid(CTAP_residentKey *rk)
 {
 	return (rk->id.count > 0 && rk->id.count != 0xffffffff);
-}
-
-static int load_nth_valid_rk(int n, CTAP_residentKey *rk)
-{
-
-	int valid_count = 0;
-	unsigned int i;
-	for (i = 0; i < ctap_rk_size(); i++) {
-		ctap_load_rk(i, rk);
-		if (ctap_rk_is_valid(rk)) {
-			if (valid_count == n) {
-				return i;
-			}
-			valid_count++;
-		}
-	}
-	return -1;
 }
 
 static int is_matching_rk(CTAP_residentKey *rk, CTAP_residentKey *rk2)
@@ -1214,10 +1198,20 @@ static int cred_cmp_func(const void *_a, const void *_b)
 static int add_existing_user_info(CTAP_credentialDescriptor *cred)
 {
 	CTAP_residentKey rk;
-	int index = STATE.rk_stored;
-	int i;
-	for (i = 0; i < index; i++) {
-		load_nth_valid_rk(i, &rk);
+	int valid_rk_left = STATE.rk_stored;
+	size_t n = ctap_rk_size();
+
+	for (uint16_t i = 0; i < n; i++) {
+
+		if (valid_rk_left <= 0) {
+			break;
+		}
+
+		ctap_load_rk(i, &rk);
+		if (!ctap_rk_is_valid(&rk)) {
+			continue;
+		}
+
 		if (is_cred_id_matching_rk(&cred->credential.id, &rk)) {
 			printf1(TAG_GREEN,
 				"found rk match for allowList item (%d)\r\n",
@@ -1226,6 +1220,7 @@ static int add_existing_user_info(CTAP_credentialDescriptor *cred)
 				sizeof(CTAP_userEntity));
 			return 1;
 		}
+		valid_rk_left--;
 	}
 	printf1(TAG_GREEN, "NO rk match for allowList item \r\n");
 	return 0;
