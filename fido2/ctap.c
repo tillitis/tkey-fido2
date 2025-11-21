@@ -4,6 +4,7 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -631,6 +632,48 @@ static int ctap2_user_presence_test()
 	}
 }
 
+// Returns:
+//   >= 0, slot index of duplicate or first empty slot
+//   -1,  no space available
+static int find_duplicate_or_empty_slot(const CTAP_residentKey *rk,
+					int rk_stored, int *is_duplicate)
+{
+	CTAP_residentKey rk2;
+	int empty_slot = -1;
+	int valid_rk_left = rk_stored;
+	size_t n = ctap_rk_size();
+
+	*is_duplicate = 0;
+
+	for (size_t i = 0; i < n; i++) {
+
+		ctap_load_rk(i, &rk2);
+
+		if (ctap_rk_is_valid(&rk2)) {
+			valid_rk_left--;
+
+			// Duplicate found
+			if (is_matching_rk(rk, &rk2)) {
+				*is_duplicate = 1;
+				return i;
+			}
+
+		} else {
+			// First empty slot
+			if (empty_slot < 0) {
+				empty_slot = i;
+			}
+		}
+
+		if (valid_rk_left <= 0 && empty_slot >= 0) {
+			break;
+		}
+	}
+
+	// Return empty slot if available, may be -1
+	return empty_slot;
+}
+
 static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 			       uint8_t *auth_data_buf, uint32_t *len,
 			       CTAP_credInfo *credInfo,
@@ -640,14 +683,13 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 
 	unsigned int auth_data_sz = sizeof(CTAP_authDataHeader);
 	uint32_t count;
-	CTAP_residentKey rk, rk2;
+	CTAP_residentKey rk;
 	CTAP_authData *authData = (CTAP_authData *)auth_data_buf;
 
 	uint8_t *cose_key_buf = auth_data_buf + sizeof(CTAP_authData);
 
 	// memset(&cose_key, 0, sizeof(CTAP_residentKey));
 	memset(&rk, 0, sizeof(CTAP_residentKey));
-	memset(&rk2, 0, sizeof(CTAP_residentKey));
 
 	if ((sizeof(CTAP_authDataHeader)) > *len) {
 		printf1(
@@ -728,31 +770,25 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 			memmove(rk.rpId, rp->id, rp_id_size);
 			rk.rpIdSize = rp_id_size;
 
-			unsigned int index = STATE.rk_stored;
-			unsigned int i;
-			for (i = 0; i < index; i++) {
-				int raw_i = load_nth_valid_rk(i, &rk2);
-				if (is_matching_rk(&rk, &rk2)) {
-					ctap_overwrite_rk(raw_i, &rk);
-					goto done_rk;
-				}
-			}
-			for (i = 0; i < ctap_rk_size(); i++) {
-				ctap_load_rk(i, &rk2);
-				if (!ctap_rk_is_valid(&rk2)) {
-					ctap_increment_rk_store();
-					ctap_store_rk(i, &rk);
-					printf1(TAG_GREEN, "Created rk %d:", i);
-					dump_hex1(TAG_GREEN, rk.id.rpIdHash,
-						  32);
-					goto done_rk;
-				}
+			// Find duplicate resident keys, if no match store at
+			// first empty slot
+			int is_dup;
+			int slot = find_duplicate_or_empty_slot(
+			    &rk, STATE.rk_stored, &is_dup);
+
+			if (slot < 0) {
+				printf2(TAG_ERR,
+					"Out of memory for resident keys\r\n");
+				return CTAP2_ERR_KEY_STORE_FULL;
 			}
 
-			printf2(TAG_ERR, "Out of memory for resident keys\r\n");
-			return CTAP2_ERR_KEY_STORE_FULL;
+			if (is_dup) {
+				ctap_overwrite_rk(slot, &rk);
+			} else {
+				ctap_increment_rk_store();
+				ctap_store_rk(slot, &rk);
+			}
 		}
-	done_rk:
 
 		printf1(TAG_GREEN, "MADE credId: ");
 		dump_hex1(TAG_GREEN, (uint8_t *)&authData->attest.id,
