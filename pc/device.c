@@ -230,7 +230,7 @@ void device_init(int argc, char *argv[])
 
 	ctaphid_init();
 
-	ctap_init(1);
+	ctap_init();
 }
 
 void delay(uint32_t ms)
@@ -243,7 +243,6 @@ void delay(uint32_t ms)
 
 int ctap_generate_rng(uint8_t *dst, size_t num)
 {
-	int ret;
 	FILE *urand = fopen("/dev/urandom", "r");
 	if (urand == NULL) {
 		perror("fopen");
