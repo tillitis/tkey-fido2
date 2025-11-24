@@ -1290,11 +1290,21 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 
 		printf1(TAG_GREEN, "true rpIdHash: ");
 		dump_hex1(TAG_GREEN, rpIdHash, 32);
+
+		int valid_rk_left = STATE.rk_stored;
+
 		for (i = 0; i < ctap_rk_size(); i++) {
+
+			if (valid_rk_left <= 0) {
+				break;
+			}
+
 			ctap_load_rk(i, &rk);
 			if (!ctap_rk_is_valid(&rk)) {
 				continue;
 			}
+
+			valid_rk_left--;
 
 			printf1(TAG_GREEN, "rpIdHash%d: ", i);
 			dump_hex1(TAG_GREEN, rk.id.rpIdHash, 32);
