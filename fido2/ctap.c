@@ -432,7 +432,8 @@ static int ctap_rk_is_valid(CTAP_residentKey *rk)
 	return (rk->id.count > 0 && rk->id.count != 0xffffffff);
 }
 
-static int is_matching_rk(CTAP_residentKey *rk, CTAP_residentKey *rk2)
+static int is_matching_rk(const CTAP_residentKey *rk,
+			  const CTAP_residentKey *rk2)
 {
 	return (memcmp(rk->id.rpIdHash, rk2->id.rpIdHash, 32) == 0) &&
 	       (memcmp(rk->user.id, rk2->user.id, rk->user.id_size) == 0) &&
