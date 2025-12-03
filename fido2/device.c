@@ -230,7 +230,7 @@ __attribute__((weak)) void ctap_overwrite_rk(int index, CTAP_residentKey *rk)
 
 __attribute__((weak)) void device_read_aaguid(uint8_t *dst)
 {
-	uint8_t *aaguid = (uint8_t *)"\x00\x76\x63\x1b\xd4\xa0\x42\x7f\x57\x73"
-				     "\x0e\xc7\x1c\x9e\x02\x79";
+	uint8_t *aaguid = (uint8_t *)"\xdb\xe4\x2d\x66\x22\xbe\x46\x24\x88\x11"
+				     "\x97\x2a\x8e\x65\x36\x7e";
 	memmove(dst, aaguid, 16);
 }
