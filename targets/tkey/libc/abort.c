@@ -1,4 +1,5 @@
-// Copyright 2024 Tillitis AB
+// SPDX-FileCopyrightText: 2024 Tillitis AB <tillitis.se>
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "tkey/assert.h"
 #include <stdlib.h>

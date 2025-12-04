@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2025 Tillitis AB <tillitis.se>
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = [
+     "src/*",
+     "tools/cbordump/cbordump.c",
+]
+SPDX-FileCopyrightText = "2017 Intel Corporation"
+SPDX-License-Identifier = "MIT"

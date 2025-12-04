@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2025 Tillitis AB <tillitis.se>
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = [
+     "libc/include/*",
+     "libc/search/*",
+     "libc/string/*",
+]
+SPDX-FileCopyrightText = "See COPYING.NEWLIB"
+SPDX-License-Identifier = "LicenseRef-COPYING-NEWLIB"

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2019 SoloKeys Developers
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #include "version.h"
 #include "app.h"
 

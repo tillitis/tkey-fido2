@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2025 Tillitis AB <tillitis.se>
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = [
+     "*",
+]
+SPDX-FileCopyrightText = "2014 Kenneth MacKay"
+SPDX-License-Identifier = "BSD-2-Clause"

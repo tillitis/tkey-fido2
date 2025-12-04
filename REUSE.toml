@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2024 Tillitis AB <tillitis.se>
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = ".github/workflows/*"
+SPDX-FileCopyrightText = "2025 Tillitis AB <tillitis.se>"
+SPDX-License-Identifier = "BSD-2-Clause"
+
+[[annotations]]
+path = [
+     ".clang-format",
+     ".editorconfig",
+     ".git-blame-ignore-revs",
+     ".gitignore",
+     "Makefile",
+     "README.md",
+     "build-tkey.sh",
+     "crypto/monocypher/README.md",
+     "crypto/tiny-AES-c/README.md",
+     "metadata/*",
+     "targets/libsolokeys_linux.mk",
+     "targets/libtinycbor_linux.mk",
+     "targets/solokeys_linux.mk",
+     "targets/tkey_app.mk",
+     "targets/tkey_uecc.mk",
+     "targets/tkey/libc/newlib/README.md",
+     "tinycbor/README.md",
+]
+SPDX-FileCopyrightText = "2025 Tillitis AB <tillitis.se>"
+SPDX-License-Identifier = "BSD-2-Clause"

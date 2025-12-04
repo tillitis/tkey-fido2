@@ -39,8 +39,23 @@ https://github.com/tillitis/tillitis-key1
 
 ## Licenses
 
-This project is licensed under the terms and conditions of the "Apache-2.0" or
-the "MIT" license. See [LICENSE-APACHE](LICENSE-APACHE) and
-[LICENSE-MIT](LICENSE-MIT) for the full license texts.
+This project is licensed under the terms and conditions of the
+"Apache-2.0" or the "MIT" license. See
+[LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT) for
+the full license texts.
 
-Imported libraries are isolated in their own directories. They may be released
+Imported libraries are isolated in their own directories. They may be
+released under other licenses. See each library for specific license
+information.
+
+The project uses single-line references to Unique License Identifiers
+as defined by the Linux Foundation's [SPDX project](https://spdx.org/)
+on its own source files, but not necessarily imported files. The line
+in each individual source file identifies the license applicable to
+that file.
+
+The current set of valid, predefined SPDX identifiers can be found on
+the SPDX License List at: https://spdx.org/licenses/
+
+We attempt to follow the [REUSE
+specification](https://reuse.software/).

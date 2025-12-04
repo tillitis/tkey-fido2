@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2025 Tillitis AB <tillitis.se>
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = [
+     "aes.c",
+     "aes.h",
+]
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "LicenseRef-Unlicense"
