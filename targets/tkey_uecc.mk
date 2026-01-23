@@ -5,8 +5,8 @@ TARGET := tkey_uecc.a
 
 # Programs to use for the target
 TARGET_AR      := llvm-ar
-TARGET_AS      := clang -x assembler-with-cpp
-TARGET_CC      := clang
+TARGET_AS      := $(CC) -x assembler-with-cpp
+TARGET_CC      := $(CC)
 TARGET_CXX     :=
 TARGET_LD      := lld
 TARGET_OBJCOPY := llvm-objcopy # Set if a binary file should be created
@@ -149,4 +149,3 @@ $(TARGET)_LINKER_SCRIPT  := $(addprefix -T,$(TARGET_LINKER_SCRIPT))
 $(TARGET)_PREBUILD_CMD   := $(TARGET_PREBUILD_CMD)
 $(TARGET)_POSTBUILD_CMD  := $(TARGET_POSTBUILD_CMD)
 $(TARGET)_NEEDS_TARGETS  := $(TARGET_NEEDS_TARGETS)
-

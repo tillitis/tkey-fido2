@@ -1,5 +1,7 @@
 # Main Makefile
 
+CC = clang
+
 # Directories for object files and binaries
 OBJDIR := _obj
 BINDIR := _bin
