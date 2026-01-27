@@ -1139,13 +1139,17 @@ uint8_t ctap_add_user_entity(CborEncoder *map, CTAP_userEntity *user,
 			     int is_verified)
 {
 	CborEncoder entity;
-	int dispname = (user->name[0] != 0) && is_verified;
 	int ret;
+
+    /* Always include id */
 	int map_size = 1;
 
+	int dispname = (user->name[0] != 0) && is_verified;
+
 	if (dispname) {
-		map_size = strlen((const char *)user->icon) > 0 ? 4 : 3;
+        map_size += 2; /* name + displayName */
 	}
+
 	ret = cbor_encoder_create_map(map, &entity, map_size);
 	check_ret(ret);
 
@@ -1156,13 +1160,6 @@ uint8_t ctap_add_user_entity(CborEncoder *map, CTAP_userEntity *user,
 	check_ret(ret);
 
 	if (dispname) {
-		if (strlen((const char *)user->icon) > 0) {
-			ret = cbor_encode_text_string(&entity, "icon", 4);
-			check_ret(ret);
-			ret = cbor_encode_text_stringz(
-			    &entity, (const char *)user->icon);
-			check_ret(ret);
-		}
 
 		ret = cbor_encode_text_string(&entity, "name", 4);
 		check_ret(ret);

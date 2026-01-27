@@ -163,19 +163,15 @@ uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
 			MC->credInfo.user.displayName[DISPLAY_NAME_LIMIT - 1] =
 			    0;
 		} else if (strcmp((const char *)key, "icon") == 0) {
+			// Icon is deprecated, don't store it.
+			// Still need to parse it and return error if it is
+			// malformed.
+
 			if (cbor_value_get_type(&map) != CborTextStringType) {
 				printf2(TAG_ERR, "Error, expecting text string "
 						 "type for user.icon value\n");
 				return CTAP2_ERR_INVALID_CBOR_TYPE;
 			}
-			sz = ICON_LIMIT;
-			ret = cbor_value_copy_text_string(
-			    &map, (char *)MC->credInfo.user.icon, &sz, NULL);
-			if (ret != CborErrorOutOfMemory) { // Just truncate the
-							   // name it's okay
-				check_ret(ret);
-			}
-			MC->credInfo.user.icon[ICON_LIMIT - 1] = 0;
 
 		} else {
 			printf1(TAG_PARSE, "ignoring key %s for user map\n",
