@@ -7,6 +7,8 @@
 #include "flash.h"
 #include <stdint.h>
 
+#ifdef USE_OLD_STORAGE_TYPE
+
 #define FLASH_BASE_ADDRESS 0
 #define PAGE_SIZE 4096
 #define PAGES (128 * 1024 / PAGE_SIZE) // 32 pages, numbered 0-31
@@ -33,6 +35,8 @@
 #include <assert.h>
 
 #define ATTESTATION_CONFIGURED_TAG 0xaa551e79
+
+#endif
 
 struct flash_attestation_page {
 	uint8_t attestation_key[32];

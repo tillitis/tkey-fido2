@@ -12,6 +12,8 @@
 #include "rng.h"
 #include "timer.h"
 
+#include "lfs.h"
+
 // clang-format off
 static volatile uint32_t *timer =           (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
 static volatile uint32_t *timer_prescaler = (volatile uint32_t *)TK1_MMIO_TIMER_PRESCALER;
@@ -28,6 +30,21 @@ void hw_init()
 	if (flash_init() != 0) {
 		assert(1 == 2);
 	}
+
+#ifndef USE_OLD_STORAGE_TYPE
+	extern lfs_t lfs;
+	extern const struct lfs_config cfg;
+
+	// Mount the filesystem
+	int err = lfs_mount(&lfs, &cfg);
+
+	// Reformat if we can't mount the filesystem,
+	// this should only happen on the first boot
+	if (err) {
+		lfs_format(&lfs, &cfg);
+		lfs_mount(&lfs, &cfg);
+	}
+#endif
 }
 
 void init_millisecond_timer()

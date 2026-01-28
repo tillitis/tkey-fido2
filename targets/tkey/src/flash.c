@@ -11,6 +11,8 @@
 #include "flash.h"
 #include "log.h"
 
+#ifdef USE_OLD_STORAGE_TYPE
+
 #define WRITE_SIZE 256
 
 const uint32_t WRITE_ALIGN_MASK = (~(WRITE_SIZE - 1));
@@ -78,6 +80,8 @@ void flash_read(uint32_t addr, uint8_t *dst, size_t sz)
 		    addr, sz, ret);
 	}
 }
+
+#endif
 
 int flash_init()
 {

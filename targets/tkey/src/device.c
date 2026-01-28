@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "device.h"
 
@@ -25,6 +26,9 @@
 #include "tkey/led.h"
 #include "tkey/tk1_mem.h"
 
+#include "lfs.h"
+#include "printf-emb.h"
+
 // clang-format off
 static volatile uint32_t *timer = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
 static volatile uint32_t *touch = (volatile uint32_t *)TK1_MMIO_TOUCH_STATUS;
@@ -40,6 +44,33 @@ static bool _up_disabled = false;
 void device_disable_up(bool disable)
 {
 	_up_disabled = disable;
+}
+
+char* itoa(int value, char *str) {
+	char *p = str;
+	int sign = value;
+
+	if (value < 0)
+		value = -value;
+
+	do {
+		*p++ = (char) ('0' + (value % 10));
+		value /= 10;
+	} while (value);
+
+	if (sign < 0)
+		*p++ = '-';
+
+	*p = '\0';
+
+	/* reverse string */
+	for (char *q = str, *r = p - 1; q < r; q++, r--) {
+		char tmp = *q;
+		*q = *r;
+		*r = tmp;
+	}
+
+	return str;
 }
 
 uint32_t millis(void)
@@ -93,10 +124,23 @@ void solo_lock_if_not_already()
 	memmove(buf, (uint8_t *)ATTESTATION_PAGE_ADDR, 2048);
 
 	((flash_attestation_page *)buf)->device_settings |= SOLO_FLAG_LOCKED;
-
+#ifdef USE_OLD_STORAGE_TYPE
 	flash_erase_page(ATTESTATION_PAGE);
 
 	flash_write(ATTESTATION_PAGE_ADDR, buf, 2048);
+#else
+	extern lfs_t lfs;
+	extern lfs_file_t file;
+	extern struct lfs_file_config config;
+	extern uint8_t g_file_buf[];
+
+	memset(&config, 0, sizeof(config));
+	config.buffer = g_file_buf;
+
+	lfs_file_opencfg(&lfs, &file, "attestation", LFS_O_RDWR | LFS_O_CREAT, &config);
+	lfs_file_write(&lfs, &file, buf, 2048);
+	lfs_file_close(&lfs, &file);
+#endif
 }
 #endif
 
@@ -118,9 +162,22 @@ static void device_migrate()
 	extern uint8_t attestation_hacker_cert_der[];
 
 	flash_attestation_page attestation;
+#ifdef USE_OLD_STORAGE_TYPE
 	flash_read(ATTESTATION_PAGE_ADDR, (uint8_t *)&attestation,
 		   sizeof(attestation));
+#else
+	extern lfs_t lfs;
 
+	extern lfs_file_t file;
+	extern struct lfs_file_config config;
+	extern uint8_t g_file_buf[];
+
+	memset(&config, 0, sizeof(config));
+	config.buffer = g_file_buf;
+
+	lfs_file_opencfg(&lfs, &file, "attestation", LFS_O_RDWR | LFS_O_CREAT, &config);
+	lfs_file_read(&lfs, &file, attestation, sizeof(attestation));
+#endif
 	uint64_t device_settings = attestation.device_settings;
 	uint32_t configure_tag = (uint32_t)(device_settings >> 32);
 
@@ -136,6 +193,7 @@ static void device_migrate()
 		memmove(tmp_attestation_key, attestation.attestation_key, 32);
 		memset(&attestation, 0xff, sizeof(attestation));
 		memmove(&attestation.attestation_key, tmp_attestation_key, 32);
+#ifdef USE_OLD_STORAGE_TYPE
 		flash_erase_page(ATTESTATION_PAGE);
 
 		// Check if this is Solo Hacker attestation (not confidential)
@@ -144,6 +202,7 @@ static void device_migrate()
 		    "\x1b\x26\x26\xec\xc8\xf6\x9b\x0f\x69\xe3\x4f"
 		    "\xb2\x36\xd7\x64\x66\xba\x12\xac\x16\xc3\xab"
 		    "\x57\x50\xba\x06\x4e\x8b\x90\xe0\x24\x48";
+#endif
 
 		memmove(&attestation.attestation_cert_size,
 			&attestation_solo_cert_der_size, 8);
@@ -152,9 +211,14 @@ static void device_migrate()
 			attestation_solo_cert_der_size);
 		memmove(&attestation.device_settings, &device_settings,
 			sizeof(device_settings));
-
+#ifdef USE_OLD_STORAGE_TYPE
 		flash_write(ATTESTATION_PAGE_ADDR, (uint8_t *)&attestation,
 			    sizeof(attestation));
+#else
+		lfs_file_rewind(&lfs, &file);
+		lfs_file_write(&lfs, &file, attestation, sizeof(attestation));
+		lfs_file_close(&lfs, &file);
+#endif
 	}
 }
 #endif
@@ -208,6 +272,7 @@ void device_wink(void)
 	}
 }
 
+#ifdef USE_OLD_STORAGE_TYPE
 static int authenticator_is_backup_initialized(void)
 {
 	uint8_t header[16];
@@ -215,14 +280,36 @@ static int authenticator_is_backup_initialized(void)
 	AuthenticatorState *state = (AuthenticatorState *)header;
 	return state->is_initialized == INITIALIZED_MARKER;
 }
+#endif
 
 int authenticator_read_state(AuthenticatorState *a)
 {
+#ifdef USE_OLD_STORAGE_TYPE
 	flash_read(flash_addr(STATE1_PAGE), (uint8_t *)a,
 		   sizeof(AuthenticatorState));
+#else
+	extern lfs_t lfs;
+
+	extern lfs_file_t file;
+	extern struct lfs_file_config config;
+	extern uint8_t g_file_buf[];
+
+	int ret;
+
+	memset(&config, 0, sizeof(config));
+	config.buffer = g_file_buf;
+
+	ret = lfs_file_opencfg(&lfs, &file, "state", LFS_O_RDONLY, &config);
+	if(ret < 0) {
+		return 0;
+	}
+
+	lfs_file_read(&lfs, &file, a, sizeof(AuthenticatorState));
+	lfs_file_close(&lfs, &file);
+#endif
 
 	if (a->is_initialized != INITIALIZED_MARKER) {
-
+#ifdef USE_OLD_STORAGE_TYPE
 		if (authenticator_is_backup_initialized()) {
 			printf1(TAG_ERR, "Warning: memory corruption detected. "
 					 " restoring from backup..\n");
@@ -231,7 +318,7 @@ int authenticator_read_state(AuthenticatorState *a)
 			authenticator_write_state(a);
 			return 1;
 		}
-
+#endif
 		return 0;
 	}
 
@@ -240,6 +327,7 @@ int authenticator_read_state(AuthenticatorState *a)
 
 void authenticator_write_state(AuthenticatorState *a)
 {
+#ifdef USE_OLD_STORAGE_TYPE
 	flash_erase_page(STATE1_PAGE);
 	flash_write(flash_addr(STATE1_PAGE), (uint8_t *)a,
 		    sizeof(AuthenticatorState));
@@ -247,10 +335,25 @@ void authenticator_write_state(AuthenticatorState *a)
 	flash_erase_page(STATE2_PAGE);
 	flash_write(flash_addr(STATE2_PAGE), (uint8_t *)a,
 		    sizeof(AuthenticatorState));
+#else
+	extern lfs_t lfs;
+
+	extern lfs_file_t file;
+	extern struct lfs_file_config config;
+	extern uint8_t g_file_buf[];
+
+	memset(&config, 0, sizeof(config));
+	config.buffer = g_file_buf;
+
+	lfs_file_opencfg(&lfs, &file, "state", LFS_O_RDWR | LFS_O_CREAT, &config);
+	lfs_file_write(&lfs, &file, a, sizeof(AuthenticatorState));
+	lfs_file_close(&lfs, &file);
+#endif
 }
 
 uint32_t ctap_atomic_count(uint32_t amount)
 {
+#ifdef USE_OLD_STORAGE_TYPE
 	int offset = 0;
 	uint32_t erases = 0; // *(uint32_t *)flash_addr(COUNTER2_PAGE);
 	static uint32_t sc = 0;
@@ -368,6 +471,44 @@ uint32_t ctap_atomic_count(uint32_t amount)
 
 	printf2(TAG_COUNT, "returning count: %lu\r\n", lastc);
 	return lastc;
+#else
+	extern lfs_t lfs;
+
+	extern lfs_file_t file;
+	extern struct lfs_file_config config;
+	extern uint8_t g_file_buf[];
+
+	uint32_t lastc = 0;
+	lfs_ssize_t ret;
+
+	memset(&config, 0, sizeof(config));
+	config.buffer = g_file_buf;
+
+	lfs_file_opencfg(&lfs, &file, "counter", LFS_O_RDWR | LFS_O_CREAT, &config);
+	ret = lfs_file_read(&lfs, &file, &lastc, sizeof(lastc));
+
+	printf2(TAG_COUNT, "read count %lu\r\n", lastc);
+
+	if (ret < 0) {
+		lastc = 0;
+	}
+
+	if (amount == 0) {
+		// Use a random count [1-16].
+		uint8_t rng[1];
+		ctap_generate_rng(rng, 1);
+		amount = (rng[0] & 0x0f) + 1;
+	}
+
+	lastc += amount;
+
+	lfs_file_rewind(&lfs, &file);
+	lfs_file_write(&lfs, &file, &lastc, sizeof(lastc));
+	lfs_file_close(&lfs, &file);
+
+	printf2(TAG_COUNT, "returning count: %lu\r\n", lastc);
+	return lastc;
+#endif
 }
 
 int ctap_user_presence_test(uint32_t up_delay)
@@ -407,16 +548,63 @@ int ctap_generate_rng(uint8_t *dst, size_t num)
 
 void ctap_reset_rk(void)
 {
+#ifdef USE_OLD_STORAGE_TYPE
 	int i;
+#endif
 	printf1(TAG_GREEN, "resetting RK \r\n");
+#ifdef USE_OLD_STORAGE_TYPE
 	for (i = 0; i < RK_NUM_PAGES; i++) {
 		flash_erase_page(RK_START_PAGE + i);
 	}
+#else
+#define NUM_LEN 3
+#define DIR_LEN 3
+
+	extern lfs_t lfs;
+	extern lfs_file_t file;
+	extern struct lfs_file_config config;
+
+	lfs_dir_t dir;
+	struct lfs_info info;
+
+	char dir_path[DIR_LEN + NUM_LEN + 1] = "rk";
+	int ret;
+
+	if ((ret = lfs_dir_open(&lfs, &dir, dir_path)) < 0) {
+		if (ret == LFS_ERR_NOENT) {
+			lfs_mkdir(&lfs, dir_path);
+		}
+		return;
+	}
+
+	while (true) {
+		int res = lfs_dir_read(&lfs, &dir, &info);
+		if (res <= 0) {
+			break; // end of directory or error
+		}
+
+		// Only remove regular files
+		if (info.type == LFS_TYPE_REG) {
+
+			char full_path[DIR_LEN + NUM_LEN + 1] = {0};
+
+			// Build full path
+			snprintf(full_path, sizeof(full_path), "%s/%s", dir_path,info.name);
+			lfs_remove(&lfs, full_path);
+		}
+	}
+
+	lfs_dir_close(&lfs, &dir);
+#endif
 }
 
 uint32_t ctap_rk_size(void)
 {
+#ifdef USE_OLD_STORAGE_TYPE
 	return RK_NUM_PAGES * (PAGE_SIZE / sizeof(CTAP_residentKey));
+#else
+	return 100;
+#endif
 }
 
 void ctap_store_rk(int index, CTAP_residentKey *rk)
@@ -433,6 +621,7 @@ void ctap_delete_rk(int index)
 
 void ctap_load_rk(int index, CTAP_residentKey *rk)
 {
+#ifdef USE_OLD_STORAGE_TYPE
 	int byte_offset_into_page =
 	    (sizeof(CTAP_residentKey) *
 	     (index % (PAGE_SIZE / sizeof(CTAP_residentKey))));
@@ -448,10 +637,39 @@ void ctap_load_rk(int index, CTAP_residentKey *rk)
 		printf2(TAG_ERR, "Out of bounds reading index %d for rk\n",
 			index);
 	}
+#else
+	extern lfs_t lfs;
+	extern lfs_file_t file;
+	extern struct lfs_file_config config;
+	extern uint8_t g_file_buf[];
+	int ret;
+	char index_num[4] = {0};
+
+	char filename[7] = "rk/";
+	if (index <= 1000) {
+		itoa(index, index_num);
+	} else {
+		index = 999;
+		itoa(index, index_num);
+	}
+	strcpy(filename+3, index_num);
+
+	memset(&config, 0, sizeof(config));
+	config.buffer = g_file_buf;
+
+	ret = lfs_file_opencfg(&lfs, &file, filename, LFS_O_RDONLY, &config);
+	if (ret < 0) {
+		memset(rk, 0xff, sizeof(CTAP_residentKey));
+		return;
+	}
+	lfs_file_read(&lfs, &file, rk, sizeof(CTAP_residentKey));
+	lfs_file_close(&lfs, &file);
+#endif
 }
 
 void ctap_overwrite_rk(int index, CTAP_residentKey *rk)
 {
+#ifdef USE_OLD_STORAGE_TYPE
 	uint8_t tmppage[PAGE_SIZE];
 
 	int byte_offset_into_page =
@@ -479,6 +697,34 @@ void ctap_overwrite_rk(int index, CTAP_residentKey *rk)
 			index);
 	}
 	printf1(TAG_GREEN, "4\r\n");
+#else
+		extern lfs_t lfs;
+
+		extern lfs_file_t file;
+		extern struct lfs_file_config config;
+		extern uint8_t g_file_buf[];
+
+		char index_num[4] = {0};
+
+		if (index <= 1000) {
+			itoa(index, index_num);
+		} else {
+			index = 999;
+			itoa(index, index_num);
+		}
+
+		printf1(TAG_GREEN, "overwriting RK %d\r\n", index);
+
+		char filename[7] = "rk/";
+		strcpy(filename+3, index_num);
+
+		memset(&config, 0, sizeof(config));
+		config.buffer = g_file_buf;
+
+		lfs_file_opencfg(&lfs, &file, filename, LFS_O_RDWR | LFS_O_CREAT, &config);
+		lfs_file_write(&lfs, &file, rk, sizeof(CTAP_residentKey));
+		lfs_file_close(&lfs, &file);
+#endif
 }
 
 void device_read_aaguid(uint8_t *dst)

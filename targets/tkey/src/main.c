@@ -28,6 +28,108 @@ static volatile uint32_t *app_addr      = (volatile uint32_t *) TK1_MMIO_TK1_APP
 static volatile uint32_t *app_size      = (volatile uint32_t *) TK1_MMIO_TK1_APP_SIZE;
 // clang-format on
 
+#ifndef USE_OLD_STORAGE_TYPE
+
+#include "lfs.h"
+
+// Flash parameters
+#define LFS_READ_SIZE        256
+#define LFS_PROG_SIZE        256
+#define LFS_BLOCK_SIZE       4096
+#define LFS_BLOCK_COUNT      32
+#define LFS_CACHE_SIZE       256
+#define LFS_LOOKAHEAD_SIZE   16
+
+//#define WRITE_ALIGNMENT      256
+
+// Static memory
+static uint8_t read_buffer[LFS_CACHE_SIZE] = {0};
+static uint8_t prog_buffer[LFS_CACHE_SIZE] = {0};
+static uint8_t lookahead_buffer[LFS_LOOKAHEAD_SIZE] = {0};
+
+//static uint8_t write_buf[WRITE_ALIGNMENT] = {0};
+
+// Flash I/O callbacks
+int lfs_read_wrapper(const struct lfs_config *c,
+		lfs_block_t block,
+		lfs_off_t off,
+		void *buffer,
+		lfs_size_t size)
+{
+	uint32_t abs_offset = block * c->block_size + off;
+	int ret = sys_read(abs_offset, buffer, size);
+	if (ret < 0) return ret;  // map your error to negative
+	return 0;                 // success
+}
+
+int lfs_prog_wrapper(const struct lfs_config *c, lfs_block_t block,
+		lfs_off_t off, const void *buffer, lfs_size_t size) {
+	uint32_t abs_offset = (block * c->block_size) + off;
+
+	// Safety check for 128KB limit
+	if (abs_offset + size > 128 * 1024)
+		return LFS_ERR_NOSPC;
+
+	// With prog_size=256, off is always % 256 == 0 and size is always % 256 == 0
+	if (sys_write(abs_offset, (void*) buffer, size) != 0) {
+		return LFS_ERR_IO;
+	}
+	return LFS_ERR_OK;
+}
+
+int lfs_erase_wrapper(const struct lfs_config *c,
+		lfs_block_t block)
+{
+	uint32_t abs_offset = block * c->block_size;
+
+	// Must erase multiples of 4096 bytes
+	if (c->block_size % 4096 != 0)
+		return -1;  // unsupported configuration
+
+	int ret = sys_erase(abs_offset, c->block_size);
+	return (ret < 0) ? -1 : 0;
+}
+
+int lfs_sync_wrapper(const struct lfs_config *c) {
+	(void)c;  // unused
+	return 0;
+}
+
+// Config
+const struct lfs_config cfg = {
+		// block device operations
+		.read  = lfs_read_wrapper,
+		.prog  = lfs_prog_wrapper,
+		.erase = lfs_erase_wrapper,
+		.sync  = lfs_sync_wrapper,
+
+		// block device configuration
+		.read_size = LFS_READ_SIZE,
+		.prog_size = LFS_PROG_SIZE,
+		.block_size = LFS_BLOCK_SIZE,
+		.block_count = LFS_BLOCK_COUNT,
+
+		.cache_size = LFS_CACHE_SIZE,
+		.lookahead_size = LFS_LOOKAHEAD_SIZE,
+
+		.read_buffer = read_buffer,
+		.prog_buffer = prog_buffer,
+		.lookahead_buffer = lookahead_buffer,
+
+		// Number of erase cycles before littlefs evicts metadata logs and moves
+		// the metadata to another block. Suggested values are in the
+		// range 100-1000, with large values having better performance at the cost
+		// of less consistent wear distribution.
+		.block_cycles = 500,
+};
+
+lfs_t lfs  = {0};
+lfs_file_t file = {0};
+struct lfs_file_config config = {0};
+uint8_t g_file_buf[LFS_CACHE_SIZE];
+
+#endif
+
 int main()
 {
 	uint8_t hidmsg[HID_PACKET_SIZE];
