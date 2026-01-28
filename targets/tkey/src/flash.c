@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <tkey/assert.h>
+#include <assert.h>
 #include <tkey/syscall.h>
 
 #include "flash.h"
