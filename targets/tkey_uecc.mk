@@ -24,15 +24,18 @@ TARGET_ARFLAGS := \
 TARGET_ASFLAGS := \
                   -c \
                   -MD \
-                 -target riscv32-unknown-none-elf \
-                 -march=rv32iczmmul \
-                 -mabi=ilp32 \
-                 -mcmodel=medany \
-                 -ffunction-sections \
-                 -fdata-sections \
-                 -fomit-frame-pointer \
-                 -ggdb3 \
-                 -O2
+                  -target riscv32-unknown-none-elf \
+                  -march=rv32iczmmul \
+                  -mabi=ilp32 \
+                  -mcmodel=medany \
+                  -ffunction-sections \
+                  -fdata-sections \
+                  -fomit-frame-pointer \
+                  -mno-relax
+
+TARGET_ASFLAGS += -Os
+#TARGET_ASFLAGS += -O0
+#TARGET_ASFLAGS += -g3
 
 # Target-specific CFLAGS
 TARGET_CFLAGS := \
@@ -42,18 +45,26 @@ TARGET_CFLAGS := \
                  -march=rv32iczmmul \
                  -mabi=ilp32 \
                  -mcmodel=medany \
-                 -O3 \
-                 -ffast-math \
-                 -fno-common \
+                 -ffunction-sections \
+                 -fdata-sections \
+                 -fomit-frame-pointer \
                  -fno-builtin-printf \
                  -fno-builtin-putchar \
-                 -nostdlib \
+                 -ffast-math \
+                 -fno-common \
                  -mno-relax \
-                 -g \
                  -Wall \
-                 -Werror=implicit-function-declaration \
-                 -static \
-                 -flto
+                 -Werror=implicit-function-declaration
+
+#TARGET_CFLAGS += -Wextra         # Gives lots of new warnings
+#TARGET_CFLAGS += -pedantic       # Gives lots of new warnings
+#TARGET_CFLAGS += -std=c99        # Gives errors
+
+TARGET_CFLAGS += -O2
+#TARGET_CFLAGS += -Os
+#TARGET_CFLAGS += -O0
+#TARGET_CFLAGS += -g3
+TARGET_CFLAGS += -flto
 
 # Target-specific CXXFLAGS
 TARGET_CXXFLAGS :=
@@ -65,23 +76,12 @@ TARGET_LDFLAGS := \
                   -mabi=ilp32 \
                   -mcmodel=medany \
                   -static \
-                  -std=gnu99 \
-                  -Os \
-                  -ffast-math \
-                  -fno-common \
-                  -fno-builtin-printf \
-                  -fno-builtin-putchar \
                   -nostdlib \
-                  -nodefaultlibs \
-                  -mno-relax \
-                  -g \
-                  -Wall \
-                  -Werror=implicit-function-declaration \
                   -flto \
-                  -fuse-ld=lld-16 \
+                  -fuse-ld=lld \
                   -Wl,--cref,-M \
                   -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
-                  -Wl,--gc-sections \
+                  -Wl,--gc-sections
 
 # Target-specific OBJCOPY FLAGS
 TARGET_OBJCOPYFLAGS := \
@@ -95,7 +95,10 @@ TARGET_OBJDUMPFLAGS := \
 
 # Target-specific DEFINES
 TARGET_DEFINES := \
-                  -DuECC_PLATFORM=0 \
+                  -DuECC_PLATFORM=0
+
+#TARGET_DEFINES += -DTKEY_DEBUG
+#TARGET_DEFINES += -DQEMU_DEBUG
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \
@@ -149,3 +152,4 @@ $(TARGET)_LINKER_SCRIPT  := $(addprefix -T,$(TARGET_LINKER_SCRIPT))
 $(TARGET)_PREBUILD_CMD   := $(TARGET_PREBUILD_CMD)
 $(TARGET)_POSTBUILD_CMD  := $(TARGET_POSTBUILD_CMD)
 $(TARGET)_NEEDS_TARGETS  := $(TARGET_NEEDS_TARGETS)
+
