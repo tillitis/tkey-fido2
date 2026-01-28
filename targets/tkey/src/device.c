@@ -20,7 +20,7 @@
 #include "memory_layout.h"
 #include "rng.h"
 #include "timer.h"
-#include "tkey/assert.h"
+#include "assert.h"
 #include "tkey/io.h"
 #include "tkey/led.h"
 #include "tkey/tk1_mem.h"
