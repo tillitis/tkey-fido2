@@ -87,7 +87,7 @@ int udp_recv(int fd, uint8_t *buf, int size)
 		perror("recvfrom failed");
 		exit(1);
 	}
-	printf1(TAG_DUMP, ">>");
+	printf1(TAG_DUMP, ">>\n");
 	dump_hex1(TAG_DUMP, buf, length);
 	return length;
 }
@@ -106,7 +106,7 @@ void udp_send(int fd, uint8_t *buf, int size)
 		exit(1);
 	}
 
-	printf1(TAG_DUMP, "<<");
+	printf1(TAG_DUMP, "<<\n");
 	dump_hex1(TAG_DUMP, buf, size);
 }
 

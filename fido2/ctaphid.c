@@ -345,7 +345,7 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 	CTAPHID_PACKET *pkt = (CTAPHID_PACKET *)(pkt_raw);
 
 	printf1(TAG_HID, "Recv packet\n");
-	printf1(TAG_HID, "  CID: %08x \n", pkt->cid);
+	printf1(TAG_HID, "  CID: %08x\n", pkt->cid);
 	printf1(TAG_HID, "  cmd: %02x\n", pkt->pkt.init.cmd);
 	if (!is_cont_pkt(pkt)) {
 		printf1(TAG_HID, "  length: %d\n", ctaphid_packet_len(pkt));

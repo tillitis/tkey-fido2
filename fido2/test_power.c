@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 
 	memset(hidmsg, 0, sizeof(hidmsg));
 
-	printf1(TAG_GEN, "recv'ing hid msg \n");
+	printf1(TAG_GEN, "recv'ing hid msg\n");
 
 	while (1) {
 		if (millis() - t1 > 100) {
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (usbhid_recv(hidmsg) > 0) {
-			printf1(TAG_DUMP, "%d>> ", count++);
+			printf1(TAG_DUMP, "%d>>\n", count++);
 			dump_hex1(TAG_DUMP, hidmsg, sizeof(hidmsg));
 			t2 = millis();
 			ctaphid_handle_packet(hidmsg);

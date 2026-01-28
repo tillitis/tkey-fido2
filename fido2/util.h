@@ -5,8 +5,9 @@
 #define _UTIL_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
-void dump_hex(uint8_t *buf, int size);
+int dump_hex(uint8_t *buf, int size, int indent_pos, bool indent_first_line, int start_pos, bool add_newline);
 
 #ifndef MIN
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))

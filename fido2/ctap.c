@@ -772,7 +772,7 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 			}
 		}
 
-		printf1(TAG_GREEN, "MADE credId: ");
+		printf1(TAG_GREEN, "MADE credId:\n");
 		dump_hex1(TAG_GREEN, (uint8_t *)&authData->attest.id,
 			  sizeof(CredentialId));
 
@@ -1017,7 +1017,7 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 		}
 		check_retr(ret);
 
-		printf1(TAG_GREEN, "checking credId: ");
+		printf1(TAG_GREEN, "checking credId:\n");
 		dump_hex1(TAG_GREEN, (uint8_t *)&excl_cred->credential.id,
 			  sizeof(CredentialId));
 
@@ -1080,7 +1080,7 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 	int sigder_sz = ctap_calculate_signature(
 	    auth_data_buf, auth_data_sz, MC.clientDataHash, auth_data_buf,
 	    sigbuf, sigder, COSE_ALG_ES256);
-	printf1(TAG_MC, "der sig [%d]: ", sigder_sz);
+	printf1(TAG_MC, "der sig [%d]:\n", sigder_sz);
 	dump_hex1(TAG_MC, sigder, sigder_sz);
 
 	ret = ctap_add_attest_statement(&map, sigder, sigder_sz);
@@ -1286,7 +1286,7 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 		crypto_sha256_update(GA->rp.id, GA->rp.size);
 		crypto_sha256_final(rpIdHash);
 
-		printf1(TAG_GREEN, "true rpIdHash: ");
+		printf1(TAG_GREEN, "true rpIdHash:\n");
 		dump_hex1(TAG_GREEN, rpIdHash, 32);
 
 		int valid_rk_left = STATE.rk_stored;
@@ -1304,7 +1304,7 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 
 			valid_rk_left--;
 
-			printf1(TAG_GREEN, "rpIdHash%d: ", i);
+			printf1(TAG_GREEN, "rpIdHash%d:\n", i);
 			dump_hex1(TAG_GREEN, rk.id.rpIdHash, 32);
 
 			int protection_status = check_credential_metadata(
@@ -2148,15 +2148,15 @@ uint8_t ctap_add_pin_if_verified(uint8_t *pinTokenEnc, uint8_t *platform_pubkey,
 	crypto_sha256_final(pinHashEncSalted);
 	if (memcmp(pinHashEncSalted, STATE.PIN_CODE_HASH, 16) != 0) {
 		printf2(TAG_ERR, "Pin does not match!\n");
-		printf2(TAG_ERR, "platform-pin-hash: ");
+		printf2(TAG_ERR, "platform-pin-hash:\n");
 		dump_hex1(TAG_ERR, pinHashEnc, 16);
-		printf2(TAG_ERR, "authentic-pin-hash: ");
+		printf2(TAG_ERR, "authentic-pin-hash:\n");
 		dump_hex1(TAG_ERR, STATE.PIN_CODE_HASH, 16);
-		printf2(TAG_ERR, "shared-secret: ");
+		printf2(TAG_ERR, "shared-secret:\n");
 		dump_hex1(TAG_ERR, shared_secret, 32);
-		printf2(TAG_ERR, "platform-pubkey: ");
+		printf2(TAG_ERR, "platform-pubkey:\n");
 		dump_hex1(TAG_ERR, platform_pubkey, 64);
-		printf2(TAG_ERR, "device-pubkey: ");
+		printf2(TAG_ERR, "device-pubkey:\n");
 		dump_hex1(TAG_ERR, KEY_AGREEMENT_PUB, 64);
 		// Generate new keyAgreement pair
 		ctap_reset_key_agreement();
@@ -2337,7 +2337,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 	cbor_encoder_init(&encoder, buf, resp->data_size, 0);
 
 	printf1(TAG_CTAP, "cbor input structure: %d bytes\n", length);
-	printf1(TAG_DUMP, "cbor req: ");
+	printf1(TAG_DUMP, "cbor req:\n");
 	dump_hex1(TAG_DUMP, pkt_raw, length);
 
 	switch (cmd) {
@@ -2375,7 +2375,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
-		printf1(TAG_DUMP, "cbor [%d]: \n", resp->length);
+		printf1(TAG_DUMP, "cbor [%d]:\n", resp->length);
 		dump_hex1(TAG_DUMP, buf, resp->length);
 		break;
 	case CTAP_CANCEL:
@@ -2471,7 +2471,7 @@ static void ctap_state_init()
 		exit(1);
 	}
 
-	printf1(TAG_STOR, "Generated PIN SALT: ");
+	printf1(TAG_STOR, "Generated PIN SALT:\n");
 	dump_hex1(TAG_STOR, STATE.PIN_SALT, sizeof STATE.PIN_SALT);
 }
 

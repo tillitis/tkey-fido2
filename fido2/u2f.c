@@ -107,7 +107,7 @@ end:
 	byte = rcode & 0xff;
 	u2f_response_writeback(&byte, 1);
 
-	printf1(TAG_U2F, "u2f resp: ");
+	printf1(TAG_U2F, "u2f resp:\n");
 	dump_hex1(TAG_U2F, _u2f_resp->data, _u2f_resp->length);
 }
 
@@ -210,9 +210,9 @@ int8_t u2f_authenticate_credential(struct u2f_key_handle *kh,
 	}
 
 	printf1(TAG_U2F, "key handle + appid not authentic\n");
-	printf1(TAG_U2F, "calc tag: \n");
+	printf1(TAG_U2F, "calc tag:\n");
 	dump_hex1(TAG_U2F, tag, U2F_KEY_HANDLE_TAG_SIZE);
-	printf1(TAG_U2F, "inp  tag: \n");
+	printf1(TAG_U2F, "inp  tag:\n");
 	dump_hex1(TAG_U2F, kh->tag, U2F_KEY_HANDLE_TAG_SIZE);
 	return 0;
 }
@@ -269,7 +269,7 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
 
 	crypto_sha256_final(hash);
 
-	printf1(TAG_U2F, "sha256: ");
+	printf1(TAG_U2F, "sha256:\n");
 	dump_hex1(TAG_U2F, hash, 32);
 	crypto_ecc256_sign(hash, 32, sig);
 
@@ -321,7 +321,7 @@ static int16_t u2f_register(struct u2f_register_request *req)
 
 	crypto_ecc256_load_attestation_key();
 
-	printf1(TAG_U2F, "sha256: ");
+	printf1(TAG_U2F, "sha256:\n");
 	dump_hex1(TAG_U2F, hash, 32);
 	crypto_ecc256_sign(hash, 32, sig);
 
