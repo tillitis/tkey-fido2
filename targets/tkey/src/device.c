@@ -72,6 +72,7 @@ void device_reboot(void)
 	assert(1 == 2);
 }
 
+#if 0
 int solo_is_locked()
 {
 	uint64_t device_settings =
@@ -80,9 +81,11 @@ int solo_is_locked()
 	return tag == ATTESTATION_CONFIGURED_TAG &&
 	       (device_settings & SOLO_FLAG_LOCKED) != 0;
 }
+#endif
 
 // Locks solo flash from debugging.  Locks on next reboot.
 // This should be removed in next Solo release.
+#if 0
 void solo_lock_if_not_already()
 {
 	uint8_t buf[2048];
@@ -95,6 +98,7 @@ void solo_lock_if_not_already()
 
 	flash_write(ATTESTATION_PAGE_ADDR, buf, 2048);
 }
+#endif
 
 /** device_migrate
  * Depending on version of device, migrates:
@@ -104,6 +108,7 @@ void solo_lock_if_not_already()
  * Once in place, this allows all devices to accept same firmware,
  * rather than using "hacker" and "secure" builds.
  */
+#if 0
 static void device_migrate()
 {
 	extern const uint16_t attestation_solo_cert_der_size;
@@ -152,11 +157,14 @@ static void device_migrate()
 			    sizeof(attestation));
 	}
 }
+#endif
 
 void device_init()
 {
 	hw_init();
+#if 0
 	device_migrate();
+#endif
 	// usbhid_init();
 	ctaphid_init();
 	ctap_init();
