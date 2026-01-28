@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #if DEBUG_LEVEL > 0
 
@@ -91,7 +92,7 @@ void LOG_HEX(uint32_t tag, uint8_t *data, int length)
 		return;
 	}
 	set_logging_tag(tag);
-	dump_hex(data, length);
+	dump_hex(data, length, 2, true, 0, true);
 }
 
 uint32_t timestamp()

@@ -170,7 +170,7 @@ int usbhid_recv(uint8_t *msg)
 {
 	if (fifo_hidmsg_size()) {
 		fifo_hidmsg_take(msg);
-		printf1(TAG_DUMP2, ">> ");
+		printf1(TAG_DUMP2, ">>\n");
 		dump_hex1(TAG_DUMP2, msg, HID_PACKET_SIZE);
 		return HID_PACKET_SIZE;
 	}
@@ -179,7 +179,7 @@ int usbhid_recv(uint8_t *msg)
 
 void usbhid_send(uint8_t *msg)
 {
-	printf1(TAG_DUMP2, "<< ");
+	printf1(TAG_DUMP2, "<<\n");
 	dump_hex1(TAG_DUMP2, msg, HID_PACKET_SIZE);
 	write(IO_FIDO, msg, HID_PACKET_SIZE);
 }

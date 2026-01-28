@@ -730,7 +730,6 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 				MC->paramsParsed |= PARAM_clientDataHash;
 			}
 
-			printf1(TAG_MC, "  ");
 			dump_hex1(TAG_MC, MC->clientDataHash, 32);
 			break;
 		case MC_rp:
@@ -749,7 +748,7 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 
 			ret = parse_user(MC, &map);
 
-			printf1(TAG_MC, "  ID: ");
+			printf1(TAG_MC, "  ID:\n");
 			dump_hex1(TAG_MC, MC->credInfo.user.id,
 				  MC->credInfo.user.id_size);
 			printf1(TAG_MC, "  name: %s\n", MC->credInfo.user.name);
@@ -1161,7 +1160,7 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 			check_retr(ret);
 			GA->clientDataHashPresent = 1;
 
-			printf1(TAG_GA, "  ");
+			printf1(TAG_GA, "\n");
 			dump_hex1(TAG_GA, GA->clientDataHash, 32);
 			break;
 		case GA_rpId:
