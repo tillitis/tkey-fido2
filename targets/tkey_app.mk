@@ -66,15 +66,18 @@ TARGET_ARFLAGS :=
 TARGET_ASFLAGS := \
                   -c \
                   -MD \
-                 -target riscv32-unknown-none-elf \
-                 -march=rv32iczmmul \
-                 -mabi=ilp32 \
-                 -mcmodel=medany \
-                 -ffunction-sections \
-                 -fdata-sections \
-                 -fomit-frame-pointer \
-                 -ggdb3 \
-                 -O0
+                  -target riscv32-unknown-none-elf \
+                  -march=rv32iczmmul \
+                  -mabi=ilp32 \
+                  -mcmodel=medany \
+                  -ffunction-sections \
+                  -fdata-sections \
+                  -fomit-frame-pointer \
+                  -mno-relax
+
+#TARGET_ASFLAGS += -Os
+TARGET_ASFLAGS += -O0
+TARGET_ASFLAGS += -g3
 
 # Target-specific CFLAGS
 TARGET_CFLAGS := \
@@ -84,18 +87,25 @@ TARGET_CFLAGS := \
                  -march=rv32iczmmul \
                  -mabi=ilp32 \
                  -mcmodel=medany \
-                 -Os \
-                 -ffast-math \
-                 -fno-common \
+                 -ffunction-sections \
+                 -fdata-sections \
+                 -fomit-frame-pointer \
                  -fno-builtin-printf \
                  -fno-builtin-putchar \
-                 -nostdlib \
+                 -ffast-math \
+                 -fno-common \
                  -mno-relax \
-                 -g \
                  -Wall \
-                 -Werror=implicit-function-declaration \
-                 -static \
-                 -flto
+                 -Werror=implicit-function-declaration
+
+#TARGET_CFLAGS += -Wextra         # Gives lots of new warnings
+#TARGET_CFLAGS += -pedantic       # Gives lots of new warnings
+#TARGET_CFLAGS += -std=c99        # Gives errors
+
+#TARGET_CFLAGS += -Os
+TARGET_CFLAGS += -O0
+TARGET_CFLAGS += -g3
+TARGET_CFLAGS += -flto
 
 # Target-specific CXXFLAGS
 TARGET_CXXFLAGS :=
@@ -107,23 +117,12 @@ TARGET_LDFLAGS := \
                   -mabi=ilp32 \
                   -mcmodel=medany \
                   -static \
-                  -std=gnu99 \
-                  -Os \
-                  -ffast-math \
-                  -fno-common \
-                  -fno-builtin-printf \
-                  -fno-builtin-putchar \
                   -nostdlib \
-                  -nodefaultlibs \
-                  -mno-relax \
-                  -g \
-                  -Wall \
-                  -Werror=implicit-function-declaration \
                   -flto \
                   -fuse-ld=lld \
                   -Wl,--cref,-M \
                   -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
-                  -Wl,--gc-sections \
+                  -Wl,--gc-sections
 
 # Target-specific OBJCOPY FLAGS
 TARGET_OBJCOPYFLAGS := \
@@ -140,10 +139,13 @@ TARGET_DEFINES := \
                   -DAES256=1 \
                   -DAPP_CONFIG=\"app.h\" \
                   -DDEBUG_LEVEL=2 \
-                  -DuECC_PLATFORM=0 \
-                  #-DENABLE_PRINTF \
-                  #-DTKEY_DEBUG \
-                  #-DQEMU_DEBUG \
+                  -DuECC_PLATFORM=0
+
+TARGET_DEFINES += -DLFS_NO_MALLOC
+#TARGET_DEFINES += -DLFS_YES_TRACE
+#TARGET_DEFINES += -DENABLE_PRINTF
+#TARGET_DEFINES += -DTKEY_DEBUG
+#TARGET_DEFINES += -DQEMU_DEBUG
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \
@@ -160,14 +162,16 @@ TARGET_INCLUDES := \
                    -Itargets/tkey/printf-embedded \
                    -Itinycbor/src \
                    -I$(LIBDIR)/include \
-                   -I$(LIBDIR)/monocypher
+                   -I$(LIBDIR)/monocypher \
+                   -I$(LIBDIR)/littlefs
 
 # Target-specific EXTERNAL LIBRARIES to be included
 TARGET_EXT_LIBS := \
                    $(LIBDIR)/libcrt0.a \
                    $(LIBDIR)/libcommon.a \
                    $(LIBDIR)/libsyscall.a \
-                   $(LIBDIR)/libmonocypher.a
+                   $(LIBDIR)/libmonocypher.a \
+                   $(LIBDIR)/liblfs.a
 
 # Target-specific LINKER SCRIPT
 TARGET_LINKER_SCRIPT := \
@@ -215,3 +219,4 @@ $(TARGET)_LINKER_SCRIPT  := $(addprefix -T,$(TARGET_LINKER_SCRIPT))
 $(TARGET)_PREBUILD_CMD   := $(TARGET_PREBUILD_CMD)
 $(TARGET)_POSTBUILD_CMD  := $(TARGET_POSTBUILD_CMD)
 $(TARGET)_NEEDS_TARGETS  := $(TARGET_NEEDS_TARGETS)
+
