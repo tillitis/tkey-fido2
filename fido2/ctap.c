@@ -629,6 +629,7 @@ static int find_duplicate_or_empty_slot(const CTAP_residentKey *rk,
 
 	for (size_t i = 0; i < n; i++) {
 
+		// TODO: This function is most likely not needed anymore
 		ctap_load_rk(i, &rk2);
 
 		if (ctap_rk_is_valid(&rk2)) {
@@ -752,24 +753,11 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 			memmove(rk.rpId, rp->id, rp_id_size);
 			rk.rpIdSize = rp_id_size;
 
-			// Find duplicate resident keys, if no match store at
-			// first empty slot
-			int is_dup;
-			int slot = find_duplicate_or_empty_slot(
-			    &rk, STATE.rk_stored, &is_dup);
-
-			if (slot < 0) {
-				printf2(TAG_ERR,
-					"Out of memory for resident keys\r\n");
+			int ret = ctap_store_rk(&rk);
+			if (ret < 0) {
 				return CTAP2_ERR_KEY_STORE_FULL;
 			}
-
-			if (is_dup) {
-				ctap_overwrite_rk(slot, &rk);
-			} else {
-				ctap_increment_rk_store();
-				ctap_store_rk(slot, &rk);
-			}
+			ctap_increment_rk_store();
 		}
 
 		printf1(TAG_GREEN, "MADE credId:\n");
@@ -1141,13 +1129,13 @@ uint8_t ctap_add_user_entity(CborEncoder *map, CTAP_userEntity *user,
 	CborEncoder entity;
 	int ret;
 
-    /* Always include id */
+	/* Always include id */
 	int map_size = 1;
 
 	int dispname = (user->name[0] != 0) && is_verified;
 
 	if (dispname) {
-        map_size += 2; /* name + displayName */
+		map_size += 2; /* name + displayName */
 	}
 
 	ret = cbor_encoder_create_map(map, &entity, map_size);
@@ -1193,17 +1181,19 @@ static int cred_cmp_func(const void *_a, const void *_b)
 static int add_existing_user_info(CTAP_credentialDescriptor *cred)
 {
 	CTAP_residentKey rk;
-	int valid_rk_left = STATE.rk_stored;
-	size_t n = ctap_rk_size();
 
-	for (uint16_t i = 0; i < n; i++) {
+	int count = ctap_open_rk_file(cred->credential.id.rpIdHash);
+	if (count <= 0) {
+		printf1(TAG_GREEN, "NO rk match for allowList item \r\n");
+		ctap_close_rk_file();
+		return 0;
+	}
 
-		if (valid_rk_left <= 0) {
-			break;
-		}
+	for (uint16_t i = 0; i < count; i++) {
 
-		ctap_load_rk(i, &rk);
-		if (!ctap_rk_is_valid(&rk)) {
+		ctap_load_next_rk(&rk);
+		if (memcmp(cred->credential.id.rpIdHash, rk.id.rpIdHash, 32)) {
+			// Not the right RPID
 			continue;
 		}
 
@@ -1213,11 +1203,12 @@ static int add_existing_user_info(CTAP_credentialDescriptor *cred)
 				i);
 			memmove(&cred->credential.user, &rk.user,
 				sizeof(CTAP_userEntity));
+			ctap_close_rk_file();
 			return 1;
 		}
-		valid_rk_left--;
 	}
 	printf1(TAG_GREEN, "NO rk match for allowList item \r\n");
+	ctap_close_rk_file();
 	return 0;
 }
 
@@ -1261,18 +1252,15 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 				    0; // invalidate
 			} else {
 				count++;
+
 				// add user info if it exists
-				if (add_existing_user_info(&GA->creds[i])) {
-					printf1(TAG_GREEN,
-						"USER ID SIZE: %d\r\n",
-						GA->creds[i]
-						    .credential.user.id_size);
-					// If RK matches credential in the
-					// allow_list, we should only return one
-					// credential.
-					GA->credLen = i + 1;
-					break;
-				}
+				add_existing_user_info(&GA->creds[i]);
+
+				// If RK matches credential in the
+				// allow_list, we should only return one
+				// credential.
+				GA->credLen = i + 1;
+				break;
 			}
 		}
 	}
@@ -1286,23 +1274,24 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 		printf1(TAG_GREEN, "true rpIdHash:\n");
 		dump_hex1(TAG_GREEN, rpIdHash, 32);
 
-		int valid_rk_left = STATE.rk_stored;
+		int nr_rk = ctap_open_rk_file(rpIdHash);
+		if (nr_rk < 0) {
+			printf1(TAG_GREEN, "No file to open: %d \r\n", nr_rk);
+			nr_rk = 0;
+		}
 
-		for (i = 0; i < ctap_rk_size(); i++) {
+		for (i = 0; i < nr_rk; i++) {
 
-			if (valid_rk_left <= 0) {
-				break;
-			}
-
-			ctap_load_rk(i, &rk);
-			if (!ctap_rk_is_valid(&rk)) {
-				continue;
-			}
-
-			valid_rk_left--;
+			ctap_load_next_rk(&rk);
 
 			printf1(TAG_GREEN, "rpIdHash%d:\n", i);
 			dump_hex1(TAG_GREEN, rk.id.rpIdHash, 32);
+
+			if (memcmp(rpIdHash, rk.id.rpIdHash,
+				   sizeof(rpIdHash))) {
+				// Not the right RPID
+				continue;
+			}
 
 			int protection_status = check_credential_metadata(
 			    &rk.id, getAssertionState.user_verified, 0);
@@ -1314,23 +1303,23 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 				continue;
 			}
 
-			if (memcmp(rk.id.rpIdHash, rpIdHash, 32) == 0) {
-				printf1(TAG_GA, "RK %d is a rpId match!\r\n",
-					i);
-				if (count >= ALLOW_LIST_MAX_SIZE) {
-					printf2(TAG_ERR,
-						"not enough ram allocated for "
-						"matching RK's (%d).  "
-						"Skipping.\r\n",
-						count);
-					break;
-				}
-				GA->creds[count].type = PUB_KEY_CRED_PUB_KEY;
-				memmove(&(GA->creds[count].credential), &rk,
-					sizeof(struct Credential));
-				count++;
+			if (count >= ALLOW_LIST_MAX_SIZE) {
+				printf2(TAG_ERR,
+					"not enough ram allocated for "
+					"matching RK's (%d).  "
+					"Skipping.\r\n",
+					count);
+				break;
 			}
+
+			GA->creds[count].type = PUB_KEY_CRED_PUB_KEY;
+
+			memmove(&(GA->creds[count].credential), &rk,
+				sizeof(struct Credential));
+
+			count++;
 		}
+		ctap_close_rk_file();
 		GA->credLen = count;
 	}
 
@@ -1531,7 +1520,6 @@ uint8_t ctap_cred_metadata(CborEncoder *encoder)
 uint8_t ctap_cred_rp(CborEncoder *encoder, int rk_ind, int rp_count)
 {
 	CTAP_residentKey rk;
-	ctap_load_rk(rk_ind, &rk);
 
 	CborEncoder map;
 	size_t map_size = rp_count > 0 ? 3 : 2;
@@ -1577,7 +1565,8 @@ uint8_t ctap_cred_rp(CborEncoder *encoder, int rk_ind, int rp_count)
 uint8_t ctap_cred_rk(CborEncoder *encoder, int rk_ind, int rk_count)
 {
 	CTAP_residentKey rk;
-	ctap_load_rk(rk_ind, &rk);
+	// TODO: This needs to be updated with the new load_rk api
+	//  ctap_load_rk(rk_ind, &rk);
 
 	uint32_t cred_protect = read_metadata_from_masked_credential(&rk.id);
 	if (cred_protect == 0 || cred_protect > 3) {
@@ -1660,9 +1649,9 @@ static int credentialId_to_rk_index(CredentialId *credId)
 {
 	unsigned int i;
 	CTAP_residentKey rk;
-
+	// TODO: This function is most likely not needed anymore
 	for (i = 0; i < ctap_rk_size(); i++) {
-		ctap_load_rk(i, &rk);
+		// ctap_load_rk(i, &rk);
 		if (ctap_rk_is_valid(&rk)) {
 			if (memcmp(&rk.id, credId, sizeof(CredentialId)) == 0) {
 				return i;
@@ -1680,7 +1669,8 @@ static int scan_for_next_rp(int index)
 	uint8_t nextRpIdHash[32];
 
 	if (index == -1) {
-		ctap_load_rk(0, &rk);
+		// TODO: Needs to be updated to new load_rk api
+		//  ctap_load_rk(0, &rk);
 		if (ctap_rk_is_valid(&rk)) {
 			return 0;
 		} else {
@@ -1697,7 +1687,8 @@ static int scan_for_next_rp(int index)
 			return -1;
 		}
 
-		ctap_load_rk(index, &rk);
+		// TODO: Needs to be updated to new load_rk api
+		// ctap_load_rk(index, &rk);
 		memmove(nextRpIdHash, rk.id.rpIdHash, 32);
 
 		if (!ctap_rk_is_valid(&rk)) {
@@ -1709,7 +1700,9 @@ static int scan_for_next_rp(int index)
 		// Check if we have scanned the rpIdHash before.
 		int i;
 		for (i = 0; i < index; i++) {
-			ctap_load_rk(i, &rk);
+
+			// TODO: Needs to be updated to new load_rk api
+			// ctap_load_rk(i, &rk);
 			if (memcmp(rk.id.rpIdHash, nextRpIdHash, 32) == 0) {
 				occurs_previously = 1;
 				break;
@@ -1731,7 +1724,8 @@ static int scan_for_next_rk(int index, uint8_t *initialRpIdHash)
 		memmove(lastRpIdHash, initialRpIdHash, 32);
 		index = -1;
 	} else {
-		ctap_load_rk(index, &rk);
+		// TODO: Needs to be updated to new load_rk api
+		// ctap_load_rk(index, &rk);
 		memmove(lastRpIdHash, rk.id.rpIdHash, 32);
 	}
 
@@ -1740,7 +1734,8 @@ static int scan_for_next_rk(int index, uint8_t *initialRpIdHash)
 		if ((unsigned int)index >= ctap_rk_size()) {
 			return -1;
 		}
-		ctap_load_rk(index, &rk);
+		// TODO: Needs to be updated to new load_rk api
+		// ctap_load_rk(index, &rk);
 	} while (memcmp(rk.id.rpIdHash, lastRpIdHash, 32) != 0);
 
 	return index;
@@ -1791,17 +1786,34 @@ uint8_t ctap_cred_mgmt(CborEncoder *encoder, uint8_t *request, int length)
 		printf1(TAG_MC, "RP Begin @%d.  %d total.\n", curr_rp_ind,
 			rp_count);
 	} else if (CM.cmd == CM_cmdRKBegin) {
-		curr_rk_ind = scan_for_next_rk(0, CM.subCommandParams.rpIdHash);
-		rk_auth = true;
+		int count = ctap_open_rk_file(CM.subCommandParams.rpIdHash);
+		CTAP_residentKey rk;
 
-		// Count total RK's associated to RP
-		while (curr_rk_ind >= 0) {
-			curr_rk_ind = scan_for_next_rk(curr_rk_ind, NULL);
+		// TODO: Needs to be verified with updated load_rk api
+		for (int i = 0; i < count; i++) {
+			// ctap_load_rk(i, &rk);
+			ctap_load_next_rk(&rk);
+			if (memcmp(CM.subCommandParams.rpIdHash, rk.id.rpIdHash,
+				   32)) {
+				// Not the right RPID
+				continue;
+			}
 			rk_count++;
 		}
-
-		// Reset scan
-		curr_rk_ind = scan_for_next_rk(0, CM.subCommandParams.rpIdHash);
+		ctap_close_rk_file();
+		// curr_rk_ind = scan_for_next_rk(0,
+		// CM.subCommandParams.rpIdHash); rk_auth = true;
+		//
+		// // Count total RK's associated to RP
+		// while (curr_rk_ind >= 0) {
+		// 	curr_rk_ind = scan_for_next_rk(curr_rk_ind, NULL);
+		// 	rk_count++;
+		// }
+		//
+		// // Reset scan
+		// curr_rk_ind = scan_for_next_rk(0,
+		// CM.subCommandParams.rpIdHash);
+		curr_rk_ind = 0; // Begin should always start with 0
 		printf1(TAG_MC, "Cred Begin @%d.  %d total.\n", curr_rk_ind,
 			rk_count);
 	} else if (CM.cmd != CM_cmdRKNext && CM.cmd != CM_cmdRPNext) {
@@ -1848,16 +1860,26 @@ uint8_t ctap_cred_mgmt(CborEncoder *encoder, uint8_t *request, int length)
 		break;
 	case CM_cmdRKDelete:
 		printf1(TAG_CM, "CM_cmdRKDelete\n");
-		i = credentialId_to_rk_index(
-		    &CM.subCommandParams.credentialDescriptor.credential.id);
-		if (i >= 0) {
-			ctap_delete_rk(i);
-			ctap_decrement_rk_store();
-			printf1(TAG_CM, "Deleted rk %d\n", i);
-		} else {
+
+		if (ctap_delete_rk(&CM.subCommandParams.credentialDescriptor
+					.credential.id) < 0) {
 			printf1(TAG_CM, "No Rk by given credId\n");
 			return CTAP2_ERR_NO_CREDENTIALS;
 		}
+		ctap_decrement_rk_store();
+		printf1(TAG_CM, "Deleted rk %d\n", i);
+
+		// i = credentialId_to_rk_index(
+		//     &CM.subCommandParams.credentialDescriptor.credential.id);
+		// if (i >= 0) {
+		// 	ctap_delete_rk(&CM.subCommandParams.credentialDescriptor
+		// 			    .credential.id);
+		// 	ctap_decrement_rk_store();
+		// 	printf1(TAG_CM, "Deleted rk %d\n", i);
+		// } else {
+		// 	printf1(TAG_CM, "No Rk by given credId\n");
+		// 	return CTAP2_ERR_NO_CREDENTIALS;
+		// }
 		break;
 	default:
 		printf2(TAG_ERR, "error, invalid credMgmt cmd: 0x%02x\n",
