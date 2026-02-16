@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <tkey/lib.h>
 #include <tkey/tk1_mem.h>
 
@@ -23,6 +24,7 @@ typedef struct {
 	uint32_t reseed_ctr;
 	uint32_t state[16];
 	uint32_t digest[8];
+	uint8_t valid_bytes;
 } rng_ctx;
 
 static rng_ctx ctx;
@@ -73,6 +75,7 @@ void rng_init(void)
 	// Perform initial mixing of state.
 	crypto_sha256((uint8_t *)ctx.digest, (uint8_t *)ctx.state, 64);
 	rng_update(&ctx);
+	ctx.valid_bytes = 16;
 
 	rng_initialized = 1;
 }
@@ -81,27 +84,36 @@ void rng_init(void)
 int rng_get_bytes(uint8_t *dst, size_t sz)
 {
 
-	if (rng_initialized == 0) {
+	if (!rng_initialized)
 		return -1;
-	}
 
 	size_t dst_index = 0;
 
 	while (dst_index < sz) {
-		// Generate data and update state
-		crypto_sha256((uint8_t *)ctx.digest, (uint8_t *)ctx.state, 64);
-		rng_update(&ctx);
-
-		// Only use the first 16 bytes of digest, the rest is used to
-		// generate the next state
-		for (size_t i = 0; i < 16; i++) {
-
-			dst[dst_index++] = (uint8_t)ctx.digest[i];
-
-			if (dst_index >= sz) {
-				break;
-			}
+		if (ctx.valid_bytes == 0) {
+			// Generate new digest
+			crypto_sha256((uint8_t *)ctx.digest,
+				      (uint8_t *)ctx.state, 64);
+			rng_update(&ctx);
+			ctx.valid_bytes = 16;
+			// Only use first 16 bytes, the rest is used to generate
+			// the next state
 		}
+
+		size_t to_copy = ctx.valid_bytes;
+		if (to_copy > sz - dst_index)
+			to_copy = sz - dst_index;
+
+		for (size_t k = 0; k < to_copy; k++)
+			dst[dst_index + k] = ctx.digest[k];
+
+		dst_index += to_copy;
+		ctx.valid_bytes -= to_copy;
+
+		// Shift if any left
+		if (ctx.valid_bytes > 0)
+			memmove(ctx.digest, ctx.digest + to_copy,
+				ctx.valid_bytes);
 	}
 	return 0;
 }
