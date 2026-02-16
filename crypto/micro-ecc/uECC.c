@@ -415,6 +415,35 @@ uECC_VLI_API void uECC_vli_mult(uECC_word_t *result,
     uECC_word_t r0 = 0;
     uECC_word_t r1 = 0;
     uECC_word_t r2 = 0;
+
+
+#if TKEY_UECC_OPT
+
+#define MULADD(i,j) muladd(left[i], right[j], &r0, &r1, &r2)
+#define STEP(k, ...) do { __VA_ARGS__; result[k] = r0; r0 = r1; r1 = r2; r2 = 0; } while(0)
+
+STEP(0,  MULADD(0,0));
+STEP(1,  MULADD(0,1); MULADD(1,0));
+STEP(2,  MULADD(0,2); MULADD(1,1); MULADD(2,0));
+STEP(3,  MULADD(0,3); MULADD(1,2); MULADD(2,1); MULADD(3,0));
+STEP(4,  MULADD(0,4); MULADD(1,3); MULADD(2,2); MULADD(3,1); MULADD(4,0));
+STEP(5,  MULADD(0,5); MULADD(1,4); MULADD(2,3); MULADD(3,2); MULADD(4,1); MULADD(5,0));
+STEP(6,  MULADD(0,6); MULADD(1,5); MULADD(2,4); MULADD(3,3); MULADD(4,2); MULADD(5,1); MULADD(6,0));
+STEP(7,  MULADD(0,7); MULADD(1,6); MULADD(2,5); MULADD(3,4); MULADD(4,3); MULADD(5,2); MULADD(6,1); MULADD(7,0));
+
+
+STEP(8,  MULADD(1,7); MULADD(2,6); MULADD(3,5); MULADD(4,4); MULADD(5,3); MULADD(6,2); MULADD(7,1));
+STEP(9,  MULADD(2,7); MULADD(3,6); MULADD(4,5); MULADD(5,4); MULADD(6,3); MULADD(7,2));
+STEP(10, MULADD(3,7); MULADD(4,6); MULADD(5,5); MULADD(6,4); MULADD(7,3));
+STEP(11, MULADD(4,7); MULADD(5,6); MULADD(6,5); MULADD(7,4));
+STEP(12, MULADD(5,7); MULADD(6,6); MULADD(7,5));
+STEP(13, MULADD(6,7); MULADD(7,6));
+STEP(14, MULADD(7,7));
+
+
+result[15] = r0;
+
+#else
     wordcount_t i, k;
 
     /* Compute each digit of result in sequence, maintaining the carries. */
@@ -437,6 +466,8 @@ uECC_VLI_API void uECC_vli_mult(uECC_word_t *result,
         r2 = 0;
     }
     result[num_words * 2 - 1] = r0;
+
+#endif /* TKEY_UECC_OPT */
 }
 #endif /* !asm_mult */
 
