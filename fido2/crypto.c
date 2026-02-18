@@ -45,6 +45,12 @@ static int _key_len = 0;
 static uint8_t master_secret[64];
 static uint8_t transport_secret[32];
 
+const uint8_t *crypto_get_key_transport(uint8_t *len)
+{
+	*len = sizeof(transport_secret);
+	return transport_secret;
+}
+
 void crypto_sha256_init(void)
 {
 	sha256_init(&sha256_ctx);
@@ -106,19 +112,11 @@ void fido2_crypto_sha512_final(uint8_t *hash)
 	cf_sha512_digest_final(&sha512_ctx, hash);
 }
 
-void crypto_sha256_hmac_init(uint8_t *key, uint32_t klen, uint8_t *hmac)
+void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen, uint8_t *hmac)
 {
 	uint8_t buf[64];
 	unsigned int i;
 	memset(buf, 0, sizeof(buf));
-
-	if (key == CRYPTO_MASTER_KEY) {
-		key = master_secret;
-		klen = sizeof(master_secret) / 2;
-	} else if (key == CRYPTO_TRANSPORT_KEY) {
-		key = transport_secret;
-		klen = 32;
-	}
 
 	if (klen > 64) {
 		printf2(TAG_ERR, "Error, key size must be <= 64\n");
@@ -135,19 +133,12 @@ void crypto_sha256_hmac_init(uint8_t *key, uint32_t klen, uint8_t *hmac)
 	crypto_sha256_update(buf, 64);
 }
 
-void crypto_sha256_hmac_final(uint8_t *key, uint32_t klen, uint8_t *hmac)
+void crypto_sha256_hmac_final(const uint8_t *key, uint32_t klen, uint8_t *hmac)
 {
 	uint8_t buf[64];
 	unsigned int i;
 	crypto_sha256_final(hmac);
 	memset(buf, 0, sizeof(buf));
-	if (key == CRYPTO_MASTER_KEY) {
-		key = master_secret;
-		klen = sizeof(master_secret) / 2;
-	} else if (key == CRYPTO_TRANSPORT_KEY2) {
-		key = transport_secret;
-		klen = 32;
-	}
 
 	if (klen > 64) {
 		printf2(TAG_ERR, "Error, key size must be <= 64\n");
@@ -196,11 +187,11 @@ void crypto_ecc256_load_key(uint8_t *data, int len, uint8_t *data2, int len2)
 void generate_private_key(uint8_t *data, int len, uint8_t *data2, int len2,
 			  uint8_t *privkey)
 {
-	crypto_sha256_hmac_init(CRYPTO_MASTER_KEY, 0, privkey);
+	crypto_sha256_hmac_init(master_secret, 32, privkey);
 	crypto_sha256_update(data, len);
 	crypto_sha256_update(data2, len2);
 	crypto_sha256_update(master_secret, 32); // TODO AES
-	crypto_sha256_hmac_final(CRYPTO_MASTER_KEY, 0, privkey);
+	crypto_sha256_hmac_final(master_secret, 32, privkey);
 
 	crypto_aes256_init(master_secret + 32, NULL);
 	crypto_aes256_encrypt(privkey, 32);

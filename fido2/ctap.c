@@ -42,10 +42,14 @@ static void add_masked_metadata_for_credential(CredentialId *credential,
 					       uint32_t metadata)
 {
 	uint8_t mask[32];
-	crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY, 0, mask);
+
+	uint8_t key_len = 0;
+	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
+
+	crypto_sha256_hmac_init(transport_key, key_len, mask);
 	crypto_sha256_update(credential->entropy.nonce,
 			     CREDENTIAL_NONCE_SIZE - 4);
-	crypto_sha256_hmac_final(CRYPTO_TRANSPORT_KEY, 0, mask);
+	crypto_sha256_hmac_final(transport_key, key_len, mask);
 
 	credential->entropy.metadata.value = *((uint32_t *)mask) ^ metadata;
 }
@@ -53,10 +57,14 @@ static void add_masked_metadata_for_credential(CredentialId *credential,
 static uint32_t read_metadata_from_masked_credential(CredentialId *credential)
 {
 	uint8_t mask[32];
-	crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY, 0, mask);
+
+	uint8_t key_len = 0;
+	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
+
+	crypto_sha256_hmac_init(transport_key, key_len, mask);
 	crypto_sha256_update(credential->entropy.nonce,
 			     CREDENTIAL_NONCE_SIZE - 4);
-	crypto_sha256_hmac_final(CRYPTO_TRANSPORT_KEY, 0, mask);
+	crypto_sha256_hmac_final(transport_key, key_len, mask);
 
 	return credential->entropy.metadata.value ^ *((uint32_t *)mask);
 }
@@ -381,11 +389,15 @@ void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint32_t count,
 {
 	uint8_t hashbuf[32];
 	memset(hashbuf, 0, sizeof(hashbuf));
-	crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY, 0, hashbuf);
+
+	uint8_t key_len = 0;
+	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
+
+	crypto_sha256_hmac_init(transport_key, key_len, hashbuf);
 	crypto_sha256_update(rpIdHash, 32);
 	crypto_sha256_update(nonce, CREDENTIAL_NONCE_SIZE);
 	crypto_sha256_update((uint8_t *)&count, 4);
-	crypto_sha256_hmac_final(CRYPTO_TRANSPORT_KEY, 0, hashbuf);
+	crypto_sha256_hmac_final(transport_key, key_len, hashbuf);
 
 	memmove(tag, hashbuf, CREDENTIAL_TAG_SIZE);
 }
@@ -479,13 +491,17 @@ static int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
 			return CTAP2_ERR_EXTENSION_FIRST;
 		}
 
+		uint8_t key_len = 0;
+		const uint8_t *transport_key =
+		    crypto_get_key_transport(&key_len);
+
 		// Generate credRandom
-		crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY2, 0, credRandom);
+		crypto_sha256_hmac_init(transport_key, key_len, credRandom);
 		crypto_sha256_update(
 		    (uint8_t *)&ext->hmac_secret.credential->id,
 		    sizeof(CredentialId));
 		crypto_sha256_update(&getAssertionState.user_verified, 1);
-		crypto_sha256_hmac_final(CRYPTO_TRANSPORT_KEY2, 0, credRandom);
+		crypto_sha256_hmac_final(transport_key, key_len, credRandom);
 
 		// Decrypt saltEnc
 		crypto_aes256_init(shared_secret, NULL);

@@ -7,14 +7,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
+const uint8_t *crypto_get_key_transport(uint8_t *len);
+
 void crypto_sha256_init();
 void crypto_sha256_update(uint8_t *data, size_t len);
 void crypto_sha256_update_secret();
 void crypto_sha256_final(uint8_t *hash);
 void crypto_sha256(uint8_t *digest, uint8_t *data, size_t len);
 
-void crypto_sha256_hmac_init(uint8_t *key, uint32_t klen, uint8_t *hmac);
-void crypto_sha256_hmac_final(uint8_t *key, uint32_t klen, uint8_t *hmac);
+void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen, uint8_t *hmac);
+void crypto_sha256_hmac_final(const uint8_t *key, uint32_t klen, uint8_t *hmac);
 
 void fido2_crypto_sha512_init();
 void fido2_crypto_sha512_update(const uint8_t *data, size_t len);
@@ -42,10 +44,6 @@ void generate_private_key(uint8_t *data, int len, uint8_t *data2, int len2,
 void crypto_ecc256_make_key_pair(uint8_t *pubkey, uint8_t *privkey);
 void crypto_ecc256_shared_secret(const uint8_t *pubkey, const uint8_t *privkey,
 				 uint8_t *shared_secret);
-
-#define CRYPTO_TRANSPORT_KEY2 ((uint8_t *)2)
-#define CRYPTO_TRANSPORT_KEY ((uint8_t *)1)
-#define CRYPTO_MASTER_KEY ((uint8_t *)0)
 
 void crypto_aes256_init(uint8_t *key, uint8_t *nonce);
 void crypto_aes256_reset_iv(uint8_t *nonce);
