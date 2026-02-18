@@ -253,11 +253,8 @@ void crypto_ecc256_shared_secret(const uint8_t *pubkey, const uint8_t *privkey,
 struct AES_ctx aes_ctx;
 void crypto_aes256_init(uint8_t *key, uint8_t *nonce)
 {
-	if (key == CRYPTO_TRANSPORT_KEY) {
-		AES_init_ctx(&aes_ctx, transport_secret);
-	} else {
-		AES_init_ctx(&aes_ctx, key);
-	}
+	AES_init_ctx(&aes_ctx, key);
+
 	if (nonce == NULL) {
 		memset(aes_ctx.Iv, 0, 16);
 	} else {

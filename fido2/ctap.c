@@ -997,7 +997,6 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 		return CTAP2_ERR_INVALID_OPTION;
 	}
 
-	// crypto_aes256_init(CRYPTO_TRANSPORT_KEY, NULL);
 	for (i = 0; i < MC.excludeListSize; i++) {
 		ret = parse_credential_descriptor(&MC.excludeList, excl_cred);
 		if (ret == CTAP2_ERR_CBOR_UNEXPECTED_TYPE) {
