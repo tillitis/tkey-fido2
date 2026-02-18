@@ -78,7 +78,7 @@ TARGET_LDFLAGS := \
                   -static \
                   -nostdlib \
                   -flto \
-                  -fuse-ld=lld \
+                  -fuse-ld=$(TARGET_LD) \
                   -Wl,--cref,-M \
                   -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
                   -Wl,--gc-sections
