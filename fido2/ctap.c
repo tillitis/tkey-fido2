@@ -2451,6 +2451,15 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 
 		dump_hex1(TAG_DUMP, buf, resp->length);
 		break;
+
+	case CTAP_AUTHENTICATOR_SELECTION:
+		printf1(TAG_CTAP, "CTAP_AUTHENTICATOR_SELECTION\n");
+		status = ctap2_user_presence_test();
+		if (status != CTAP1_ERR_SUCCESS) {
+			status = CTAP2_ERR_USER_ACTION_TIMEOUT;
+		}
+		break;
+
 	default:
 		status = CTAP1_ERR_INVALID_COMMAND;
 		printf2(TAG_ERR, "error, invalid cmd: 0x%02x\n", cmd);
