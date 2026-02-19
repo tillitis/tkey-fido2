@@ -618,9 +618,7 @@ static int ctap2_user_presence_test()
 {
 	device_set_status(CTAPHID_STATUS_UPNEEDED);
 	int ret = ctap_user_presence_test(CTAP2_UP_DELAY_MS);
-	if (ret > 1) {
-		return CTAP2_ERR_PROCESSING;
-	} else if (ret > 0) {
+	if (ret > 0) {
 		return CTAP1_ERR_SUCCESS;
 	} else if (ret < 0) {
 		return CTAP2_ERR_KEEPALIVE_CANCEL;
