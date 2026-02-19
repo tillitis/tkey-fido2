@@ -15,7 +15,7 @@ void crypto_sha256_update_secret();
 void crypto_sha256_final(uint8_t *hash);
 void crypto_sha256(uint8_t *digest, uint8_t *data, size_t len);
 
-void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen, uint8_t *hmac);
+void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen);
 void crypto_sha256_hmac_final(const uint8_t *key, uint32_t klen, uint8_t *hmac);
 
 void fido2_crypto_sha512_init();

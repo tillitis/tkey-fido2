@@ -46,7 +46,7 @@ static void add_masked_metadata_for_credential(CredentialId *credential,
 	uint8_t key_len = 0;
 	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
 
-	crypto_sha256_hmac_init(transport_key, key_len, mask);
+	crypto_sha256_hmac_init(transport_key, key_len);
 	crypto_sha256_update(credential->entropy.nonce,
 			     CREDENTIAL_NONCE_SIZE - 4);
 	crypto_sha256_hmac_final(transport_key, key_len, mask);
@@ -61,7 +61,7 @@ static uint32_t read_metadata_from_masked_credential(CredentialId *credential)
 	uint8_t key_len = 0;
 	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
 
-	crypto_sha256_hmac_init(transport_key, key_len, mask);
+	crypto_sha256_hmac_init(transport_key, key_len);
 	crypto_sha256_update(credential->entropy.nonce,
 			     CREDENTIAL_NONCE_SIZE - 4);
 	crypto_sha256_hmac_final(transport_key, key_len, mask);
@@ -118,7 +118,7 @@ static uint8_t verify_pin_auth_ex(uint8_t *pinAuth, uint8_t *buf, size_t len)
 {
 	uint8_t hmac[32];
 
-	crypto_sha256_hmac_init(PIN_TOKEN, PIN_TOKEN_SIZE, hmac);
+	crypto_sha256_hmac_init(PIN_TOKEN, PIN_TOKEN_SIZE);
 	crypto_sha256_update(buf, len);
 	crypto_sha256_hmac_final(PIN_TOKEN, PIN_TOKEN_SIZE, hmac);
 
@@ -393,7 +393,7 @@ void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint32_t count,
 	uint8_t key_len = 0;
 	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
 
-	crypto_sha256_hmac_init(transport_key, key_len, hashbuf);
+	crypto_sha256_hmac_init(transport_key, key_len);
 	crypto_sha256_update(rpIdHash, 32);
 	crypto_sha256_update(nonce, CREDENTIAL_NONCE_SIZE);
 	crypto_sha256_update((uint8_t *)&count, 4);
@@ -480,7 +480,7 @@ static int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
 		crypto_sha256_update(shared_secret, 32);
 		crypto_sha256_final(shared_secret);
 
-		crypto_sha256_hmac_init(shared_secret, 32, hmac);
+		crypto_sha256_hmac_init(shared_secret, 32);
 		crypto_sha256_update(saltEnc, ext->hmac_secret.saltLen);
 		crypto_sha256_hmac_final(shared_secret, 32, hmac);
 
@@ -496,7 +496,7 @@ static int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
 		    crypto_get_key_transport(&key_len);
 
 		// Generate credRandom
-		crypto_sha256_hmac_init(transport_key, key_len, credRandom);
+		crypto_sha256_hmac_init(transport_key, key_len);
 		crypto_sha256_update(
 		    (uint8_t *)&ext->hmac_secret.credential->id,
 		    sizeof(CredentialId));
@@ -508,13 +508,12 @@ static int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
 		crypto_aes256_decrypt(saltEnc, ext->hmac_secret.saltLen);
 
 		// Generate outputs
-		crypto_sha256_hmac_init(credRandom, 32, hmac_secret_output);
+		crypto_sha256_hmac_init(credRandom, 32);
 		crypto_sha256_update(saltEnc, 32);
 		crypto_sha256_hmac_final(credRandom, 32, hmac_secret_output);
 
 		if (ext->hmac_secret.saltLen == 64) {
-			crypto_sha256_hmac_init(credRandom, 32,
-						hmac_secret_output + 32);
+			crypto_sha256_hmac_init(credRandom, 32);
 			crypto_sha256_update(saltEnc + 32, 32);
 			crypto_sha256_hmac_final(credRandom, 32,
 						 hmac_secret_output + 32);
@@ -2084,7 +2083,7 @@ uint8_t ctap_update_pin_if_verified(uint8_t *pinEnc, int len,
 	crypto_sha256_update(shared_secret, 32);
 	crypto_sha256_final(shared_secret);
 
-	crypto_sha256_hmac_init(shared_secret, 32, hmac);
+	crypto_sha256_hmac_init(shared_secret, 32);
 	crypto_sha256_update(pinEnc, len);
 	if (pinHashEnc != NULL) {
 		crypto_sha256_update(pinHashEnc, 16);

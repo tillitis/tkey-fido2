@@ -112,7 +112,7 @@ void fido2_crypto_sha512_final(uint8_t *hash)
 	cf_sha512_digest_final(&sha512_ctx, hash);
 }
 
-void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen, uint8_t *hmac)
+void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen)
 {
 	uint8_t buf[64];
 	unsigned int i;
@@ -187,7 +187,7 @@ void crypto_ecc256_load_key(uint8_t *data, int len, uint8_t *data2, int len2)
 void generate_private_key(uint8_t *data, int len, uint8_t *data2, int len2,
 			  uint8_t *privkey)
 {
-	crypto_sha256_hmac_init(master_secret, 32, privkey);
+	crypto_sha256_hmac_init(master_secret, 32);
 	crypto_sha256_update(data, len);
 	crypto_sha256_update(data2, len2);
 	crypto_sha256_update(master_secret, 32); // TODO AES
