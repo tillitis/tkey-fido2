@@ -60,8 +60,8 @@ TARGET_CFLAGS := \
 #TARGET_CFLAGS += -pedantic       # Gives lots of new warnings
 #TARGET_CFLAGS += -std=c99        # Gives errors
 
-TARGET_CFLAGS += -O2
-#TARGET_CFLAGS += -Os
+TARGET_CFLAGS += -Os
+# TARGET_CFLAGS += -Os
 #TARGET_CFLAGS += -O0
 #TARGET_CFLAGS += -g3
 TARGET_CFLAGS += -flto

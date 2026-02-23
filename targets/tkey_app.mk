@@ -15,8 +15,6 @@ TARGET_OBJDUMP := llvm-objdump # Set if a dump file should be created
 
 LIBDIR := ../tkey-libs
 
-FLASH_IMPL ?= targets/tkey/src/flash.c
-
 # Source files for the target
 TARGET_SRCS := \
                crypto/cifra/src/blockwise.c                       \
@@ -41,6 +39,7 @@ TARGET_SRCS := \
                targets/tkey/src/init.c                            \
                targets/tkey/src/main.c                            \
                targets/tkey/src/rng.c                             \
+               targets/tkey/src/fs.c                             \
                targets/tkey/libc/newlib/libc/search/qsort.c       \
                targets/tkey/libc/newlib/libc/string/memcmp.c      \
                targets/tkey/libc/newlib/libc/string/memcpy.c      \
@@ -57,7 +56,6 @@ TARGET_SRCS := \
                tinycbor/src/cborencoder_close_container_checked.c \
                tinycbor/src/cborerrorstrings.c                    \
                tinycbor/src/cborparser.c                          \
-               $(FLASH_IMPL)                                      \
 
 # Target-specific ARFLAGS
 TARGET_ARFLAGS :=
@@ -75,9 +73,9 @@ TARGET_ASFLAGS := \
                   -fomit-frame-pointer \
                   -mno-relax
 
-#TARGET_ASFLAGS += -Os
-TARGET_ASFLAGS += -O0
-TARGET_ASFLAGS += -g3
+TARGET_ASFLAGS += -Os
+# TARGET_ASFLAGS += -O0
+# TARGET_ASFLAGS += -g3
 
 # Target-specific CFLAGS
 TARGET_CFLAGS := \
@@ -102,9 +100,9 @@ TARGET_CFLAGS := \
 #TARGET_CFLAGS += -pedantic       # Gives lots of new warnings
 #TARGET_CFLAGS += -std=c99        # Gives errors
 
-#TARGET_CFLAGS += -Os
-TARGET_CFLAGS += -O0
-TARGET_CFLAGS += -g3
+TARGET_CFLAGS += -Os
+# TARGET_CFLAGS += -O0
+# TARGET_CFLAGS += -g3
 TARGET_CFLAGS += -flto
 
 # Target-specific CXXFLAGS
@@ -138,7 +136,7 @@ TARGET_OBJDUMPFLAGS := \
 TARGET_DEFINES := \
                   -DAES256=1 \
                   -DAPP_CONFIG=\"app.h\" \
-                  -DDEBUG_LEVEL=2 \
+                  -DDEBUG_LEVEL=0 \
                   -DuECC_PLATFORM=0
 
 TARGET_DEFINES += -DLFS_NO_MALLOC

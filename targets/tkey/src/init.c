@@ -1,16 +1,17 @@
 // SPDX-FileCopyrightText: 2024 Tillitis AB <tillitis.se>
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include <stdint.h>
 #include <assert.h>
+#include <stdint.h>
 #include <tkey/io.h>
 #include <tkey/tk1_mem.h>
 
 #include APP_CONFIG
-#include "flash.h"
 #include "init.h"
 #include "rng.h"
 #include "timer.h"
+
+#include "fs.h"
 
 // clang-format off
 static volatile uint32_t *timer =           (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
@@ -25,7 +26,7 @@ void hw_init()
 	init_usb();
 	rng_init();
 
-	if (flash_init() != 0) {
+	if (fs_init() != 0) {
 		assert(1 == 2);
 	}
 }
