@@ -137,23 +137,32 @@ void ctap_reset_rk();
  */
 uint32_t ctap_rk_size();
 
-/** Store a resident key into an index between [ 0, ctap_rk_size() ).
- *  Storage should be in non-volatile memory.
+/** Store a resident key. Will be appended to the file detemened by the first
+ * nibble in the rpid hash. Storage should be in non-volatile memory.
  *
- * @param index between RK index range.
  * @param rk pointer to valid rk structure that should be written to NV memory.
  *
- * *Optional*, if not implemented, operates on non-persistant RK's.
+ * *Optional*, if not implemented, operates on non-persistent RK's.
  */
-void ctap_store_rk(int index, CTAP_residentKey *rk);
+int ctap_store_rk(const CTAP_residentKey *rk);
 
-/** Delete a resident key from an index.
- * @param index to delete resident key from.  Has no effect if no RK exists at
- * index.
+/** delete a resident.
+ * @param id to delete. has no effect if rk does not exists.
  *
- * *Optional*, if not implemented, operates on non-persistant RK's.
+ * *optional*, if not implemented, operates on non-persistent rk's.
  */
-void ctap_delete_rk(int index);
+int ctap_delete_rk(CredentialId *id);
+
+/** Opens the file where the resident key with corresponding rpid hash should
+ * be.
+ * @param rpid hash.
+ *
+ */
+int ctap_open_rk_file(uint8_t rpid_hash[32]);
+
+/** Closes the already open resident key file.
+ */
+int ctap_close_rk_file(void);
 
 /** Read a resident key from an index into memory
  * @param index to read resident key from.
@@ -161,7 +170,10 @@ void ctap_delete_rk(int index);
  *
  * *Optional*, if not implemented, operates on non-persistant RK's.
  */
-void ctap_load_rk(int index, CTAP_residentKey *rk);
+// void ctap_load_rk(int index, CTAP_residentKey *rk);
+
+void ctap_load_rk(int index, CTAP_residentKey *dst_rk);
+void ctap_load_next_rk(CTAP_residentKey *dst_rk);
 
 /** Overwrite the RK located in index with a new RK.
  * @param index to write resident key to.

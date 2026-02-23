@@ -23,9 +23,6 @@
 
 void hw_init();
 
-// Return 1 if Solo is secure/locked.
-int solo_is_locked();
-
 // #define TEST
 // #define TEST_POWER
 
