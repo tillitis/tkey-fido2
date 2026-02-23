@@ -21,15 +21,9 @@
 #define CTAPHID_KEEPALIVE (TYPE_INIT | 0x3b)
 
 // Custom commands between 0x40-0x7f
-#define CTAPHID_BOOT (TYPE_INIT | 0x50)
-#define CTAPHID_ENTERBOOT (TYPE_INIT | 0x51)
-#define CTAPHID_ENTERSTBOOT (TYPE_INIT | 0x52)
 #define CTAPHID_REBOOT (TYPE_INIT | 0x53)
 #define CTAPHID_GETRNG (TYPE_INIT | 0x60)
 #define CTAPHID_GETVERSION (TYPE_INIT | 0x61)
-#define CTAPHID_LOADKEY (TYPE_INIT | 0x62)
-// reserved for debug, not implemented except for HACKER and DEBUG_LEVEl > 0
-#define CTAPHID_PROBE (TYPE_INIT | 0x70)
 
 #define ERR_INVALID_CMD 0x01
 #define ERR_INVALID_PAR 0x02

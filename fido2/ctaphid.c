@@ -645,17 +645,11 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 {
 	ctap_response_init(ctap_resp);
 
-#if (defined(SOLO_EXPERIMENTAL))
-	uint32_t param;
-#endif
-
 	switch (wb->cmd) {
 
-#if defined(SOLO)
 	case CTAPHID_REBOOT:
 		device_reboot();
 		return 1;
-#endif
 
 	case CTAPHID_GETRNG:
 		printf1(TAG_HID, "CTAPHID_GETRNG\n");
@@ -675,74 +669,12 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 		ctap_buffer[0] = SOLO_VERSION_MAJ;
 		ctap_buffer[1] = SOLO_VERSION_MIN;
 		ctap_buffer[2] = SOLO_VERSION_PATCH;
-#if defined(SOLO)
-		ctap_buffer[3] = solo_is_locked();
-#else
 		ctap_buffer[3] = 0;
-#endif
+
 		ctaphid_write(wb, ctap_buffer, 4);
 		ctaphid_write(wb, NULL, 0);
 		return 1;
 		break;
-
-		// Remove on next release
-#if defined(SOLO)
-	case 0x99:
-		solo_lock_if_not_already();
-		wb->bcnt = 0;
-		ctaphid_write(wb, NULL, 0);
-		return 1;
-		break;
-#endif
-
-#if (defined(SOLO_EXPERIMENTAL))
-	case CTAPHID_LOADKEY:
-		/**
-		 * Load external key.  Useful for enabling backups.
-		 * bytes:                   4                     4 96 payload:
-		 * version [maj rev patch RFU]| counter_replacement (BE) |
-		 * master_key |
-		 *
-		 * Counter should be increased by a large amount, e.g.
-		 * (0x10000000) to outdo any previously lost/broken keys.
-		 */
-		printf1(TAG_HID, "CTAPHID_LOADKEY\n");
-		if (len != 104) {
-			printf2(TAG_ERR, "Error, invalid length.\n");
-			ctaphid_send_error(wb->cid, CTAP1_ERR_INVALID_LENGTH);
-			return 1;
-		}
-		param = ctap_buffer[0] << 16;
-		param |= ctap_buffer[1] << 8;
-		param |= ctap_buffer[2] << 0;
-		if (param != 0) {
-			ctaphid_send_error(wb->cid,
-					   CTAP2_ERR_UNSUPPORTED_OPTION);
-			return 1;
-		}
-
-		// Ask for THREE button presses
-		if (ctap_user_presence_test(8000) > 0)
-			if (ctap_user_presence_test(2000) > 0)
-				if (ctap_user_presence_test(2000) > 0) {
-					ctap_load_external_keys(ctap_buffer +
-								8);
-					param = ctap_buffer[7];
-					param |= ctap_buffer[6] << 8;
-					param |= ctap_buffer[5] << 16;
-					param |= ctap_buffer[4] << 24;
-					ctap_atomic_count(param);
-
-					wb->bcnt = 0;
-
-					ctaphid_write(wb, NULL, 0);
-					return 1;
-				}
-
-		printf2(TAG_ERR, "Error, invalid length.\n");
-		ctaphid_send_error(wb->cid, CTAP2_ERR_OPERATION_DENIED);
-		return 1;
-#endif
 	}
 
 	return 0;
