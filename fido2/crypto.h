@@ -56,8 +56,8 @@ void crypto_aes256_init(uint8_t *key, uint8_t *nonce);
 void crypto_aes256_reset_iv(uint8_t *nonce);
 
 // buf length must be multiple of 16 bytes
-void crypto_aes256_decrypt(uint8_t *buf, int lenth);
-void crypto_aes256_encrypt(uint8_t *buf, int lenth);
+void crypto_aes256_decrypt(uint8_t *buf, int length);
+void crypto_aes256_encrypt(uint8_t *buf, int length);
 
 void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size);
 
