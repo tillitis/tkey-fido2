@@ -184,6 +184,72 @@ void crypto_ecc256_load_key(uint8_t *data, int len, uint8_t *data2, int len2)
 	_key_len = 32;
 }
 
+// HKDF-SHA256 inspired by RFC 5869.
+// The extract and expand phases are provided as two functions.
+//
+// Use crypto_hkdf_extract_sha256 for the extract phase, with an optional salt.
+// Set salt=NULL and/or salt_len=0 to use the RFC-defined zero salt.
+// salt_len must be <= 64 bytes. ikm is the input keying material.
+// Returns the prk, which should be used as an input in the expand phase.
+//
+// Use crypto_hkdf_expand_sha256 for the expand phase, to generate up to 255
+// bytes of key material into okm. okm_len must be <= 255 bytes.
+//
+// Info is strongly recommended for domain separation.
+//
+// No input validation is performed; it is the caller's responsibility.
+
+void crypto_hkdf_extract_sha256(const uint8_t *salt, uint8_t salt_len,
+				const uint8_t *ikm, uint8_t ikm_len,
+				uint8_t prk[32])
+{
+	// PRK = HMAC(salt, input_key_material)
+
+	const uint8_t zero_salt[32] = {0};
+
+	if (salt == NULL || salt_len == 0) {
+		salt = zero_salt;
+		salt_len = sizeof(zero_salt);
+	}
+
+	crypto_sha256_hmac_init(salt, salt_len);
+	crypto_sha256_update(ikm, ikm_len);
+	crypto_sha256_hmac_final(salt, salt_len, prk);
+}
+
+void crypto_hkdf_expand_sha256(const uint8_t prk[32], const uint8_t *info,
+			       uint8_t info_len, uint8_t *okm, uint8_t okm_len)
+{
+	// T(0) = empty string (zero length)
+	// T(i) = HMAC(PRK, T(i−1) || info || counter)
+
+	uint8_t remaining = okm_len;
+	uint8_t t[32] = {0x00};
+	uint8_t t_len = 0;
+	uint8_t counter = 1;
+	uint8_t copied = 0;
+	uint8_t to_copy = 0;
+
+	while (remaining > 0) {
+
+		crypto_sha256_hmac_init(prk, 32);
+		crypto_sha256_update(t, t_len);
+		crypto_sha256_update((const uint8_t *)info, info_len);
+		crypto_sha256_update(&counter, 1);
+		crypto_sha256_hmac_final(prk, 32, t);
+
+		to_copy = remaining;
+		if (to_copy > 32) {
+			to_copy = 32;
+		}
+		memcpy(okm + copied, t, to_copy);
+		remaining -= to_copy;
+		copied += to_copy;
+		counter++;
+		t_len = 32;
+	}
+	secure_wipe(t, sizeof(t));
+}
 void generate_private_key(uint8_t *data, int len, uint8_t *data2, int len2,
 			  uint8_t *privkey)
 {

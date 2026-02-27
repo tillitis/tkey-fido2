@@ -18,6 +18,12 @@ void crypto_sha256(uint8_t *digest, uint8_t *data, size_t len);
 void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen);
 void crypto_sha256_hmac_final(const uint8_t *key, uint32_t klen, uint8_t *hmac);
 
+void crypto_hkdf_extract_sha256(const uint8_t *salt, uint8_t salt_len,
+				const uint8_t *ikm, uint8_t ikm_len,
+				uint8_t prk[32]);
+void crypto_hkdf_expand_sha256(const uint8_t prk[32], const uint8_t *info,
+			       uint8_t info_len, uint8_t *out, uint8_t out_len);
+
 void fido2_crypto_sha512_init();
 void fido2_crypto_sha512_update(const uint8_t *data, size_t len);
 void fido2_crypto_sha512_final(uint8_t *hash);
