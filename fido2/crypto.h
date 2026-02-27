@@ -7,7 +7,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-const uint8_t *crypto_get_key_transport(uint8_t *len);
+const uint8_t *crypto_get_key_mac(uint8_t *len);
+const uint8_t *crypto_get_key_meta(uint8_t *len);
+const uint8_t *crypto_get_key_hmac(uint8_t *len);
 
 void crypto_sha256_init();
 void crypto_sha256_update(uint8_t *data, size_t len);
@@ -45,8 +47,8 @@ void fido2_crypto_ed25519_sign(uint8_t *data1, int len1, uint8_t *data2,
 			       int len2, uint8_t *sig);
 void fido2_crypto_ed25519_load_key(uint8_t *data, int len);
 
-void generate_private_key(uint8_t *data, int len, uint8_t *data2, int len2,
-			  uint8_t *privkey);
+void crypto_derive_credential_key(uint8_t *data, int len, uint8_t *data2,
+				  int len2, uint8_t *privkey);
 void crypto_ecc256_make_key_pair(uint8_t *pubkey, uint8_t *privkey);
 void crypto_ecc256_shared_secret(const uint8_t *pubkey, const uint8_t *privkey,
 				 uint8_t *shared_secret);
@@ -58,7 +60,6 @@ void crypto_aes256_reset_iv(uint8_t *nonce);
 void crypto_aes256_decrypt(uint8_t *buf, int lenth);
 void crypto_aes256_encrypt(uint8_t *buf, int lenth);
 
-void crypto_reset_master_secret();
-void crypto_load_master_secret(uint8_t *key);
+void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size);
 
 #endif

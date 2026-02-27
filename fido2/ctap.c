@@ -17,6 +17,7 @@
 #include "ctaphid.h"
 #include "device.h"
 #include "log.h"
+#include "storage.h"
 #include "u2f.h"
 #include "util.h"
 #include APP_CONFIG
@@ -44,12 +45,12 @@ static void add_masked_metadata_for_credential(CredentialId *credential,
 	uint8_t mask[32];
 
 	uint8_t key_len = 0;
-	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
+	const uint8_t *meta_key = crypto_get_key_meta(&key_len);
 
-	crypto_sha256_hmac_init(transport_key, key_len);
+	crypto_sha256_hmac_init(meta_key, key_len);
 	crypto_sha256_update(credential->entropy.nonce,
 			     CREDENTIAL_NONCE_SIZE - 4);
-	crypto_sha256_hmac_final(transport_key, key_len, mask);
+	crypto_sha256_hmac_final(meta_key, key_len, mask);
 
 	credential->entropy.metadata.value = *((uint32_t *)mask) ^ metadata;
 }
@@ -59,12 +60,12 @@ static uint32_t read_metadata_from_masked_credential(CredentialId *credential)
 	uint8_t mask[32];
 
 	uint8_t key_len = 0;
-	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
+	const uint8_t *meta_key = crypto_get_key_meta(&key_len);
 
-	crypto_sha256_hmac_init(transport_key, key_len);
+	crypto_sha256_hmac_init(meta_key, key_len);
 	crypto_sha256_update(credential->entropy.nonce,
 			     CREDENTIAL_NONCE_SIZE - 4);
-	crypto_sha256_hmac_final(transport_key, key_len, mask);
+	crypto_sha256_hmac_final(meta_key, key_len, mask);
 
 	return credential->entropy.metadata.value ^ *((uint32_t *)mask);
 }
@@ -391,13 +392,13 @@ void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint32_t count,
 	memset(hashbuf, 0, sizeof(hashbuf));
 
 	uint8_t key_len = 0;
-	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
+	const uint8_t *mac_key = crypto_get_key_mac(&key_len);
 
-	crypto_sha256_hmac_init(transport_key, key_len);
+	crypto_sha256_hmac_init(mac_key, key_len);
 	crypto_sha256_update(rpIdHash, 32);
 	crypto_sha256_update(nonce, CREDENTIAL_NONCE_SIZE);
 	crypto_sha256_update((uint8_t *)&count, 4);
-	crypto_sha256_hmac_final(transport_key, key_len, hashbuf);
+	crypto_sha256_hmac_final(mac_key, key_len, hashbuf);
 
 	memmove(tag, hashbuf, CREDENTIAL_TAG_SIZE);
 }
@@ -492,16 +493,15 @@ static int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
 		}
 
 		uint8_t key_len = 0;
-		const uint8_t *transport_key =
-		    crypto_get_key_transport(&key_len);
+		const uint8_t *hmac_key = crypto_get_key_hmac(&key_len);
 
 		// Generate credRandom
-		crypto_sha256_hmac_init(transport_key, key_len);
+		crypto_sha256_hmac_init(hmac_key, key_len);
 		crypto_sha256_update(
 		    (uint8_t *)&ext->hmac_secret.credential->id,
 		    sizeof(CredentialId));
 		crypto_sha256_update(&getAssertionState.user_verified, 1);
-		crypto_sha256_hmac_final(transport_key, key_len, credRandom);
+		crypto_sha256_hmac_final(hmac_key, key_len, credRandom);
 
 		// Decrypt saltEnc
 		crypto_aes256_init(shared_secret, NULL);
@@ -2496,7 +2496,7 @@ static void ctap_state_init()
 	// Set to 0xff instead of 0x00 to be easier on flash
 	memset(&STATE, 0xff, sizeof(AuthenticatorState));
 	// Fresh RNG for key
-	ctap_generate_rng(STATE.key_space, KEY_SPACE_BYTES);
+	ctap_generate_rng(STATE.key_salt, KEY_SALT_BYTES);
 
 	STATE.is_initialized = INITIALIZED_MARKER;
 	STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
@@ -2513,18 +2513,6 @@ static void ctap_state_init()
 
 	printf1(TAG_STOR, "Generated PIN SALT:\n");
 	dump_hex1(TAG_STOR, STATE.PIN_SALT, sizeof STATE.PIN_SALT);
-}
-
-/** Overwrite master secret from external source.
- * @param keybytes an array of KEY_SPACE_BYTES length.
- *
- * This function should only be called from a privilege mode.
- */
-void ctap_load_external_keys(uint8_t *keybytes)
-{
-	memmove(STATE.key_space, keybytes, KEY_SPACE_BYTES);
-	authenticator_write_state(&STATE);
-	crypto_load_master_secret(STATE.key_space);
 }
 
 #include "version.h"
@@ -2552,7 +2540,7 @@ void ctap_init()
 		authenticator_write_state(&STATE);
 	}
 
-	crypto_load_master_secret(STATE.key_space);
+	crypto_derive_device_keys(STATE.key_salt, KEY_SALT_BYTES);
 
 	if (ctap_is_pin_set()) {
 		printf1(TAG_STOR, "attempts_left: %d\n", STATE.remaining_tries);
@@ -2655,94 +2643,6 @@ void ctap_reset_state()
 	memset(&getAssertionState, 0, sizeof(getAssertionState));
 }
 
-uint16_t ctap_keys_stored()
-{
-	int total = 0;
-	int i;
-	for (i = 0; i < MAX_KEYS; i++) {
-		if (STATE.key_lens[i] != 0xffff) {
-			total += 1;
-		} else {
-			break;
-		}
-	}
-	return total;
-}
-
-static uint16_t key_addr_offset(int index)
-{
-	uint16_t offset = 0;
-	int i;
-	for (i = 0; i < index; i++) {
-		if (STATE.key_lens[i] != 0xffff)
-			offset += STATE.key_lens[i];
-	}
-	return offset;
-}
-
-uint16_t ctap_key_len(uint8_t index)
-{
-	int i = ctap_keys_stored();
-	if (index >= i || index >= MAX_KEYS) {
-		return 0;
-	}
-	if (STATE.key_lens[index] == 0xffff)
-		return 0;
-	return STATE.key_lens[index];
-}
-
-int8_t ctap_store_key(uint8_t index, uint8_t *key, uint16_t len)
-{
-	int i = ctap_keys_stored();
-	uint16_t offset;
-	if (i >= MAX_KEYS || index >= MAX_KEYS || !len) {
-		return ERR_NO_KEY_SPACE;
-	}
-
-	if (STATE.key_lens[index] != 0xffff) {
-		return ERR_KEY_SPACE_TAKEN;
-	}
-
-	offset = key_addr_offset(index);
-
-	if ((offset + len) > KEY_SPACE_BYTES) {
-		return ERR_NO_KEY_SPACE;
-	}
-
-	STATE.key_lens[index] = len;
-
-	memmove(STATE.key_space + offset, key, len);
-
-	ctap_flush_state();
-
-	return 0;
-}
-
-int8_t ctap_load_key(uint8_t index, uint8_t *key)
-{
-	int i = ctap_keys_stored();
-	uint16_t offset;
-	uint16_t len;
-	if (index >= i || index >= MAX_KEYS) {
-		return ERR_NO_KEY_SPACE;
-	}
-
-	if (STATE.key_lens[index] == 0xffff) {
-		return ERR_KEY_SPACE_EMPTY;
-	}
-
-	offset = key_addr_offset(index);
-	len = ctap_key_len(index);
-
-	if ((offset + len) > KEY_SPACE_BYTES) {
-		return ERR_NO_KEY_SPACE;
-	}
-
-	memmove(key, STATE.key_space + offset, len);
-
-	return 0;
-}
-
 static void ctap_reset_key_agreement()
 {
 	ctap_generate_rng(KEY_AGREEMENT_PRIV, sizeof(KEY_AGREEMENT_PRIV));
@@ -2762,7 +2662,7 @@ void ctap_reset()
 	ctap_reset_state();
 	ctap_reset_key_agreement();
 
-	crypto_load_master_secret(STATE.key_space);
+	crypto_derive_device_keys(STATE.key_salt, KEY_SALT_BYTES);
 }
 
 void lock_device_permanently()

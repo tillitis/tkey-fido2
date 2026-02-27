@@ -4,19 +4,14 @@
 #ifndef _STORAGE_H
 #define _STORAGE_H
 
-#include "ctap.h"
+#include <stdint.h>
 
-#define KEY_SPACE_BYTES 128
-#define MAX_KEYS (1)
+#define KEY_SALT_BYTES 64
 #define PIN_SALT_LEN (32)
 #define STATE_VERSION (1)
 
 #define BACKUP_MARKER 0x5A
 #define INITIALIZED_MARKER 0xA5
-
-#define ERR_NO_KEY_SPACE (-1)
-#define ERR_KEY_SPACE_TAKEN (-2)
-#define ERR_KEY_SPACE_EMPTY (-2)
 
 typedef struct {
 	// Pin information
@@ -29,8 +24,7 @@ typedef struct {
 
 	uint16_t rk_stored;
 
-	uint16_t key_lens[MAX_KEYS];
-	uint8_t key_space[KEY_SPACE_BYTES];
+	uint8_t key_salt[KEY_SALT_BYTES];
 	uint8_t data_version;
 } AuthenticatorState_0x01;
 

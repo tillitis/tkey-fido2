@@ -162,12 +162,12 @@ static void u2f_make_auth_tag(struct u2f_key_handle *kh, uint8_t *appid,
 	uint8_t hashbuf[32];
 
 	uint8_t key_len = 0;
-	const uint8_t *transport_key = crypto_get_key_transport(&key_len);
+	const uint8_t *mac_key = crypto_get_key_mac(&key_len);
 
-	crypto_sha256_hmac_init(transport_key, key_len);
+	crypto_sha256_hmac_init(mac_key, key_len);
 	crypto_sha256_update(kh->key, U2F_KEY_HANDLE_KEY_SIZE);
 	crypto_sha256_update(appid, U2F_APPLICATION_SIZE);
-	crypto_sha256_hmac_final(transport_key, key_len, hashbuf);
+	crypto_sha256_hmac_final(mac_key, key_len, hashbuf);
 	memmove(tag, hashbuf, CREDENTIAL_TAG_SIZE);
 }
 

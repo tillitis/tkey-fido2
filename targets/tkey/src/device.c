@@ -32,6 +32,7 @@
 // clang-format off
 static volatile uint32_t *timer = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
 static volatile uint32_t *touch = (volatile uint32_t *)TK1_MMIO_TOUCH_STATUS;
+static volatile uint32_t const *cdi   = (volatile uint32_t *)TK1_MMIO_TK1_CDI_FIRST;
 // clang-format on
 
 #define HID_PACKET_SIZE 64
@@ -40,6 +41,11 @@ uint32_t __device_status = 0;
 static bool _up_disabled = false;
 
 static fs_file_t _f_rk = {0};
+
+const uint8_t *device_get_bound_secret(void)
+{
+	return (const uint8_t *)cdi;
+}
 
 void device_disable_up(bool disable)
 {

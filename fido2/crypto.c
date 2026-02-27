@@ -41,14 +41,27 @@ static const struct uECC_Curve_t *_es256_curve = NULL;
 static const uint8_t *_signing_key = NULL;
 static int _key_len = 0;
 
-// Secrets for testing only
-static uint8_t master_secret[64];
-static uint8_t transport_secret[32];
+static uint8_t key_cred_priv[32];
+static uint8_t key_cred_mac[32];
+static uint8_t key_meta_enc[32];
+static uint8_t key_hmac_ext[32];
 
-const uint8_t *crypto_get_key_transport(uint8_t *len)
+const uint8_t *crypto_get_key_mac(uint8_t *len)
 {
-	*len = sizeof(transport_secret);
-	return transport_secret;
+	*len = sizeof(key_cred_mac);
+	return key_cred_mac;
+}
+
+const uint8_t *crypto_get_key_meta(uint8_t *len)
+{
+	*len = sizeof(key_meta_enc);
+	return key_meta_enc;
+}
+
+const uint8_t *crypto_get_key_hmac(uint8_t *len)
+{
+	*len = sizeof(key_hmac_ext);
+	return key_hmac_ext;
 }
 
 void crypto_sha256_init(void)
@@ -61,21 +74,34 @@ void fido2_crypto_sha512_init(void)
 	cf_sha512_init(&sha512_ctx);
 }
 
-void crypto_load_master_secret(uint8_t *key)
+void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size)
 {
-#if KEY_SPACE_BYTES < 96
-#error "need more key bytes"
-#endif
-	memmove(master_secret, key, 64);
-	memmove(transport_secret, key + 64, 32);
-}
+	// Derives the keys with HKDF-SHA256 based on a non-secret salt, a
+	// device bound hardware secret and domain separation.
 
-void crypto_reset_master_secret(void)
-{
-	memset(master_secret, 0, 64);
-	memset(transport_secret, 0, 32);
-	ctap_generate_rng(master_secret, 64);
-	ctap_generate_rng(transport_secret, 32);
+	const uint8_t *device_secret = device_get_bound_secret();
+	uint8_t prk[32] = {0x00};
+
+	crypto_hkdf_extract_sha256(salt, salt_size, device_secret, 32, prk);
+
+	static const uint8_t info_cred_priv[] = "cred_priv";
+	static const uint8_t info_cred_mac[] = "cred_mac";
+	static const uint8_t info_meta_enc[] = "meta_enc";
+	static const uint8_t info_hmac_ext[] = "hmac_ext";
+
+	crypto_hkdf_expand_sha256(prk, info_cred_priv, sizeof(info_cred_priv),
+				  key_cred_priv, sizeof(key_cred_priv));
+
+	crypto_hkdf_expand_sha256(prk, info_cred_mac, sizeof(info_cred_mac),
+				  key_cred_mac, sizeof(key_cred_mac));
+
+	crypto_hkdf_expand_sha256(prk, info_meta_enc, sizeof(info_meta_enc),
+				  key_meta_enc, sizeof(key_meta_enc));
+
+	crypto_hkdf_expand_sha256(prk, info_hmac_ext, sizeof(info_hmac_ext),
+				  key_hmac_ext, sizeof(key_hmac_ext));
+
+	secure_wipe(prk, sizeof(prk));
 }
 
 void crypto_sha256_update(uint8_t *data, size_t len)
@@ -179,7 +205,7 @@ void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig)
 void crypto_ecc256_load_key(uint8_t *data, int len, uint8_t *data2, int len2)
 {
 	static uint8_t privkey[32];
-	generate_private_key(data, len, data2, len2, privkey);
+	crypto_derive_credential_key(data, len, data2, len2, privkey);
 	_signing_key = privkey;
 	_key_len = 32;
 }
@@ -250,28 +276,26 @@ void crypto_hkdf_expand_sha256(const uint8_t prk[32], const uint8_t *info,
 	}
 	secure_wipe(t, sizeof(t));
 }
-void generate_private_key(uint8_t *data, int len, uint8_t *data2, int len2,
-			  uint8_t *privkey)
+
+void crypto_derive_credential_key(uint8_t *data, int len, uint8_t *data2,
+				  int len2, uint8_t *privkey)
 {
-	crypto_sha256_hmac_init(master_secret, 32);
+	crypto_sha256_hmac_init(key_cred_priv, 32);
 	crypto_sha256_update(data, len);
 	crypto_sha256_update(data2, len2);
-	crypto_sha256_update(master_secret, 32); // TODO AES
-	crypto_sha256_hmac_final(master_secret, 32, privkey);
-
-	crypto_aes256_init(master_secret + 32, NULL);
-	crypto_aes256_encrypt(privkey, 32);
+	crypto_sha256_update(key_cred_priv, 32); // TODO AES
+	crypto_sha256_hmac_final(key_cred_priv, 32, privkey);
 }
 
-/*int uECC_compute_public_key(const uint8_t *private_key, uint8_t *public_key,
- * uECC_Curve curve);*/
+/*int uECC_compute_public_key(const uint8_t *private_key, uint8_t
+ * *public_key, uECC_Curve curve);*/
 void crypto_ecc256_derive_public_key(uint8_t *data, int len, uint8_t *x,
 				     uint8_t *y)
 {
 	uint8_t privkey[32];
 	uint8_t pubkey[64];
 
-	generate_private_key(data, len, NULL, 0, privkey);
+	crypto_derive_credential_key(data, len, NULL, 0, privkey);
 
 	memset(pubkey, 0, sizeof(pubkey));
 	uECC_compute_public_key(privkey, pubkey, _es256_curve);
@@ -344,7 +368,7 @@ void fido2_crypto_ed25519_derive_public_key(uint8_t *data, int len, uint8_t *x)
 	uint8_t seed[crypto_sign_ed25519_SEEDBYTES];
 	uint8_t sk[crypto_sign_ed25519_SECRETKEYBYTES];
 
-	generate_private_key(data, len, NULL, 0, seed);
+	crypto_derive_credential_key(data, len, NULL, 0, seed);
 	crypto_ed25519_key_pair(sk, x, seed);
 }
 
@@ -354,7 +378,7 @@ void fido2_crypto_ed25519_load_key(uint8_t *data, int len)
 	uint8_t pk[crypto_sign_ed25519_PUBLICKEYBYTES];
 	static uint8_t sk[crypto_sign_ed25519_SECRETKEYBYTES];
 
-	generate_private_key(data, len, NULL, 0, seed);
+	crypto_derive_credential_key(data, len, NULL, 0, seed);
 	crypto_ed25519_key_pair(sk, pk, seed);
 
 	_signing_key = sk;

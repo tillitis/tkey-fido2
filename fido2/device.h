@@ -4,7 +4,15 @@
 #ifndef _DEVICE_H
 #define _DEVICE_H
 
+#include "ctap.h"
 #include "storage.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
+/** Returns a pointer to the device bound hardware secret.
+ */
+const uint8_t *device_get_bound_secret(void);
 
 /** Return a millisecond timestamp.  Does not need to be synchronized to
  * anything. *Optional* to compile, but will not calculate delays correctly
