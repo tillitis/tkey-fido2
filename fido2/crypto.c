@@ -267,10 +267,10 @@ void crypto_hkdf_expand_sha256(const uint8_t prk[32], const uint8_t *info,
 void crypto_derive_credential_key(uint8_t *data, int len, uint8_t *data2,
 				  int len2, uint8_t *privkey)
 {
+	// privkey = HMAC(key_cred_priv, data || data2)
 	crypto_sha256_hmac_init(key_cred_priv, 32);
 	crypto_sha256_update(data, len);
 	crypto_sha256_update(data2, len2);
-	crypto_sha256_update(key_cred_priv, 32); // TODO AES
 	crypto_sha256_hmac_final(key_cred_priv, 32, privkey);
 }
 
