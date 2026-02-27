@@ -12,10 +12,10 @@ const uint8_t *crypto_get_key_meta(uint8_t *len);
 const uint8_t *crypto_get_key_hmac(uint8_t *len);
 
 void crypto_sha256_init();
-void crypto_sha256_update(uint8_t *data, size_t len);
+void crypto_sha256_update(const uint8_t *data, size_t len);
 void crypto_sha256_update_secret();
 void crypto_sha256_final(uint8_t *hash);
-void crypto_sha256(uint8_t *digest, uint8_t *data, size_t len);
+void crypto_sha256(uint8_t *digest, const uint8_t *data, size_t len);
 
 void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen);
 void crypto_sha256_hmac_final(const uint8_t *key, uint32_t klen, uint8_t *hmac);

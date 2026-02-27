@@ -104,7 +104,7 @@ void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size)
 	secure_wipe(prk, sizeof(prk));
 }
 
-void crypto_sha256_update(uint8_t *data, size_t len)
+void crypto_sha256_update(const uint8_t *data, size_t len)
 {
 	sha256_update(&sha256_ctx, data, len);
 }
@@ -124,7 +124,7 @@ void crypto_sha256_final(uint8_t *hash)
 	sha256_final(&sha256_ctx, hash);
 }
 
-void crypto_sha256(uint8_t *digest, uint8_t *data, size_t len)
+void crypto_sha256(uint8_t *digest, const uint8_t *data, size_t len)
 {
 	SHA256_CTX ctx;
 	sha256_init(&ctx);
