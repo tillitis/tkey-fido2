@@ -11,23 +11,19 @@
  * */
 #ifndef EXTERNAL_SOLO_CRYPTO
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "crypto.h"
-#include "util.h"
+#include <tkey/lib.h>
 
 #include "aes.h"
-#include "ctap.h"
+#include "crypto.h"
 #include "device.h"
+#include "log.h"
+#include "sha2.h"
 #include "sha256.h"
 #include "uECC.h"
-// stuff for SHA512
-#include "blockwise.h"
-#include "sha2.h"
-#include APP_CONFIG
-#include "log.h"
 
 #define crypto_sign_ed25519_PUBLICKEYBYTES 32
 #define crypto_sign_ed25519_SECRETKEYBYTES 64
