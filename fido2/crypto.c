@@ -135,18 +135,16 @@ void fido2_crypto_sha512_final(uint8_t *hash)
 
 void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen)
 {
-	uint8_t buf[64];
-	unsigned int i;
-	memset(buf, 0, sizeof(buf));
+	uint8_t buf[64] = {0x00};
 
 	if (klen > 64) {
 		printf2(TAG_ERR, "Error, key size must be <= 64\n");
 		exit(1);
 	}
 
-	memmove(buf, key, klen);
+	memcpy(buf, key, klen);
 
-	for (i = 0; i < sizeof(buf); i++) {
+	for (uint8_t i = 0; i < sizeof(buf); i++) {
 		buf[i] = buf[i] ^ 0x36;
 	}
 
@@ -156,18 +154,16 @@ void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen)
 
 void crypto_sha256_hmac_final(const uint8_t *key, uint32_t klen, uint8_t *hmac)
 {
-	uint8_t buf[64];
-	unsigned int i;
+	uint8_t buf[64] = {0x00};
 	crypto_sha256_final(hmac);
-	memset(buf, 0, sizeof(buf));
 
 	if (klen > 64) {
 		printf2(TAG_ERR, "Error, key size must be <= 64\n");
 		exit(1);
 	}
-	memmove(buf, key, klen);
+	memcpy(buf, key, klen);
 
-	for (i = 0; i < sizeof(buf); i++) {
+	for (uint8_t i = 0; i < sizeof(buf); i++) {
 		buf[i] = buf[i] ^ 0x5c;
 	}
 
