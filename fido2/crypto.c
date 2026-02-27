@@ -114,11 +114,6 @@ void fido2_crypto_sha512_update(const uint8_t *data, size_t len)
 	cf_sha512_update(&sha512_ctx, data, len);
 }
 
-void crypto_sha256_update_secret()
-{
-	sha256_update(&sha256_ctx, master_secret, 32);
-}
-
 void crypto_sha256_final(uint8_t *hash)
 {
 	sha256_final(&sha256_ctx, hash);
