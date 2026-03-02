@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-int dump_hex(uint8_t *buf, int size, int indent_pos, bool indent_first_line,
-	     int start_pos, bool add_newline)
+int dump_hex(const uint8_t *buf, int size, int indent_pos,
+	     bool indent_first_line, int start_pos, bool add_newline)
 {
 	int pos = (start_pos > 0) ? start_pos : 1;
 
