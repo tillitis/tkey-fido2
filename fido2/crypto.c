@@ -318,6 +318,16 @@ void crypto_ecc256_shared_secret(const uint8_t *pubkey, const uint8_t *privkey,
 	}
 }
 
+// Inits AES with iv and encrypts/decrypts (symmetric) the buffer inplace using
+// CTR mode. No IV should ever be reused with the same key.
+void crypto_aes256_ctr_xcrypt_buffer(const uint8_t *key, const uint8_t *iv,
+				     uint8_t *buffer, uint32_t length)
+{
+	struct AES_ctx ctx;
+	AES_init_ctx_iv(&ctx, key, iv);
+	AES_CTR_xcrypt_buffer(&ctx, buffer, length);
+}
+
 struct AES_ctx aes_ctx;
 void crypto_aes256_init(uint8_t *key, uint8_t *nonce)
 {

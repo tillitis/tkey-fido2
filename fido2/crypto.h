@@ -52,6 +52,9 @@ void crypto_ecc256_make_key_pair(uint8_t *pubkey, uint8_t *privkey);
 void crypto_ecc256_shared_secret(const uint8_t *pubkey, const uint8_t *privkey,
 				 uint8_t *shared_secret);
 
+void crypto_aes256_ctr_xcrypt_buffer(const uint8_t *key, const uint8_t *iv,
+				  uint8_t *buffer, uint32_t length);
+
 void crypto_aes256_init(uint8_t *key, uint8_t *nonce);
 void crypto_aes256_reset_iv(uint8_t *nonce);
 
