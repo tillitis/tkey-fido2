@@ -36,53 +36,54 @@ static void ctap_reset_key_agreement();
 
 struct _getAssertionState getAssertionState;
 
-// Generate a mask to keep the confidentiality of the "metadata" field in the
-// credential ID. Mask = hmac(device-secret, 14-random-bytes-in-credential-id)
-// Masked_output = Mask ^ metadata
-static void add_masked_metadata_for_credential(CredentialId *credential,
-					       uint32_t metadata)
+// Protects the metadata by encrypting it using AES256 in CTR-mode.
+// Will use the meta_key.
+// Needs a 16 byte IV, unique per credential.
+// Encrypts/decrypts length bytes.
+//
+// Encrypt data by having un-encrypted data in *in, and get the encrypted data
+// in *out.
+// Decrypt data by having encrypted data in *in, and get the un-encrypted data
+// in *out.
+//
+// *in and *out can be the same buffer to encrypt/decrypt in-place, but they
+// cannot overlapping partily.
+static void protect_metadata(uint8_t *iv, uint8_t *in, uint8_t *out,
+			     uint8_t length)
 {
-	uint8_t mask[32];
-
 	uint8_t key_len = 0;
 	const uint8_t *meta_key = crypto_get_key_meta(&key_len);
+	memcpy(out, in, length);
 
-	crypto_sha256_hmac_init(meta_key, key_len);
-	crypto_sha256_update(credential->entropy.nonce,
-			     CREDENTIAL_NONCE_SIZE - 4);
-	crypto_sha256_hmac_final(meta_key, key_len, mask);
-
-	credential->entropy.metadata.value = *((uint32_t *)mask) ^ metadata;
+	crypto_aes256_ctr_xcrypt_buffer(meta_key, iv, out, length);
 }
 
-static uint32_t read_metadata_from_masked_credential(CredentialId *credential)
+static uint32_t restore_metadata_cred_protect(CredentialId *credential)
 {
-	uint8_t mask[32];
+	uint8_t metadata[CREDENTIAL_METADATA_SIZE];
+	protect_metadata(credential->nonce, credential->protected_metadata,
+			 metadata, CREDENTIAL_METADATA_SIZE);
 
-	uint8_t key_len = 0;
-	const uint8_t *meta_key = crypto_get_key_meta(&key_len);
+	uint32_t cred_protect = 0;
+	cred_protect |=
+	    ((uint32_t)metadata[CREDENTIAL_META_CRED_PROT_HI_BYTE] << 8);
+	cred_protect |= (uint32_t)metadata[CREDENTIAL_META_CRED_PROT_LO_BYTE];
 
-	crypto_sha256_hmac_init(meta_key, key_len);
-	crypto_sha256_update(credential->entropy.nonce,
-			     CREDENTIAL_NONCE_SIZE - 4);
-	crypto_sha256_hmac_final(meta_key, key_len, mask);
-
-	return credential->entropy.metadata.value ^ *((uint32_t *)mask);
+	return cred_protect;
 }
 
-static uint32_t
-read_cred_protect_from_masked_credential(CredentialId *credential)
+static int32_t restore_metadata_cose_alg(CredentialId *credential)
 {
-	return read_metadata_from_masked_credential(credential) & 0xffffU;
-}
 
-static int32_t read_cose_alg_from_masked_credential(CredentialId *credential)
-{
-	uint8_t alg =
-	    (read_metadata_from_masked_credential(credential) >> 16) & 0xffU;
+	uint8_t metadata[CREDENTIAL_METADATA_SIZE];
+
+	protect_metadata(credential->nonce, credential->protected_metadata,
+			 metadata, CREDENTIAL_METADATA_SIZE);
+
+	uint8_t alg = metadata[CREDENTIAL_META_ALG];
 
 	switch (alg) {
-	default: // what else?
+	default:
 	case CREDID_ALG_ES256:
 		return COSE_ALG_ES256;
 	case CREDID_ALG_EDDSA:
@@ -94,8 +95,7 @@ static uint8_t check_credential_metadata(CredentialId *credential,
 					 uint8_t is_verified,
 					 uint8_t is_from_credid_list)
 {
-	uint32_t cred_protect =
-	    read_cred_protect_from_masked_credential(credential);
+	uint32_t cred_protect = restore_metadata_cred_protect(credential);
 
 	switch (cred_protect) {
 	case EXT_CRED_PROTECT_OPTIONAL_WITH_CREDID:
@@ -731,16 +731,24 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 		memset((uint8_t *)&authData->attest.id, 0,
 		       sizeof(CredentialId));
 
-		ctap_generate_rng(authData->attest.id.entropy.nonce,
+		ctap_generate_rng(authData->attest.id.nonce,
 				  CREDENTIAL_NONCE_SIZE);
 
 		uint8_t alg =
 		    credInfo->COSEAlgorithmIdentifier == COSE_ALG_EDDSA
 			? CREDID_ALG_EDDSA
 			: CREDID_ALG_ES256;
-		add_masked_metadata_for_credential(&authData->attest.id,
-						   extensions->cred_protect |
-						       (alg << 16));
+
+		uint8_t metadata[CREDENTIAL_METADATA_SIZE] = {0x00};
+		metadata[CREDENTIAL_META_ALG] = alg;
+		metadata[CREDENTIAL_META_CRED_PROT_HI_BYTE] =
+		    (extensions->cred_protect >> 8) & 0xFF;
+		metadata[CREDENTIAL_META_CRED_PROT_LO_BYTE] =
+		    extensions->cred_protect & 0xFF;
+
+		protect_metadata(authData->attest.id.nonce, metadata,
+				 authData->attest.id.protected_metadata,
+				 CREDENTIAL_METADATA_SIZE);
 
 		authData->attest.id.count = count;
 
@@ -1405,8 +1413,7 @@ uint8_t ctap_end_get_assertion(CborEncoder *map,
 	}
 
 	unsigned int cred_size = get_credential_id_size(cred->type);
-	int32_t cose_alg =
-	    read_cose_alg_from_masked_credential(&cred->credential.id);
+	int32_t cose_alg = restore_metadata_cose_alg(&cred->credential.id);
 	if (cose_alg == COSE_ALG_EDDSA) {
 		fido2_crypto_ed25519_load_key((uint8_t *)&cred->credential.id,
 					      cred_size);
@@ -1583,13 +1590,13 @@ uint8_t ctap_cred_rk(CborEncoder *encoder, int rk_ind, int rk_count)
 	// TODO: This needs to be updated with the new load_rk api
 	//  ctap_load_rk(rk_ind, &rk);
 
-	uint32_t cred_protect = read_metadata_from_masked_credential(&rk.id);
+	uint32_t cred_protect = restore_metadata_cred_protect(&rk.id);
 	if (cred_protect == 0 || cred_protect > 3) {
 		// Take default value of userVerificationOptional
 		cred_protect = EXT_CRED_PROTECT_OPTIONAL;
 	}
 
-	int32_t cose_alg = read_cose_alg_from_masked_credential(&rk.id);
+	int32_t cose_alg = restore_metadata_cose_alg(&rk.id);
 
 	CborEncoder map;
 	size_t map_size = rk_count > 0 ? 5 : 4;
