@@ -23,8 +23,8 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
 int8_t u2f_response_writeback(const uint8_t *buf, uint16_t len);
 void u2f_reset_response();
 
-void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint32_t count,
-		   uint8_t *tag);
+void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint8_t *metadata,
+		   uint32_t count, uint8_t *tag);
 
 static CTAP_RESPONSE *_u2f_resp = NULL;
 
@@ -199,8 +199,8 @@ int8_t u2f_authenticate_credential(struct u2f_key_handle *kh,
 			printf1(TAG_U2F, "APPID does not match rpIdHash.\n");
 			return 0;
 		}
-		make_auth_tag(appid, (uint8_t *)&cred->entropy, cred->count,
-			      tag);
+		make_auth_tag(appid, cred->nonce, cred->protected_metadata,
+			      cred->count, tag);
 
 		if (memcmp(cred->tag, tag, CREDENTIAL_TAG_SIZE) == 0) {
 			return 1;

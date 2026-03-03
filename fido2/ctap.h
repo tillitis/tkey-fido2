@@ -5,6 +5,7 @@
 #define _CTAP_H
 
 #include "cbor.h"
+#include <stdint.h>
 
 #define CTAP_MAKE_CREDENTIAL 0x01
 #define CTAP_GET_ASSERTION 0x02
@@ -121,10 +122,13 @@
 #define DISPLAY_NAME_LIMIT 32 // Must be minimum of 64 bytes but can be more.
 #define CTAP_MAX_MESSAGE_SIZE 1200
 
-#define CREDENTIAL_RK_FLASH_PAD                                                \
-	2 // size of RK should be 8-byte aligned to store in flash easily.
 #define CREDENTIAL_TAG_SIZE 16
-#define CREDENTIAL_NONCE_SIZE (16 + CREDENTIAL_RK_FLASH_PAD)
+#define CREDENTIAL_NONCE_SIZE 16
+#define CREDENTIAL_METADATA_SIZE 4
+#define CREDENTIAL_META_CRED_PROT_HI_BYTE 2
+#define CREDENTIAL_META_CRED_PROT_LO_BYTE 3
+#define CREDENTIAL_META_ALG 1
+
 #define CREDENTIAL_COUNTER_SIZE (4)
 #define CREDENTIAL_ENC_SIZE 176 // pad to multiple of 16 bytes
 
@@ -159,13 +163,8 @@ typedef struct {
 
 typedef struct {
 	uint8_t tag[CREDENTIAL_TAG_SIZE];
-	union {
-		uint8_t nonce[CREDENTIAL_NONCE_SIZE];
-		struct {
-			uint8_t _pad[CREDENTIAL_NONCE_SIZE - 4];
-			uint32_t value;
-		} __attribute__((packed)) metadata;
-	} __attribute__((packed)) entropy;
+	uint8_t nonce[CREDENTIAL_NONCE_SIZE];
+	uint8_t protected_metadata[CREDENTIAL_METADATA_SIZE];
 	uint8_t rpIdHash[32];
 	uint32_t count;
 } __attribute__((packed)) CredentialId;

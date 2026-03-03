@@ -385,8 +385,8 @@ static int ctap_generate_cose_key(CborEncoder *cose_key, uint8_t *hmac_input,
 	return 0;
 }
 
-void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint32_t count,
-		   uint8_t *tag)
+void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint8_t *metadata,
+		   uint32_t count, uint8_t *tag)
 {
 	uint8_t hashbuf[32];
 	memset(hashbuf, 0, sizeof(hashbuf));
@@ -397,6 +397,7 @@ void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint32_t count,
 	crypto_sha256_hmac_init(mac_key, key_len);
 	crypto_sha256_update(rpIdHash, 32);
 	crypto_sha256_update(nonce, CREDENTIAL_NONCE_SIZE);
+	crypto_sha256_update(metadata, CREDENTIAL_METADATA_SIZE);
 	crypto_sha256_update((uint8_t *)&count, 4);
 	crypto_sha256_hmac_final(mac_key, key_len, hashbuf);
 
@@ -749,7 +750,8 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 		// Make a tag we can later check to make sure this is a token we
 		// made
 		make_auth_tag(authData->head.rpIdHash,
-			      authData->attest.id.entropy.nonce, count,
+			      authData->attest.id.nonce,
+			      authData->attest.id.protected_metadata, count,
 			      authData->attest.id.tag);
 
 		// resident key
@@ -942,7 +944,8 @@ int ctap_authenticate_credential(struct rpId *rp,
 		if (memcmp(desc->credential.id.rpIdHash, rpIdHash, 32) != 0) {
 			return 0;
 		}
-		make_auth_tag(rpIdHash, desc->credential.id.entropy.nonce,
+		make_auth_tag(rpIdHash, desc->credential.id.nonce,
+			      desc->credential.id.protected_metadata,
 			      desc->credential.id.count, tag);
 		return (memcmp(desc->credential.id.tag, tag,
 			       CREDENTIAL_TAG_SIZE) == 0);
