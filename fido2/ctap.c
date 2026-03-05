@@ -1279,11 +1279,7 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 				// add user info if it exists
 				add_existing_user_info(&GA->creds[i]);
 
-				// If RK matches credential in the
-				// allow_list, we should only return one
-				// credential.
 				GA->credLen = i + 1;
-				break;
 			}
 		}
 	}
