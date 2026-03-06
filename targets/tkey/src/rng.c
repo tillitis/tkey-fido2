@@ -104,16 +104,14 @@ int rng_get_bytes(uint8_t *dst, size_t sz)
 		if (to_copy > sz - dst_index)
 			to_copy = sz - dst_index;
 
+		size_t offset = 16 - ctx.valid_bytes;
+
 		for (size_t k = 0; k < to_copy; k++)
-			dst[dst_index + k] = ctx.digest[k];
+			dst[dst_index + k] =
+			    ((uint8_t *)ctx.digest)[offset + k];
 
 		dst_index += to_copy;
 		ctx.valid_bytes -= to_copy;
-
-		// Shift if any left
-		if (ctx.valid_bytes > 0)
-			memmove(ctx.digest, ctx.digest + to_copy,
-				ctx.valid_bytes);
 	}
 	return 0;
 }
