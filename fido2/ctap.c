@@ -54,22 +54,19 @@ static void protect_metadata(uint8_t *iv, uint8_t *in, uint8_t *out,
 	uint8_t key_len = 0;
 	const uint8_t *meta_key = crypto_get_key_meta(&key_len);
 	memcpy(out, in, length);
+	dump_hex1(TAG_CTAP, out, length);
 
 	crypto_aes256_ctr_xcrypt_buffer(meta_key, iv, out, length);
+	dump_hex1(TAG_CTAP, out, length);
 }
 
-static uint32_t restore_metadata_cred_protect(CredentialId *credential)
+static uint8_t restore_metadata_cred_protect(CredentialId *credential)
 {
 	uint8_t metadata[CREDENTIAL_METADATA_SIZE];
 	protect_metadata(credential->nonce, credential->protected_metadata,
 			 metadata, CREDENTIAL_METADATA_SIZE);
 
-	uint32_t cred_protect = 0;
-	cred_protect |=
-	    ((uint32_t)metadata[CREDENTIAL_META_CRED_PROT_HI_BYTE] << 8);
-	cred_protect |= (uint32_t)metadata[CREDENTIAL_META_CRED_PROT_LO_BYTE];
-
-	return cred_protect;
+	return metadata[CREDENTIAL_META_CRED_PROTECT_BYTE];
 }
 
 static int32_t restore_metadata_cose_alg(CredentialId *credential)
@@ -80,7 +77,7 @@ static int32_t restore_metadata_cose_alg(CredentialId *credential)
 	protect_metadata(credential->nonce, credential->protected_metadata,
 			 metadata, CREDENTIAL_METADATA_SIZE);
 
-	uint8_t alg = metadata[CREDENTIAL_META_ALG];
+	uint8_t alg = metadata[CREDENTIAL_META_ALG_BYTE];
 
 	switch (alg) {
 	default:
@@ -95,7 +92,7 @@ static uint8_t check_credential_metadata(CredentialId *credential,
 					 uint8_t is_verified,
 					 uint8_t is_from_credid_list)
 {
-	uint32_t cred_protect = restore_metadata_cred_protect(credential);
+	uint8_t cred_protect = restore_metadata_cred_protect(credential);
 
 	switch (cred_protect) {
 	case EXT_CRED_PROTECT_OPTIONAL_WITH_CREDID:
@@ -740,11 +737,11 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 			: CREDID_ALG_ES256;
 
 		uint8_t metadata[CREDENTIAL_METADATA_SIZE] = {0x00};
-		metadata[CREDENTIAL_META_ALG] = alg;
-		metadata[CREDENTIAL_META_CRED_PROT_HI_BYTE] =
-		    (extensions->cred_protect >> 8) & 0xFF;
-		metadata[CREDENTIAL_META_CRED_PROT_LO_BYTE] =
-		    extensions->cred_protect & 0xFF;
+		metadata[CREDENTIAL_META_ALG_BYTE] = alg;
+		metadata[CREDENTIAL_META_CRED_PROTECT_BYTE] =
+		    extensions->cred_protect;
+		metadata[CREDENTIAL_META_FLAGS_BYTE] =
+		    (credInfo->rk & CREDENTIAL_META_IS_RK_BITMASK);
 
 		protect_metadata(authData->attest.id.nonce, metadata,
 				 authData->attest.id.protected_metadata,
@@ -1586,7 +1583,7 @@ uint8_t ctap_cred_rk(CborEncoder *encoder, int rk_ind, int rk_count)
 	// TODO: This needs to be updated with the new load_rk api
 	//  ctap_load_rk(rk_ind, &rk);
 
-	uint32_t cred_protect = restore_metadata_cred_protect(&rk.id);
+	uint8_t cred_protect = restore_metadata_cred_protect(&rk.id);
 	if (cred_protect == 0 || cred_protect > 3) {
 		// Take default value of userVerificationOptional
 		cred_protect = EXT_CRED_PROTECT_OPTIONAL;

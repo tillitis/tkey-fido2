@@ -125,9 +125,10 @@
 #define CREDENTIAL_TAG_SIZE 16
 #define CREDENTIAL_NONCE_SIZE 16
 #define CREDENTIAL_METADATA_SIZE 4
-#define CREDENTIAL_META_CRED_PROT_HI_BYTE 2
-#define CREDENTIAL_META_CRED_PROT_LO_BYTE 3
-#define CREDENTIAL_META_ALG 1
+#define CREDENTIAL_META_CRED_PROTECT_BYTE 3
+#define CREDENTIAL_META_ALG_BYTE 2
+#define CREDENTIAL_META_FLAGS_BYTE 0
+#define CREDENTIAL_META_IS_RK_BITMASK 1
 
 #define CREDENTIAL_COUNTER_SIZE (4)
 #define CREDENTIAL_ENC_SIZE 176 // pad to multiple of 16 bytes
@@ -238,7 +239,7 @@ typedef struct {
 typedef struct {
 	uint8_t hmac_secret_present;
 	CTAP_hmac_secret hmac_secret;
-	uint32_t cred_protect;
+	uint8_t cred_protect;
 } CTAP_extensions;
 
 typedef struct {

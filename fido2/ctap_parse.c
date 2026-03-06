@@ -659,9 +659,18 @@ uint8_t ctap_parse_extensions(CborValue *val, CTAP_extensions *ext)
 			}
 		} else if (strncmp(key, "credProtect", 11) == 0) {
 			if (cbor_value_get_type(&map) == CborIntegerType) {
-				ret = cbor_value_get_int(
-				    &map, (int *)&ext->cred_protect);
+				int value;
+				ret = cbor_value_get_int(&map, &value);
 				check_ret(ret);
+
+				if (value >= 1 && value <= 3) {
+					ext->cred_protect = (uint8_t)value;
+				} else {
+					printf1(TAG_RED,
+						"warning: invalid credProtect "
+						"value %d\r\n",
+						value);
+				}
 			} else {
 				printf1(TAG_RED,
 					"warning: credProtect request ignored "
