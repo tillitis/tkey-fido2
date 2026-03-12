@@ -27,9 +27,6 @@ jobs:
       - name: Build tkey_app
         run: ./build-tkey.sh
 
-      - name: Build solokeys_linux
-        run: make solokeys_linux
-
   check-format:
     runs-on: ubuntu-latest
     container:
