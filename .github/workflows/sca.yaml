@@ -1,0 +1,78 @@
+
+name: sca
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request: {}
+  # allow manual runs:
+  workflow_dispatch: {}
+
+jobs:
+  run-infer:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tillitis/infer-toolchain:1.2.0
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          # fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout and build
+        run: |
+          ./build-tkey.sh
+          make clean-all
+
+      - name: run infer
+        run: |
+          cp tools/sca/run-infer.sh .
+          cp tools/sca/infer_exceptions.txt .
+          ./run-infer.sh
+
+      - name: Archive all report files
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: infer-reports
+          path: |
+            infer-out-*/report.txt
+            infer-out-*/expanded-report.txt
+            infer-out-*/censored-issues-report.txt
+            infer-out-*/checkers_used.txt
+
+  run-scan-build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tillitis/scan-build-toolchain:22.1.0
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          # fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout and build
+        run: |
+          ./build-tkey.sh
+          make clean-all
+
+      - name: run scan-build
+        run: |
+          cp tools/sca/run-scan-build.sh .
+          cp tools/sca/scan-build_exceptions.txt .
+          cp tools/sca/sarif_to_txt.py .
+          ./run-scan-build.sh
+
+      - name: Archive all report files
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: scan-build-reports
+          path: |
+            scan-build-out-*/report.txt
+            scan-build-out-*/expanded-report.txt
+            scan-build-out-*/censored-issues-report.txt
+            scan-build-out-*/checkers_used.txt

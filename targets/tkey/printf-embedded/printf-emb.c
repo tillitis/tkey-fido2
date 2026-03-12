@@ -212,7 +212,7 @@ int  vsnprintf(char *s, size_t n, const char *fmt, va_list ap) {
     g_var.output_buf_size = (int) n;
     g_var.output_str_len  = 0;
     g_var.recursion_depth = 0;
-    g_var.ap              = ap;
+    va_copy(g_var.ap, ap);
     g_var.alloc           = NULL;
 
     if (*fmt) {
@@ -265,7 +265,7 @@ int vsaprintf(emb_printf_fn_alloc_t fn_alloc, char **s, const char *fmt, va_list
     g_var.output_buf_size = INT32_MAX;  // buf not allocated yet, assume it's plenty big
     g_var.output_str_len  = 0;
     g_var.recursion_depth = 0;
-    g_var.ap              = ap;
+    va_copy(g_var.ap, ap);
     g_var.alloc           = fn_alloc;
 
     if (*fmt) {

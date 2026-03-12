@@ -27,6 +27,8 @@ path = [
      "targets/tkey_uecc.mk",
      "targets/tkey/libc/newlib/README.md",
      "tinycbor/README.md",
+     "tools/sca/infer_exceptions.txt",
+     "tools/sca/scan-build_exceptions.txt"
 ]
 SPDX-FileCopyrightText = "2025 Tillitis AB <tillitis.se>"
 SPDX-License-Identifier = "BSD-2-Clause"

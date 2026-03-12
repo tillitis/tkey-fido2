@@ -1,0 +1,2 @@
+.*:crypto/micro-ecc/.*:.*:Ignore uECC issues
+.*:tinycbor/.*:.*:Ignore TinyCBOR issues

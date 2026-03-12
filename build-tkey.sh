@@ -5,7 +5,7 @@
 
 set -eu
 
-tkey_libs_version="main"
+tkey_libs_version="add_littlefs"
 
 printf "Building tkey-libs with version: %s\n" "$tkey_libs_version"
 
