@@ -60,6 +60,20 @@ const uint8_t *crypto_get_key_hmac(uint8_t *len)
 	return key_hmac_ext;
 }
 
+// Constant time memory comparison
+// Returns 1 if buffers are equal, 0 otherwise.
+int secure_memeq(const void *a, const void *b, size_t n)
+{
+	const uint8_t *p1 = a;
+	const uint8_t *p2 = b;
+	volatile uint8_t diff = 0;
+
+	for (size_t i = 0; i < n; i++) {
+		diff |= (p1[i] ^ p2[i]);
+	}
+	return (diff == 0);
+}
+
 void crypto_sha256_init(void)
 {
 	sha256_init(&sha256_ctx);
