@@ -180,6 +180,54 @@ static uint8_t verify_pin_auth_ex(uint8_t *pinAuth, uint8_t *buf, size_t len)
 	}
 }
 
+// Computes the MAC over data, using the the already generated key for computing
+// MACs
+static void compute_mac(const void *data, size_t data_len, uint8_t *mac,
+			size_t mac_len)
+{
+	const uint8_t *p = (const uint8_t *)data;
+	uint8_t key_len = 0;
+	const uint8_t *mac_key = crypto_get_key_mac(&key_len);
+
+	uint8_t buf[32] = {0x00};
+
+	crypto_sha256_hmac_init(mac_key, key_len);
+	crypto_sha256_update(p, data_len);
+	crypto_sha256_hmac_final(mac_key, key_len, buf);
+
+	memcpy(mac, buf, mac_len);
+}
+
+// Returns 1 if the mac matches the input data, otherwise zero.
+// mac is supposed to be of size CREDENTIAL_TAG_SIZE
+static int verify_mac(const uint8_t *mac, const void *data, size_t data_len)
+{
+	uint8_t local_mac[16];
+	compute_mac(data, data_len, local_mac, CREDENTIAL_TAG_SIZE);
+
+	return memcmp(local_mac, mac, CREDENTIAL_TAG_SIZE) == 0;
+}
+
+// Derives both the RPID hash and the lookup MAC from the RP ID.
+// rp_id_hash   [out] Buffer of size 32
+// rp_id_lookup [out] Buffer of size 16 (CREDENTIAL_TAG_SIZE)
+static void derive_rp_id_info(const uint8_t *rp_id, size_t size,
+			      uint8_t *rp_id_hash, uint8_t *rp_id_lookup)
+{
+	crypto_sha256_init();
+	crypto_sha256_update(rp_id, size);
+	crypto_sha256_final(rp_id_hash);
+
+	compute_mac(rp_id_hash, 32, rp_id_lookup, CREDENTIAL_TAG_SIZE);
+}
+
+// Calculates ID-lookup mac
+static void derive_user_id_lookup(const uint8_t *id, size_t size,
+				  uint8_t *user_id_lookup)
+{
+	compute_mac(id, size, user_id_lookup, CREDENTIAL_TAG_SIZE);
+}
+
 uint8_t verify_pin_auth(uint8_t *pinAuth, uint8_t *clientDataHash)
 {
 	return verify_pin_auth_ex(pinAuth, clientDataHash,
