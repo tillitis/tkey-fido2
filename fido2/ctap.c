@@ -480,7 +480,7 @@ static int ctap_generate_cose_key(CborEncoder *cose_key, uint8_t *hmac_input,
 	return 0;
 }
 
-void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint8_t *metadata,
+void make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce, uint8_t *metadata,
 		   uint32_t count, uint8_t *tag)
 {
 	uint8_t hashbuf[32];
@@ -490,7 +490,7 @@ void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint8_t *metadata,
 	const uint8_t *mac_key = crypto_get_key_mac(&key_len);
 
 	crypto_sha256_hmac_init(mac_key, key_len);
-	crypto_sha256_update(rpIdHash, 32);
+	crypto_sha256_update(rp_id_lookup, CREDENTIAL_TAG_SIZE);
 	crypto_sha256_update(nonce, CREDENTIAL_NONCE_SIZE);
 	crypto_sha256_update(metadata, CREDENTIAL_METADATA_SIZE);
 	crypto_sha256_update((uint8_t *)&count, 4);
@@ -1605,9 +1605,14 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 		return CTAP2_ERR_NOT_ALLOWED;
 	}
 
+	printf1(TAG_GREEN, "NextAssertion: Cred count %d\n",
+		cred->credential.id.count);
+
 	auth_data_update_count(&getAssertionState.buf.authData);
-	memmove(getAssertionState.buf.authData.rpIdHash,
-		cred->credential.id.rpIdHash, 32);
+	// TODO: Is this move necessary? Should already be there, and
+	// not change.
+	// memmove(getAssertionState.buf.authData.rpIdHash,
+	// 	cred->credential.id.rpIdHash, 32);
 
 	if (cred->credential.user.id_size) {
 		printf1(TAG_GREEN,
@@ -1691,9 +1696,9 @@ uint8_t ctap_cred_rp(CborEncoder *encoder, int rk_ind, int rp_count)
 		check_ret(ret);
 		ret = cbor_encode_text_stringz(&rp, "id");
 		check_ret(ret);
-		if (rk.rpIdSize <= sizeof(rk.rpId)) {
+		if (rk.rp.rp_id_size <= sizeof(rk.rp.rp_id)) {
 			ret = cbor_encode_text_string(
-			    &rp, (const char *)rk.rpId, rk.rpIdSize);
+			    &rp, (const char *)rk.rp.rp_id, rk.rp.rp_id_size);
 		} else {
 			ret = cbor_encode_text_string(&rp, "", 0);
 		}
@@ -1707,7 +1712,7 @@ uint8_t ctap_cred_rp(CborEncoder *encoder, int rk_ind, int rp_count)
 	}
 	ret = cbor_encode_int(&map, 4);
 	check_ret(ret);
-	cbor_encode_byte_string(&map, rk.id.rpIdHash, 32);
+	cbor_encode_byte_string(&map, rk.rp.rp_id_hash, 32);
 	check_ret(ret);
 	if (rp_count > 0) {
 		ret = cbor_encode_int(&map, 5);
@@ -1847,7 +1852,7 @@ static int scan_for_next_rp(int index)
 
 		// TODO: Needs to be updated to new load_rk api
 		// ctap_load_rk(index, &rk);
-		memmove(nextRpIdHash, rk.id.rpIdHash, 32);
+		memmove(nextRpIdHash, rk.id.rp_id_lookup, 16);
 
 		if (!ctap_rk_is_valid(&rk)) {
 			occurs_previously = 1;
@@ -1861,7 +1866,7 @@ static int scan_for_next_rp(int index)
 
 			// TODO: Needs to be updated to new load_rk api
 			// ctap_load_rk(i, &rk);
-			if (memcmp(rk.id.rpIdHash, nextRpIdHash, 32) == 0) {
+			if (memcmp(rk.id.rp_id_lookup, nextRpIdHash, 16) == 0) {
 				occurs_previously = 1;
 				break;
 			}
@@ -1884,7 +1889,7 @@ static int scan_for_next_rk(int index, uint8_t *initialRpIdHash)
 	} else {
 		// TODO: Needs to be updated to new load_rk api
 		// ctap_load_rk(index, &rk);
-		memmove(lastRpIdHash, rk.id.rpIdHash, 32);
+		memmove(lastRpIdHash, rk.id.rp_id_lookup, 16);
 	}
 
 	do {
@@ -1894,7 +1899,7 @@ static int scan_for_next_rk(int index, uint8_t *initialRpIdHash)
 		}
 		// TODO: Needs to be updated to new load_rk api
 		// ctap_load_rk(index, &rk);
-	} while (memcmp(rk.id.rpIdHash, lastRpIdHash, 32) != 0);
+	} while (memcmp(rk.id.rp_id_lookup, lastRpIdHash, 16) != 0);
 
 	return index;
 }
@@ -1948,11 +1953,12 @@ uint8_t ctap_cred_mgmt(CborEncoder *encoder, uint8_t *request, int length)
 		CTAP_residentKey rk;
 
 		// TODO: Needs to be verified with updated load_rk api
+		// An with new rp_id_lookup
 		for (int i = 0; i < count; i++) {
 			// ctap_load_rk(i, &rk);
 			ctap_load_next_rk(&rk);
-			if (memcmp(CM.subCommandParams.rpIdHash, rk.id.rpIdHash,
-				   32)) {
+			if (memcmp(CM.subCommandParams.rpIdHash,
+				   rk.rp.rp_id_hash, 32)) {
 				// Not the right RPID
 				continue;
 			}
