@@ -124,6 +124,44 @@ static uint8_t check_credential_metadata(CredentialId *credential,
 	return 0;
 }
 
+// Follows the specified procedure to truncate an RP ID. Min lengths is 32
+// bytes. See chapter 6.8.7 in CTAP 2.1.
+static void truncate_rpid(uint8_t *stored_rpid, uint8_t *stored_len,
+			  const uint8_t *rpid, size_t rpid_len)
+{
+	if (rpid_len <= CREDENTIAL_RP_ID_SIZE) {
+		memcpy(stored_rpid, rpid, rpid_len);
+		*stored_len = rpid_len;
+		return;
+	}
+
+	size_t used = 0;
+	const uint8_t *colon_position = memchr(rpid, ':', rpid_len);
+	if (colon_position != NULL) {
+		const size_t protocol_len = colon_position - rpid + 1;
+		const size_t to_copy = protocol_len <= CREDENTIAL_RP_ID_SIZE
+					   ? protocol_len
+					   : CREDENTIAL_RP_ID_SIZE;
+		memcpy(stored_rpid, rpid, to_copy);
+		used += to_copy;
+	}
+
+	if (CREDENTIAL_RP_ID_SIZE - used < 3) {
+		*stored_len = used;
+		return;
+	}
+
+	// U+2026, horizontal ellipsis.
+	stored_rpid[used++] = 0xe2;
+	stored_rpid[used++] = 0x80;
+	stored_rpid[used++] = 0xa6;
+
+	const size_t to_copy = CREDENTIAL_RP_ID_SIZE - used;
+	memcpy(&stored_rpid[used], rpid + rpid_len - to_copy, to_copy);
+	assert(used + to_copy == CREDENTIAL_RP_ID_SIZE);
+	*stored_len = CREDENTIAL_RP_ID_SIZE;
+}
+
 static uint8_t verify_pin_auth_ex(uint8_t *pinAuth, uint8_t *buf, size_t len)
 {
 	uint8_t hmac[32];
@@ -779,11 +817,8 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 				sizeof(CTAP_userEntity));
 
 			// Copy rpId to RK, but it could be cropped.
-			int rp_id_size = rp->size < sizeof(rk.rpId)
-					     ? rp->size
-					     : sizeof(rk.rpId);
-			memmove(rk.rpId, rp->id, rp_id_size);
-			rk.rpIdSize = rp_id_size;
+			truncate_rpid(rk.rp.rp_id, &rk.rp.rp_id_size, rp->id,
+				      rp->size);
 
 			int ret = ctap_store_rk(&rk);
 			if (ret < 0) {
