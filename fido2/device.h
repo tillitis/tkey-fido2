@@ -166,7 +166,7 @@ int ctap_delete_rk(CredentialId *id);
  * @param rpid hash.
  *
  */
-int ctap_open_rk_file(uint8_t rpid_hash[32]);
+int ctap_open_rk_file(const uint8_t *rpid_hash);
 
 /** Closes the already open resident key file.
  */
@@ -174,13 +174,15 @@ int ctap_close_rk_file(void);
 
 /** Read a resident key from an index into memory
  * @param index to read resident key from.
- * @param rk pointer to resident key structure to write into with RK.
+ * @param dst_rk pointer to resident key structure to write into with RK.
  *
  * *Optional*, if not implemented, operates on non-persistant RK's.
  */
-// void ctap_load_rk(int index, CTAP_residentKey *rk);
-
 void ctap_load_rk(int index, CTAP_residentKey *dst_rk);
+
+/** Read the next resident key from already open file into memory
+ * @param dst_rk pointer to resident key structure to write into with RK.
+ */
 void ctap_load_next_rk(CTAP_residentKey *dst_rk);
 
 /** Overwrite the RK located in index with a new RK.

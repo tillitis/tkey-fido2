@@ -244,7 +244,7 @@ int ctap_store_rk(const CTAP_residentKey *rk)
 	fs_file_t f = {0};
 	int ret;
 
-	rpid_hash_to_file(path, sizeof(path), rk->id.rpIdHash);
+	rpid_hash_to_file(path, sizeof(path), rk->id.rp_id_lookup);
 
 	ret = fs_open_file(&f, path, LFS_O_RDWR | LFS_O_CREAT | LFS_O_APPEND);
 	if (ret < 0) {
@@ -252,7 +252,7 @@ int ctap_store_rk(const CTAP_residentKey *rk)
 	}
 
 	printf1(TAG_GREEN, "ctap_store_rk: (%s)\r\n", path);
-	dump_hex1(TAG_GREEN, rk->id.rpIdHash, 32);
+	dump_hex1(TAG_GREEN, rk->id.rp_id_lookup, CREDENTIAL_TAG_SIZE);
 	// Append rk to the end
 	ret = fs_write(&f, rk, sizeof(CTAP_residentKey));
 	fs_close_file(&f);
@@ -267,7 +267,7 @@ int ctap_delete_rk(CredentialId *id)
 	fs_file_t f = {0};
 	int ret;
 
-	rpid_hash_to_file(path, sizeof(path), id->rpIdHash);
+	rpid_hash_to_file(path, sizeof(path), id->rp_id_lookup);
 
 	ret = fs_open_file(&f, path, LFS_O_RDWR);
 	if (ret < 0) {
@@ -286,7 +286,8 @@ int ctap_delete_rk(CredentialId *id)
 
 		// read next rk
 		fs_read(&f, &rk, sizeof(CTAP_residentKey));
-		if (memcmp(id->rpIdHash, rk.id.rpIdHash, 32)) {
+		if (memcmp(id->rp_id_lookup, rk.id.rp_id_lookup,
+			   CREDENTIAL_TAG_SIZE)) {
 			// Not the right RPID
 			continue;
 		}
@@ -351,7 +352,7 @@ int ctap_delete_rk(CredentialId *id)
 
 // Opens the file where the RP should exist. Returns number of keys stored in
 // the file. Returns negative on error.
-int ctap_open_rk_file(uint8_t rpid_hash[32])
+int ctap_open_rk_file(const uint8_t *rpid_hash)
 {
 
 	char path[16]; // "rk/x.dat"
