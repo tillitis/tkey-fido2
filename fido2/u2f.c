@@ -195,7 +195,7 @@ int8_t u2f_authenticate_credential(struct u2f_key_handle *kh,
 		CredentialId *cred = (CredentialId *)kh;
 		// FIDO2 credential.
 
-		if (memcmp(cred->rpIdHash, appid, 32) != 0) {
+		if (memcmp(cred->rp_id_lookup, appid, 16) != 0) {
 			printf1(TAG_U2F, "APPID does not match rpIdHash.\n");
 			return 0;
 		}
