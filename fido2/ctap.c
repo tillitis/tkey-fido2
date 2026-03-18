@@ -2061,8 +2061,18 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 
 	int map_size = 3;
 
+	uint8_t rp_id_hash[32];
+	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE];
+	derive_rp_id_info(GA.rp.id, GA.rp.size, rp_id_hash, rp_id_lookup);
+
+	printf1(TAG_GA, "rpid:\n");
+	dump_hex1(TAG_GA, rp_id_hash, sizeof(rp_id_hash));
+	printf1(TAG_GA, "rpid_lookup:\n");
+	dump_hex1(TAG_GA, rp_id_lookup, sizeof(rp_id_lookup));
+
 	printf1(TAG_GA, "ALLOW_LIST has %d creds\n", GA.credLen);
-	int validCredCount = ctap_filter_invalid_credentials(&GA);
+	int validCredCount =
+	    create_applicable_credentials_list(&GA, rp_id_hash, rp_id_lookup);
 
 	if (validCredCount == 0) {
 		printf2(TAG_ERR, "Error, no authentic credential\n");
@@ -2118,7 +2128,8 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 	{
 		device_disable_up(GA.up == 0);
 		ret = ctap_make_auth_data(
-		    &GA.rp, &map, (uint8_t *)&getAssertionState.buf.authData,
+		    &GA.rp, rp_id_hash, rp_id_lookup, &map,
+		    (uint8_t *)&getAssertionState.buf.authData,
 		    &auth_data_buf_sz, NULL, &GA.extensions);
 		device_disable_up(false);
 		check_retr(ret);
