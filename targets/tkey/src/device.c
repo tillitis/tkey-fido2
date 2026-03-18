@@ -260,6 +260,71 @@ int ctap_store_rk(const CTAP_residentKey *rk)
 	return ret;
 }
 
+// Overwrites RK if another one with the same rk_id_lookup and user_id_lookup
+// exists. Otherwise appends it. Returns zero on success, negative on error.
+int ctap_overwrite_rk(const CTAP_residentKey *rk)
+{
+	char path[16]; // "rk/x.dat"
+	fs_file_t f = {0};
+	int ret;
+
+	rpid_hash_to_file(path, sizeof(path), rk->id.rp_id_lookup);
+
+	printf1(TAG_GREEN, "ctap_overwrite_rk: (%s)\n", path);
+	dump_hex1(TAG_GREEN, rk->id.rp_id_lookup, CREDENTIAL_TAG_SIZE);
+
+	ret = fs_open_file(&f, path, LFS_O_RDWR | LFS_O_CREAT);
+	if (ret < 0) {
+		return ret;
+	}
+
+	int count = fs_file_size(&f);
+	if (count < 0) {
+		return -1;
+	}
+
+	// Check for duplicate resident keys
+	// Calculate number of credentials stored
+	count = count / sizeof(CTAP_residentKey);
+
+	CTAP_residentKey read_rk;
+	size_t offset = 0;
+
+	for (uint16_t i = 0; i < count; i++) {
+
+		// read next rk
+		fs_read(&f, &read_rk, sizeof(CTAP_residentKey));
+
+		if (memcmp(read_rk.id.rp_id_lookup, rk->id.rp_id_lookup,
+			   CREDENTIAL_TAG_SIZE)) {
+			// Not the right RPID
+			continue;
+		}
+
+		if (memcmp(read_rk.user_id_lookup, rk->user_id_lookup,
+			   CREDENTIAL_TAG_SIZE)) {
+			// Not the right user ID
+			continue;
+		}
+
+		// Match, write at current position - sizeof(CTAP_residentKey)
+		offset = i * sizeof(CTAP_residentKey);
+		printf1(TAG_GREEN, "ctap_overwrite_rk: overwritten (%d)\n", i);
+
+		ret = fs_write_at(&f, rk, sizeof(CTAP_residentKey), offset);
+		fs_close_file(&f);
+		return ret;
+	}
+
+	// Only reachead if no match was found, or count = 0
+	// Append rk to the end
+	printf1(TAG_GREEN, "ctap_overwrite_rk: appended\n");
+	offset = count * sizeof(CTAP_residentKey);
+	ret = fs_write_at(&f, rk, sizeof(CTAP_residentKey), offset);
+	fs_close_file(&f);
+	return ret;
+}
+
 int ctap_delete_rk(CredentialId *id)
 {
 	CTAP_residentKey rk;
@@ -394,18 +459,9 @@ void ctap_load_rk(int index, CTAP_residentKey *dst_rk)
 	printf1(TAG_GREEN, "Load RK: %d\r\n", index);
 }
 
-void ctap_overwrite_rk(int index, CTAP_residentKey *rk)
-{
-	printf1(TAG_GREEN, "overwrite rk: \r\n");
-
-	ctap_store_rk(rk);
-	return;
-}
-
 void device_read_aaguid(uint8_t *dst)
 {
 	uint8_t *aaguid = (uint8_t *)"\xdb\xe4\x2d\x66\x22\xbe\x46\x24\x88\x11"
 				     "\x97\x2a\x8e\x65\x36\x7e";
 	memmove(dst, aaguid, 16);
-	dump_hex1(TAG_GREEN, dst, 16);
 }

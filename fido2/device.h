@@ -185,14 +185,13 @@ void ctap_load_rk(int index, CTAP_residentKey *dst_rk);
  */
 void ctap_load_next_rk(CTAP_residentKey *dst_rk);
 
-/** Overwrite the RK located in index with a new RK.
- * @param index to write resident key to.
- * @param rk pointer to valid rk structure that should be written to NV memory,
- * and replace existing RK there.
+/** Overwrite RK if another one with the same rp_id_lookip and user_id_lookup
+ * exists. Otherwise appends it.
+ * * @param rk pointer to valid rk structure.
  *
- * *Optional*, if not implemented, operates on non-persistant RK's.
+ * Returns zero on success, negative on error.
  */
-void ctap_overwrite_rk(int index, CTAP_residentKey *rk);
+int ctap_overwrite_rk(const CTAP_residentKey *rk);
 
 /** Called by HID layer to indicate that a wink behavior should be performed.
  *  Should not block, and the wink behavior should occur in parallel to FIDO
