@@ -36,35 +36,39 @@ static void ctap_reset_key_agreement();
 
 struct _getAssertionState getAssertionState;
 
-// Protects the metadata by encrypting it using AES256 in CTR-mode.
+// Encrypts/decrypts length bytes of data using AES256 in CTR-mode.
 // Will use the meta_key.
-// Needs a 16 byte IV, unique per credential.
-// Encrypts/decrypts length bytes.
+// Needs a 16 byte IV, unique per plain-text (credential, rk etc.).
 //
 // Encrypt data by having un-encrypted data in *in, and get the encrypted data
 // in *out.
 // Decrypt data by having encrypted data in *in, and get the un-encrypted data
 // in *out.
 //
-// *in and *out can be the same buffer to encrypt/decrypt in-place, but they
-// cannot overlapping partily.
-static void protect_metadata(uint8_t *iv, uint8_t *in, uint8_t *out,
-			     uint8_t length)
+// *in and *out can be the same buffer to encrypt/decrypt in-places, but
+// cannot be partly overlapping.
+static void xcrypt_buf(const uint8_t *iv, const void *in, void *out,
+		       uint8_t length)
 {
+	const uint8_t *p_in = (const uint8_t *)in;
+	uint8_t *p_out = (uint8_t *)out;
+
 	uint8_t key_len = 0;
 	const uint8_t *meta_key = crypto_get_key_meta(&key_len);
-	memcpy(out, in, length);
-	dump_hex1(TAG_CTAP, out, length);
 
-	crypto_aes256_ctr_xcrypt_buffer(meta_key, iv, out, length);
-	dump_hex1(TAG_CTAP, out, length);
+	// Don't copy if it is the same buffer
+	if (p_in != p_out) {
+		memcpy(p_out, p_in, length);
+	}
+
+	crypto_aes256_ctr_xcrypt_buffer(meta_key, iv, p_out, length);
 }
 
 static uint8_t restore_metadata_cred_protect(CredentialId *credential)
 {
 	uint8_t metadata[CREDENTIAL_METADATA_SIZE];
-	protect_metadata(credential->nonce, credential->protected_metadata,
-			 metadata, CREDENTIAL_METADATA_SIZE);
+	xcrypt_buf(credential->nonce, credential->protected_metadata, metadata,
+		   CREDENTIAL_METADATA_SIZE);
 
 	return metadata[CREDENTIAL_META_CRED_PROTECT_BYTE];
 }
@@ -74,8 +78,8 @@ static int32_t restore_metadata_cose_alg(CredentialId *credential)
 
 	uint8_t metadata[CREDENTIAL_METADATA_SIZE];
 
-	protect_metadata(credential->nonce, credential->protected_metadata,
-			 metadata, CREDENTIAL_METADATA_SIZE);
+	xcrypt_buf(credential->nonce, credential->protected_metadata, metadata,
+		   CREDENTIAL_METADATA_SIZE);
 
 	uint8_t alg = metadata[CREDENTIAL_META_ALG_BYTE];
 
@@ -743,9 +747,9 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 		metadata[CREDENTIAL_META_FLAGS_BYTE] =
 		    (credInfo->rk & CREDENTIAL_META_IS_RK_BITMASK);
 
-		protect_metadata(authData->attest.id.nonce, metadata,
-				 authData->attest.id.protected_metadata,
-				 CREDENTIAL_METADATA_SIZE);
+		xcrypt_buf(authData->attest.id.nonce, metadata,
+			   authData->attest.id.protected_metadata,
+			   CREDENTIAL_METADATA_SIZE);
 
 		authData->attest.id.count = count;
 
