@@ -94,9 +94,17 @@ static int32_t restore_metadata_cose_alg(CredentialId *credential)
 
 static uint8_t check_credential_metadata(CredentialId *credential,
 					 uint8_t is_verified,
-					 uint8_t is_from_credid_list)
+					 uint8_t is_from_credid_list,
+					 uint8_t *is_rk)
 {
-	uint8_t cred_protect = restore_metadata_cred_protect(credential);
+
+	uint8_t metadata[CREDENTIAL_METADATA_SIZE];
+	xcrypt_buf(credential->nonce, credential->protected_metadata, metadata,
+		   CREDENTIAL_METADATA_SIZE);
+
+	uint8_t cred_protect = metadata[CREDENTIAL_META_CRED_PROTECT_BYTE];
+	*is_rk = metadata[CREDENTIAL_META_FLAGS_BYTE] &
+		 CREDENTIAL_META_IS_RK_BITMASK;
 
 	switch (cred_protect) {
 	case EXT_CRED_PROTECT_OPTIONAL_WITH_CREDID:
