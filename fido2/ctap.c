@@ -1049,36 +1049,31 @@ uint8_t ctap_add_attest_statement(CborEncoder *map, uint8_t *sigder, int len)
 }
 
 // Return 1 if credential belongs to this token
-int ctap_authenticate_credential(struct rpId *rp,
+int ctap_authenticate_credential(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 				 CTAP_credentialDescriptor *desc)
 {
-	uint8_t rpIdHash[32];
 	uint8_t tag[16];
 
 	switch (desc->type) {
 	case PUB_KEY_CRED_PUB_KEY:
-		crypto_sha256_init();
-		crypto_sha256_update(rp->id, rp->size);
-		crypto_sha256_final(rpIdHash);
 
-		printf1(TAG_RED, "rpId: %s\r\n", rp->id);
-		dump_hex1(TAG_RED, rp->id, rp->size);
-		if (memcmp(desc->credential.id.rpIdHash, rpIdHash, 32) != 0) {
+		// Verify correct rp
+		if (!secure_memeq(desc->credential.id.rp_id_lookup,
+				  rp_id_lookup, CREDENTIAL_TAG_SIZE)) {
 			return 0;
 		}
-		make_auth_tag(rpIdHash, desc->credential.id.nonce,
+
+		// Derive mac and compare
+		make_auth_tag(rp_id_lookup, desc->credential.id.nonce,
 			      desc->credential.id.protected_metadata,
 			      desc->credential.id.count, tag);
-		return (memcmp(desc->credential.id.tag, tag,
-			       CREDENTIAL_TAG_SIZE) == 0);
+		return (secure_memeq(desc->credential.id.tag, tag,
+				     CREDENTIAL_TAG_SIZE) == 1);
 		break;
 	case PUB_KEY_CRED_CTAP1:
-		crypto_sha256_init();
-		crypto_sha256_update(rp->id, rp->size);
-		crypto_sha256_final(rpIdHash);
 		return u2f_authenticate_credential(
 		    (struct u2f_key_handle *)&desc->credential.id,
-		    U2F_KEY_HANDLE_SIZE, rpIdHash);
+		    U2F_KEY_HANDLE_SIZE, rp_id_hash);
 		break;
 	case PUB_KEY_CRED_CUSTOM:
 		return is_extension_request(getAssertionState.customCredId,
