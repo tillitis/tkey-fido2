@@ -1322,100 +1322,72 @@ static int cred_cmp_func(const void *_a, const void *_b)
 	return b->credential.id.count - a->credential.id.count;
 }
 
-// Return 1 if existing info found, 0 otherwise
-static int add_existing_user_info(CTAP_credentialDescriptor *cred)
-{
-	CTAP_residentKey rk;
-
-	int count = ctap_open_rk_file(cred->credential.id.rpIdHash);
-	if (count <= 0) {
-		printf1(TAG_GREEN, "NO rk match for allowList item \r\n");
-		ctap_close_rk_file();
-		return 0;
-	}
-
-	for (uint16_t i = 0; i < count; i++) {
-
-		ctap_load_next_rk(&rk);
-		if (memcmp(cred->credential.id.rpIdHash, rk.id.rpIdHash, 32)) {
-			// Not the right RPID
-			continue;
-		}
-
-		if (is_cred_id_matching_rk(&cred->credential.id, &rk)) {
-			printf1(TAG_GREEN,
-				"found rk match for allowList item (%d)\r\n",
-				i);
-			memmove(&cred->credential.user, &rk.user,
-				sizeof(CTAP_userEntity));
-			ctap_close_rk_file();
-			return 1;
-		}
-	}
-	printf1(TAG_GREEN, "NO rk match for allowList item \r\n");
-	ctap_close_rk_file();
-	return 0;
-}
-
 // @return the number of valid credentials
-// sorts the credentials.  Most recent creds will be first, invalid ones last.
-int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
+// sorts the credentials.  Most recent creds will be first, invalid ones
+// last.
+static int create_applicable_credentials_list(CTAP_getAssertion *GA,
+					      uint8_t *rp_id_hash,
+					      uint8_t *rp_id_lookup)
 {
 	unsigned int i;
 	int count = 0;
-	uint8_t rpIdHash[32];
 	CTAP_residentKey rk;
 
 	for (i = 0; i < (unsigned int)GA->credLen; i++) {
-		if (!ctap_authenticate_credential(&GA->rp, &GA->creds[i])) {
-			printf1(TAG_GA, "CRED #%d is invalid\n",
-				GA->creds[i].credential.id.count);
+
+		CTAP_credentialDescriptor *cred = &GA->creds[i];
+		uint8_t is_rk = 0;
+
+		if (!ctap_authenticate_credential(rp_id_lookup, rp_id_hash,
+						  cred)) {
 #ifdef ENABLE_U2F_EXTENSIONS
 			if (is_extension_request(
-				(uint8_t *)&GA->creds[i].credential.id,
+				(uint8_t *)&cred->credential.id,
 				sizeof(CredentialId))) {
 				printf1(TAG_EXT, "CRED #%d is extension\n",
-					GA->creds[i].credential.id.count);
+					cred->credential.id.count);
 				count++;
 			} else
 #endif
 			{
-				GA->creds[i].credential.id.count =
-				    0; // invalidate
+
+				printf1(TAG_GA,
+					"allowList: CRED #%d is invalid\n",
+					cred->credential.id.count);
+
+				cred->credential.id.count = 0; // invalidate
 			}
+			continue;
+		}
 
-		} else {
+		int protection_status = check_credential_metadata(
+		    &cred->credential.id, getAssertionState.user_verified, 1,
+		    &is_rk);
 
-			int protection_status = check_credential_metadata(
-			    &GA->creds[i].credential.id,
-			    getAssertionState.user_verified, 1);
+		if (protection_status != 0) {
+			printf1(TAG_GREEN,
+				"allowList: skipping protected credential.\n");
+			cred->credential.id.count = 0; // invalidate
+			continue;
+		}
 
-			if (protection_status != 0) {
-				printf1(TAG_GREEN, "skipping protected wrapped "
-						   "credential.\r\n");
-				GA->creds[i].credential.id.count =
-				    0; // invalidate
-			} else {
-				count++;
-
-				// add user info if it exists
-				add_existing_user_info(&GA->creds[i]);
-
-				GA->credLen = i + 1;
+		// If it is discoverable, verify that it still exists -
+		// otherwise invalidate
+		if (is_rk) {
+			if (!verify_rk_exists(&cred->credential.id)) {
+				cred->credential.id.count = 0; // invalidate
+				continue;
 			}
 		}
+
+		count++;
+		GA->credLen = i + 1;
 	}
 
 	// No allowList, so use all matching RK's matching rpId
 	if (!GA->credLen) {
-		crypto_sha256_init();
-		crypto_sha256_update(GA->rp.id, GA->rp.size);
-		crypto_sha256_final(rpIdHash);
 
-		printf1(TAG_GREEN, "true rpIdHash:\n");
-		dump_hex1(TAG_GREEN, rpIdHash, 32);
-
-		int nr_rk = ctap_open_rk_file(rpIdHash);
+		int nr_rk = ctap_open_rk_file(rp_id_lookup);
 		if (nr_rk < 0) {
 			printf1(TAG_GREEN, "No file to open: %d \r\n", nr_rk);
 			nr_rk = 0;
@@ -1425,22 +1397,37 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 
 			ctap_load_next_rk(&rk);
 
-			printf1(TAG_GREEN, "rpIdHash%d:\n", i);
-			dump_hex1(TAG_GREEN, rk.id.rpIdHash, 32);
+			printf1(TAG_GREEN, "rp_id_lookup %d:\n", i);
+			dump_hex1(TAG_GREEN, rk.id.rp_id_lookup,
+				  CREDENTIAL_TAG_SIZE);
 
-			if (memcmp(rpIdHash, rk.id.rpIdHash,
-				   sizeof(rpIdHash))) {
+			if (memcmp(rp_id_lookup, rk.id.rp_id_lookup,
+				   CREDENTIAL_TAG_SIZE)) {
 				// Not the right RPID
 				continue;
 			}
 
+			// Verify credential mac
+			uint8_t local_tag[16];
+			make_auth_tag(rp_id_lookup, rk.id.nonce,
+				      rk.id.protected_metadata, rk.id.count,
+				      local_tag);
+
+			if (memcmp(rk.id.tag, local_tag, CREDENTIAL_TAG_SIZE) !=
+			    0) {
+				printf1(TAG_GREEN,
+					"Cred failed mac verification\n");
+				continue;
+			}
+
+			// Check cred protect
+			uint8_t is_rk = 0;
 			int protection_status = check_credential_metadata(
-			    &rk.id, getAssertionState.user_verified, 0);
+			    &rk.id, getAssertionState.user_verified, 0, &is_rk);
 
 			if (protection_status != 0) {
-				printf1(
-				    TAG_GREEN,
-				    "skipping protected rk credential.\r\n");
+				printf1(TAG_GREEN, "skipping protected rk "
+						   "credential.\r\n");
 				continue;
 			}
 
@@ -1453,10 +1440,25 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA)
 				break;
 			}
 
+			// Verify mac over the residential key.
+			if (!verify_mac(rk.rk_tag, &rk.user, RK_HMAC_SIZE)) {
+				printf1(TAG_GREEN,
+					"rk failed mac verification\r\n");
+				continue;
+			}
+
+			// Decrypt user data in place
+			xcrypt_buf(rk.rk_nonce, &rk.user, &rk.user,
+				   sizeof(CTAP_userEntity) + sizeof(rpEntity));
+
 			GA->creds[count].type = PUB_KEY_CRED_PUB_KEY;
 
-			memmove(&(GA->creds[count].credential), &rk,
-				sizeof(struct Credential));
+			memmove(&GA->creds[count].credential.id, &rk.id,
+				sizeof(CredentialId));
+
+			// Fill in user as well, needed by RP
+			memmove(&GA->creds[count].credential.user, &rk.user,
+				sizeof(CTAP_userEntity));
 
 			count++;
 		}
