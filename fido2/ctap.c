@@ -1119,6 +1119,14 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 		return CTAP2_ERR_INVALID_OPTION;
 	}
 
+	uint8_t rp_id_hash[32];
+	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE];
+	derive_rp_id_info(MC.rp.id, MC.rp.size, rp_id_hash, rp_id_lookup);
+	printf1(TAG_MC, "rpid:\n");
+	dump_hex1(TAG_MC, rp_id_hash, sizeof(rp_id_hash));
+	printf1(TAG_MC, "rpid_lookup:\n");
+	dump_hex1(TAG_MC, rp_id_lookup, sizeof(rp_id_lookup));
+
 	for (i = 0; i < MC.excludeListSize; i++) {
 		ret = parse_credential_descriptor(&MC.excludeList, excl_cred);
 		if (ret == CTAP2_ERR_CBOR_UNEXPECTED_TYPE) {
@@ -1126,19 +1134,34 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 		}
 		check_retr(ret);
 
-		printf1(TAG_GREEN, "checking credId:\n");
+		printf1(TAG_GREEN, "excludeList: checking credId:\n");
 		dump_hex1(TAG_GREEN, (uint8_t *)&excl_cred->credential.id,
 			  sizeof(CredentialId));
 
-		if (ctap_authenticate_credential(&MC.rp, excl_cred)) {
-			if (check_credential_metadata(&excl_cred->credential.id,
-						      MC.pinAuthPresent,
-						      1) == 0) {
-				ret = ctap2_user_presence_test();
-				check_retr(ret);
-				printf1(TAG_MC, "Cred %d failed!\r\n", i);
-				return CTAP2_ERR_CREDENTIAL_EXCLUDED;
+		if (!ctap_authenticate_credential(rp_id_lookup, rp_id_hash,
+						  excl_cred)) {
+			// Credential does not belong to this token
+			continue;
+		}
+
+		uint8_t is_rk = 0;
+		if (check_credential_metadata(&excl_cred->credential.id,
+					      MC.pinAuthPresent, 1,
+					      &is_rk) == 0) {
+
+			if (is_rk) {
+				if (!verify_rk_exists(
+					&excl_cred->credential.id)) {
+					// Does not exist, procced with
+					// registration
+					continue;
+				}
 			}
+
+			ret = ctap2_user_presence_test();
+			check_retr(ret);
+			printf1(TAG_MC, "Cred excluded %d\r\n", i);
+			return CTAP2_ERR_CREDENTIAL_EXCLUDED;
 		}
 
 		ret = cbor_value_advance(&MC.excludeList);
@@ -1158,8 +1181,9 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 
 	uint32_t auth_data_sz = sizeof(auth_data_buf);
 
-	ret = ctap_make_auth_data(&MC.rp, &map, auth_data_buf, &auth_data_sz,
-				  &MC.credInfo, &MC.extensions);
+	ret = ctap_make_auth_data(&MC.rp, rp_id_hash, rp_id_lookup, &map,
+				  auth_data_buf, &auth_data_sz, &MC.credInfo,
+				  &MC.extensions);
 	check_retr(ret);
 
 	{
