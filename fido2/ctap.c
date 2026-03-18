@@ -771,8 +771,8 @@ static int ctap2_user_presence_test()
 	}
 }
 
-
-static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
+static int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
+			       uint8_t *rp_id_lookup, CborEncoder *map,
 			       uint8_t *auth_data_buf, uint32_t *len,
 			       CTAP_credInfo *credInfo,
 			       CTAP_extensions *extensions)
@@ -781,13 +781,10 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 
 	unsigned int auth_data_sz = sizeof(CTAP_authDataHeader);
 	uint32_t count;
-	CTAP_residentKey rk;
+	CTAP_residentKey rk = {0x00};
 	CTAP_authData *authData = (CTAP_authData *)auth_data_buf;
 
 	uint8_t *cose_key_buf = auth_data_buf + sizeof(CTAP_authData);
-
-	// memset(&cose_key, 0, sizeof(CTAP_residentKey));
-	memset(&rk, 0, sizeof(CTAP_residentKey));
 
 	if ((sizeof(CTAP_authDataHeader)) > *len) {
 		printf1(
@@ -797,9 +794,7 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 		exit(1);
 	}
 
-	crypto_sha256_init();
-	crypto_sha256_update(rp->id, rp->size);
-	crypto_sha256_final(authData->head.rpIdHash);
+	memcpy(authData->head.rpIdHash, rp_id_hash, 32);
 
 	count = auth_data_update_count(&authData->head);
 
@@ -853,28 +848,49 @@ static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 
 		authData->attest.id.count = count;
 
-		memmove(authData->attest.id.rpIdHash, authData->head.rpIdHash,
-			32);
+		memmove(authData->attest.id.rp_id_lookup, rp_id_lookup,
+			CREDENTIAL_TAG_SIZE);
 
 		// Make a tag we can later check to make sure this is a token we
 		// made
-		make_auth_tag(authData->head.rpIdHash,
+		make_auth_tag(authData->attest.id.rp_id_lookup,
 			      authData->attest.id.nonce,
 			      authData->attest.id.protected_metadata, count,
 			      authData->attest.id.tag);
 
 		// resident key
 		if (credInfo->rk) {
+			// Fill credential
 			memmove(&rk.id, &authData->attest.id,
 				sizeof(CredentialId));
+			// Fill userEntity
 			memmove(&rk.user, &credInfo->user,
 				sizeof(CTAP_userEntity));
+			// Fill RPID-hash
+			memmove(rk.rp.rp_id_hash, rp_id_hash, 32);
+			// Fill ID-lookup mac
+			derive_user_id_lookup(rk.user.id, rk.user.id_size,
+					      rk.user_id_lookup);
 
 			// Copy rpId to RK, but it could be cropped.
 			truncate_rpid(rk.rp.rp_id, &rk.rp.rp_id_size, rp->id,
 				      rp->size);
 
-			int ret = ctap_store_rk(&rk);
+			// Fill RK nonce
+			ctap_generate_rng(rk.rk_nonce, CREDENTIAL_NONCE_SIZE);
+			printf1(TAG_MC, "rk.rk_nonce");
+			dump_hex1(TAG_MC, rk.rk_nonce, CREDENTIAL_NONCE_SIZE);
+
+			// Encrypting sensitive data (userEntity and rpEntity)
+			xcrypt_buf(rk.rk_nonce, &rk.user, &rk.user,
+				   sizeof(CTAP_userEntity) + sizeof(rpEntity));
+
+			// Make hmac over the reset of the rk, that we can later
+			// verify
+			compute_mac(&rk.user, RK_HMAC_SIZE, rk.rk_tag,
+				    CREDENTIAL_TAG_SIZE);
+
+			int ret = ctap_overwrite_rk(&rk);
 			if (ret < 0) {
 				return CTAP2_ERR_KEY_STORE_FULL;
 			}
