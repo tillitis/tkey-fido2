@@ -133,6 +133,8 @@
 #define CREDENTIAL_COUNTER_SIZE (4)
 #define CREDENTIAL_ENC_SIZE 176 // pad to multiple of 16 bytes
 
+#define CREDENTIAL_RP_ID_SIZE 32
+
 #define PUB_KEY_CRED_PUB_KEY 0x01
 #define PUB_KEY_CRED_CTAP1 0x41
 #define PUB_KEY_CRED_CUSTOM 0x42
@@ -164,9 +166,9 @@ typedef struct {
 
 typedef struct {
 	uint8_t tag[CREDENTIAL_TAG_SIZE];
+	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE]; //  = hmac(key, rp_id_hash)
 	uint8_t nonce[CREDENTIAL_NONCE_SIZE];
 	uint8_t protected_metadata[CREDENTIAL_METADATA_SIZE];
-	uint8_t rpIdHash[32];
 	uint32_t count;
 } __attribute__((packed)) CredentialId;
 
@@ -174,14 +176,27 @@ struct __attribute__((packed)) Credential {
 	CredentialId id;
 	CTAP_userEntity user;
 };
+
+typedef struct {
+	uint8_t rp_id_hash[32];
+	uint8_t rp_id[CREDENTIAL_RP_ID_SIZE];
+	uint8_t rp_id_size;
+} __attribute__((packed)) rpEntity;
+
 typedef struct {
 	CredentialId id;
 	CTAP_userEntity user;
 
-	// Maximum amount of "extra" space in resident key.
-	uint8_t rpId[48];
-	uint8_t rpIdSize;
+	// Data for the credential management api
+	rpEntity rp;
+	uint8_t user_id_lookup[CREDENTIAL_TAG_SIZE]; // hmac(key, id)
+	uint8_t rk_nonce[CREDENTIAL_NONCE_SIZE];
+	uint8_t rk_tag[CREDENTIAL_TAG_SIZE];
 } __attribute__((packed)) CTAP_residentKey;
+
+#define RK_HMAC_SIZE                                                           \
+	(sizeof(CTAP_userEntity) + sizeof(rpEntity) + CREDENTIAL_TAG_SIZE +    \
+	 CREDENTIAL_NONCE_SIZE)
 
 typedef struct {
 	uint8_t type;
