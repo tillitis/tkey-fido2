@@ -538,17 +538,65 @@ static int ctap_rk_is_valid(CTAP_residentKey *rk)
 	return (rk->id.count > 0 && rk->id.count != 0xffffffff);
 }
 
-static int is_matching_rk(const CTAP_residentKey *rk,
-			  const CTAP_residentKey *rk2)
-{
-	return (memcmp(rk->id.rpIdHash, rk2->id.rpIdHash, 32) == 0) &&
-	       (memcmp(rk->user.id, rk2->user.id, rk->user.id_size) == 0) &&
-	       (rk->user.id_size == rk2->user.id_size);
-}
-
-static int is_cred_id_matching_rk(CredentialId *credId, CTAP_residentKey *rk)
+// Returns 1 if it is a match
+static int is_cred_id_matching_rk(const CredentialId *credId,
+				  const CTAP_residentKey *rk)
 {
 	return (memcmp(credId, &rk->id, sizeof(CredentialId)) == 0);
+}
+
+// Return 1 if rk still exists and is valid, 0 otherwise
+static int verify_rk_exists(const CredentialId *input_cred)
+{
+	CTAP_residentKey lookup_rk;
+
+	int count = ctap_open_rk_file(input_cred->rp_id_lookup);
+	if (count <= 0) {
+		printf1(TAG_GREEN, "verify_rk_exists: no rk match\n");
+		ctap_close_rk_file();
+		return 0;
+	}
+
+	for (uint16_t i = 0; i < count; i++) {
+
+		ctap_load_next_rk(&lookup_rk);
+
+		// Compare RPID lookup
+		if (memcmp(input_cred->rp_id_lookup, lookup_rk.id.rp_id_lookup,
+			   CREDENTIAL_TAG_SIZE) != 0) {
+			// Not the right RPID
+			printf1(TAG_GREEN,
+				"verify_rk_exists: wrong rpid (%d)\n", i);
+			continue;
+		}
+
+		// Compare entire credentialID for full match
+		if (!is_cred_id_matching_rk(input_cred, &lookup_rk)) {
+			// Not the right credential
+			printf1(TAG_GREEN,
+				"verify_rk_exists: not exact match (%d)\n", i);
+			continue;
+		}
+
+		// Verify rk_tag, so the credential still is considered
+		// valid No need to decrypt
+		if (!verify_mac(lookup_rk.rk_tag, &lookup_rk.user,
+				RK_HMAC_SIZE)) {
+			printf1(TAG_GREEN,
+				"verify_rk_exists: failed rk_tag verification "
+				"(%d)\n",
+				i);
+			continue;
+		}
+
+		printf1(TAG_GREEN, "verify_rk_exists: found match (%d)\n", i);
+
+		ctap_close_rk_file();
+		return 1;
+	}
+	printf1(TAG_GREEN, "verify_rk_exists: no rk match\n");
+	ctap_close_rk_file();
+	return 0;
 }
 
 static int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
@@ -723,48 +771,6 @@ static int ctap2_user_presence_test()
 	}
 }
 
-// Returns:
-//   >= 0, slot index of duplicate or first empty slot
-//   -1,  no space available
-static int find_duplicate_or_empty_slot(const CTAP_residentKey *rk,
-					int rk_stored, int *is_duplicate)
-{
-	CTAP_residentKey rk2;
-	int empty_slot = -1;
-	int valid_rk_left = rk_stored;
-	size_t n = ctap_rk_size();
-
-	*is_duplicate = 0;
-
-	for (size_t i = 0; i < n; i++) {
-
-		// TODO: This function is most likely not needed anymore
-		ctap_load_rk(i, &rk2);
-
-		if (ctap_rk_is_valid(&rk2)) {
-			valid_rk_left--;
-
-			// Duplicate found
-			if (is_matching_rk(rk, &rk2)) {
-				*is_duplicate = 1;
-				return i;
-			}
-
-		} else {
-			// First empty slot
-			if (empty_slot < 0) {
-				empty_slot = i;
-			}
-		}
-
-		if (valid_rk_left <= 0 && empty_slot >= 0) {
-			break;
-		}
-	}
-
-	// Return empty slot if available, may be -1
-	return empty_slot;
-}
 
 static int ctap_make_auth_data(struct rpId *rp, CborEncoder *map,
 			       uint8_t *auth_data_buf, uint32_t *len,
