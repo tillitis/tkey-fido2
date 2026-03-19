@@ -1057,16 +1057,14 @@ int ctap_authenticate_credential(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 	switch (desc->type) {
 	case PUB_KEY_CRED_PUB_KEY:
 
-		// Verify correct rp
-		if (!secure_memeq(desc->credential.id.rp_id_lookup,
-				  rp_id_lookup, CREDENTIAL_TAG_SIZE)) {
-			return 0;
-		}
-
-		// Derive mac and compare
+		// Verify mac and RP
+		// Deliberately use the rp_id_lookup from the request, not the
+		// credential, to make sure this request comes from the right
+		// RP.
 		make_auth_tag(rp_id_lookup, desc->credential.id.nonce,
 			      desc->credential.id.protected_metadata,
 			      desc->credential.id.count, tag);
+
 		return (secure_memeq(desc->credential.id.tag, tag,
 				     CREDENTIAL_TAG_SIZE) == 1);
 		break;
