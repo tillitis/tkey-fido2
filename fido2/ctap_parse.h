@@ -4,6 +4,10 @@
 #ifndef _CTAP_PARSE_H
 #define _CTAP_PARSE_H
 
+#include <cbor.h>
+#include <ctap.h>
+#include <stdint.h>
+
 #define check_ret(r)                                                           \
 	_check_ret(r, __LINE__, __FILE__);                                     \
 	if ((r) != CborNoError)                                                \

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2019 SoloKeys Developers
+// SPDX-FileCopyrightText: 2026 Tillitis AB <tillitis.se>
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include <stddef.h>
@@ -13,6 +14,7 @@
 #include "crypto.h"
 #include "ctap.h"
 #include "ctap_errors.h"
+#include "ctap_get_info.h"
 #include "ctap_parse.h"
 #include "ctaphid.h"
 #include "device.h"
@@ -232,172 +234,6 @@ uint8_t verify_pin_auth(uint8_t *pinAuth, uint8_t *clientDataHash)
 {
 	return verify_pin_auth_ex(pinAuth, clientDataHash,
 				  CLIENT_DATA_HASH_SIZE);
-}
-
-uint8_t ctap_get_info(CborEncoder *encoder)
-{
-	int ret;
-	CborEncoder array;
-	CborEncoder map;
-	CborEncoder options;
-	CborEncoder pins;
-	uint8_t aaguid[16];
-	device_read_aaguid(aaguid);
-
-	ret = cbor_encoder_create_map(encoder, &map, 8);
-	check_ret(ret);
-	{
-
-		ret = cbor_encode_uint(&map, RESP_versions); //  versions key
-		check_ret(ret);
-		{
-			ret = cbor_encoder_create_array(&map, &array, 3);
-			check_ret(ret);
-			{
-				ret =
-				    cbor_encode_text_stringz(&array, "U2F_V2");
-				check_ret(ret);
-				ret = cbor_encode_text_stringz(&array,
-							       "FIDO_2_0");
-				check_ret(ret);
-				ret = cbor_encode_text_stringz(&array,
-							       "FIDO_2_1");
-				check_ret(ret);
-			}
-			ret = cbor_encoder_close_container(&map, &array);
-			check_ret(ret);
-		}
-
-		ret = cbor_encode_uint(&map, RESP_extensions);
-		check_ret(ret);
-		{
-			ret = cbor_encoder_create_array(&map, &array, 2);
-			check_ret(ret);
-			{
-				ret = cbor_encode_text_stringz(&array,
-							       "credProtect");
-				check_ret(ret);
-
-				ret = cbor_encode_text_stringz(&array,
-							       "hmac-secret");
-				check_ret(ret);
-			}
-			ret = cbor_encoder_close_container(&map, &array);
-			check_ret(ret);
-		}
-
-		ret = cbor_encode_uint(&map, RESP_aaguid);
-		check_ret(ret);
-		{
-			ret = cbor_encode_byte_string(&map, aaguid, 16);
-			check_ret(ret);
-		}
-
-		ret = cbor_encode_uint(&map, RESP_options);
-		check_ret(ret);
-		{
-			ret = cbor_encoder_create_map(&map, &options, 5);
-			check_ret(ret);
-			{
-				ret =
-				    cbor_encode_text_string(&options, "rk", 2);
-				check_ret(ret);
-				{
-					ret = cbor_encode_boolean(
-					    &options, 1); // Capable of storing
-							  // keys locally
-					check_ret(ret);
-				}
-
-				ret =
-				    cbor_encode_text_string(&options, "up", 2);
-				check_ret(ret);
-				{
-					ret = cbor_encode_boolean(
-					    &options, 1); // Capable of testing
-							  // user presence
-					check_ret(ret);
-				}
-
-				// NOT [yet] capable of verifying user
-				// Do not add option if UV isn't supported.
-				//
-				// ret = cbor_encode_text_string(&options, "uv",
-				// 2); check_ret(ret);
-				// {
-				//     ret = cbor_encode_boolean(&options, 0);
-				//     check_ret(ret);
-				// }
-
-				ret = cbor_encode_text_string(&options, "plat",
-							      4);
-				check_ret(ret);
-				{
-					ret = cbor_encode_boolean(
-					    &options,
-					    0); // Not attached to platform
-					check_ret(ret);
-				}
-
-				ret = cbor_encode_text_string(&options,
-							      "credMgmt", 8);
-				check_ret(ret);
-				{
-					ret = cbor_encode_boolean(&options, 1);
-					check_ret(ret);
-				}
-
-				ret = cbor_encode_text_string(&options,
-							      "clientPin", 9);
-				check_ret(ret);
-				{
-					ret = cbor_encode_boolean(
-					    &options, ctap_is_pin_set());
-					check_ret(ret);
-				}
-			}
-			ret = cbor_encoder_close_container(&map, &options);
-			check_ret(ret);
-		}
-
-		ret = cbor_encode_uint(&map, RESP_maxMsgSize);
-		check_ret(ret);
-		{
-			ret = cbor_encode_int(&map, CTAP_MAX_MESSAGE_SIZE);
-			check_ret(ret);
-		}
-
-		ret = cbor_encode_uint(&map, RESP_pinProtocols);
-		check_ret(ret);
-		{
-			ret = cbor_encoder_create_array(&map, &pins, 1);
-			check_ret(ret);
-			{
-				ret = cbor_encode_int(&pins, 1);
-				check_ret(ret);
-			}
-			ret = cbor_encoder_close_container(&map, &pins);
-			check_ret(ret);
-		}
-
-		ret = cbor_encode_uint(&map, 0x07); // maxCredentialCountInList
-		check_ret(ret);
-		{
-			ret = cbor_encode_uint(&map, ALLOW_LIST_MAX_SIZE);
-			check_ret(ret);
-		}
-
-		ret = cbor_encode_uint(&map, 0x08); // maxCredentialIdLength
-		check_ret(ret);
-		{
-			ret = cbor_encode_uint(&map, 128);
-			check_ret(ret);
-		}
-	}
-	ret = cbor_encoder_close_container(encoder, &map);
-	check_ret(ret);
-
-	return CTAP1_ERR_SUCCESS;
 }
 
 static int ctap_add_cose_key(CborEncoder *cose_key, uint8_t *x, uint8_t *y,

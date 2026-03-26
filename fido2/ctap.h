@@ -80,13 +80,6 @@
 #define CREDID_ALG_ES256 0x0
 #define CREDID_ALG_EDDSA 0x1
 
-#define RESP_versions 0x1
-#define RESP_extensions 0x2
-#define RESP_aaguid 0x3
-#define RESP_options 0x4
-#define RESP_maxMsgSize 0x5
-#define RESP_pinProtocols 0x6
-
 #define RESP_fmt 0x01
 #define RESP_authData 0x02
 #define RESP_attStmt 0x03
@@ -144,6 +137,7 @@
 #define CREDENTIAL_NOT_SUPPORTED 0
 
 #define ALLOW_LIST_MAX_SIZE 20
+#define MAX_CREDENTIAL_ID_SIZE 128
 
 #define NEW_PIN_ENC_MAX_SIZE 256 // includes NULL terminator
 #define NEW_PIN_ENC_MIN_SIZE 64

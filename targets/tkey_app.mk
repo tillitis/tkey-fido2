@@ -24,6 +24,7 @@ TARGET_SRCS := \
                fido2/apdu.c                                       \
                fido2/crypto.c                                     \
                fido2/ctap.c                                       \
+               fido2/ctap_get_info.c                              \
                fido2/ctaphid.c                                    \
                fido2/ctap_parse.c                                 \
                fido2/extensions/extensions.c                      \
@@ -39,7 +40,7 @@ TARGET_SRCS := \
                targets/tkey/src/init.c                            \
                targets/tkey/src/main.c                            \
                targets/tkey/src/rng.c                             \
-               targets/tkey/src/fs.c                             \
+               targets/tkey/src/fs.c                              \
                targets/tkey/libc/newlib/libc/search/qsort.c       \
                targets/tkey/libc/newlib/libc/string/memcmp.c      \
                targets/tkey/libc/newlib/libc/string/memcpy.c      \
