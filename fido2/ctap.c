@@ -1001,13 +1001,16 @@ uint8_t ctap_add_attest_statement(CborEncoder *map, uint8_t *sigder, int len)
 {
 	int ret;
 	uint8_t cert[1024];
-	uint16_t cert_size = device_attestation_cert_der_get_size();
+	uint16_t cert_size;
+	ret = device_attestation_get_size_cert(&cert_size);
+	check_ret(ret);
 	if (cert_size > sizeof(cert)) {
 		printf2(TAG_ERR,
 			"Certificate is too large for CTAP2 buffer\r\n");
 		return CTAP2_ERR_PROCESSING;
 	}
-	device_attestation_read_cert_der(cert);
+	ret = device_attestation_read_cert(cert, sizeof(cert));
+	check_ret(ret);
 
 	CborEncoder stmtmap;
 	CborEncoder x5carr;
@@ -1034,9 +1037,7 @@ uint8_t ctap_add_attest_statement(CborEncoder *map, uint8_t *sigder, int len)
 		ret = cbor_encoder_create_array(&stmtmap, &x5carr, 1);
 		check_ret(ret);
 		{
-			ret = cbor_encode_byte_string(
-			    &x5carr, cert,
-			    device_attestation_cert_der_get_size());
+			ret = cbor_encode_byte_string(&x5carr, cert, cert_size);
 			check_ret(ret);
 			ret = cbor_encoder_close_container(&stmtmap, &x5carr);
 			check_ret(ret);

@@ -34,6 +34,7 @@
 static SHA256_CTX sha256_ctx;
 static cf_sha512_context sha512_ctx;
 static const struct uECC_Curve_t *_es256_curve = NULL;
+static uint8_t signing_key[32] = {0};
 static const uint8_t *_signing_key = NULL;
 static int _key_len = 0;
 
@@ -191,7 +192,13 @@ void crypto_ecc256_init(void)
 
 void crypto_ecc256_load_attestation_key(void)
 {
-	_signing_key = device_get_attestation_key();
+	int ret = device_attestation_read_key(signing_key, sizeof(signing_key));
+	if (ret < 0) {
+		printf2(TAG_ERR,
+			"Error, device_attestation_read_key failed!\n");
+		exit(1);
+	}
+	_signing_key = (uint8_t *)signing_key;
 	_key_len = 32;
 }
 

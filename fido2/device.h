@@ -201,25 +201,48 @@ int ctap_overwrite_rk(const CTAP_residentKey *rk);
  */
 void device_wink();
 
-/** Return pointer to attestation key.
- * @return pointer to attestation private key, raw encoded.  For P256, this is
- * 32 bytes.
+/** Returns the size in bytes of attestation_key.
+ * @param size attestation private key in bytes
+ * @return Returns zero on success, negative on error.
  */
-uint8_t *device_get_attestation_key();
+int device_attestation_get_size_key(uint16_t *size);
 
-/** Read the device's attestation certificate into buffer @dst.
- * @param dst the destination to write the certificate.
+/** Read attestation key into key_buf buffer.
+ * @param key_buf attestation private key buffer. For P256, this is 32 bytes.
+ * @param key_buf_size attestation private key buffer size.
+ * @return Returns zero on success, negative on error.
+ */
+int device_attestation_read_key(uint8_t *key_buf, size_t key_buf_size);
+
+/** Write attestation key into the attestation_key file.
+ * @param key attestation private key.
+ * @param key_size attestation private key size in bytes.
+ * @return Returns zero on success, negative on error.
+ */
+int device_attestation_write_key(uint8_t *key, size_t key_size);
+
+/** Returns the size in bytes of attestation_cert.
+ * @param size attestation cert in bytes
+ * @return Returns zero on success, negative on error.
+ */
+int device_attestation_get_size_cert(uint16_t *size);
+
+/** Read the device's attestation certificate into buffer @cert_buf.
+ * @param cert_buf attestation certificate buffer to write the certificate.
+ * @param cert_buf_size attestation certificate destination buffer size.
+ * @return Returns zero on success, negative on error.
  *
  * The size of the certificate can be retrieved using
- * `device_attestation_cert_der_get_size()`.
+ * `device_attestation_get_size_cert()`.
  */
-void device_attestation_read_cert_der(uint8_t *dst);
+int device_attestation_read_cert(uint8_t *cert_buf, size_t cert_buf_size);
 
-/** Returns the size in bytes of attestation_cert_der.
- * @return number of bytes in attestation_cert_der, not including any C string
- * null byte.
+/** Write attestation certificate into the attestation_cert file.
+ * @param cert attestation certificate.
+ * @param cert_size attestation certificate size in bytes.
+ * @return Returns zero on success, negative on error.
  */
-uint16_t device_attestation_cert_der_get_size();
+int device_attestation_write_cert(uint8_t *cert, size_t cert_size);
 
 /** Read the device's 16 byte AAGUID into a buffer.
  * @param dst buffer to write 16 byte AAGUID into.

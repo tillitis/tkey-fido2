@@ -643,9 +643,60 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 			       CTAPHID_WRITE_BUFFER *wb)
 {
+	int8_t status;
+	int ret;
+
 	ctap_response_init(ctap_resp);
 
 	switch (wb->cmd) {
+
+	case CTAPHID_WRITE_KEY:
+		printf1(TAG_HID, "CTAPHID_WRITE_KEY\n");
+
+		if (len == 0) {
+			printf2(TAG_ERR, "Error, invalid 0 length field for "
+					 "WRITE_KEY packet\n");
+			ctaphid_send_error(wb->cid, CTAP1_ERR_INVALID_LENGTH);
+			return 0;
+		}
+
+		ret = device_attestation_write_key(ctap_buffer, len);
+		if (ret < 0) {
+			status = CTAP1_ERR_OTHER;
+		} else {
+			status = CTAP1_ERR_SUCCESS;
+		}
+
+		timestamp();
+		ctaphid_write(wb, &status, 1);
+		ctaphid_write(wb, NULL, 0);
+		printf1(TAG_TIME, "WRITE_KEY writeback: %d ms\n", timestamp());
+		return 1;
+		break;
+
+	case CTAPHID_WRITE_CERT:
+		printf1(TAG_HID, "CTAPHID_WRITE_CERT\n");
+
+		if (len == 0) {
+			printf2(TAG_ERR, "Error, invalid 0 length field for "
+					 "WRITE_CERT packet\n");
+			ctaphid_send_error(wb->cid, CTAP1_ERR_INVALID_LENGTH);
+			return 0;
+		}
+
+		ret = device_attestation_write_cert(ctap_buffer, len);
+		if (ret < 0) {
+			status = CTAP1_ERR_OTHER;
+		} else {
+			status = CTAP1_ERR_SUCCESS;
+		}
+
+		timestamp();
+		ctaphid_write(wb, &status, 1);
+		ctaphid_write(wb, NULL, 0);
+		printf1(TAG_TIME, "WRITE_CERT writeback: %d ms\n", timestamp());
+		return 1;
+		break;
 
 	case CTAPHID_REBOOT:
 		device_reboot();
