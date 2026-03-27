@@ -22,6 +22,7 @@ TARGET_SRCS := \
                crypto/sha256/sha256.c                             \
                crypto/tiny-AES-c/aes.c                            \
                fido2/apdu.c                                       \
+               fido2/cbor_util.c                                  \
                fido2/crypto.c                                     \
                fido2/ctap.c                                       \
                fido2/ctap_get_info.c                              \
