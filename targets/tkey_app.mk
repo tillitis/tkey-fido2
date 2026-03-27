@@ -73,9 +73,12 @@ TARGET_ASFLAGS := \
                   -fomit-frame-pointer \
                   -mno-relax
 
+ifdef QEMU
+TARGET_ASFLAGS += -O0
+TARGET_ASFLAGS += -g3
+else
 TARGET_ASFLAGS += -Os
-# TARGET_ASFLAGS += -O0
-# TARGET_ASFLAGS += -g3
+endif
 
 # Target-specific CFLAGS
 TARGET_CFLAGS := \
@@ -100,10 +103,13 @@ TARGET_CFLAGS := \
 #TARGET_CFLAGS += -pedantic       # Gives lots of new warnings
 #TARGET_CFLAGS += -std=c99        # Gives errors
 
+ifdef QEMU
+TARGET_CFLAGS += -O0
+TARGET_CFLAGS += -g3
+else
 TARGET_CFLAGS += -Os
-# TARGET_CFLAGS += -O0
-# TARGET_CFLAGS += -g3
 TARGET_CFLAGS += -flto
+endif
 
 # Target-specific CXXFLAGS
 TARGET_CXXFLAGS :=
@@ -136,14 +142,21 @@ TARGET_OBJDUMPFLAGS := \
 TARGET_DEFINES := \
                   -DAES256=1 \
                   -DAPP_CONFIG=\"app.h\" \
-                  -DDEBUG_LEVEL=0 \
                   -DuECC_PLATFORM=0
 
+ifdef QEMU
+TARGET_DEFINES += -DDEBUG_LEVEL=1
+else
+TARGET_DEFINES += -DDEBUG_LEVEL=0
+endif
+
 TARGET_DEFINES += -DLFS_NO_MALLOC
-#TARGET_DEFINES += -DLFS_YES_TRACE
-#TARGET_DEFINES += -DENABLE_PRINTF
+ifdef QEMU
+TARGET_DEFINES += -DLFS_YES_TRACE
+TARGET_DEFINES += -DENABLE_PRINTF
 #TARGET_DEFINES += -DTKEY_DEBUG
-#TARGET_DEFINES += -DQEMU_DEBUG
+TARGET_DEFINES += -DQEMU_DEBUG
+endif
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \
@@ -172,8 +185,14 @@ TARGET_EXT_LIBS := \
                    $(LIBDIR)/liblfs.a
 
 # Target-specific LINKER SCRIPT
+
+ifdef QEMU
+TARGET_LINKER_SCRIPT := \
+                        targets/tkey/linker/tkey_qemu.ld
+else
 TARGET_LINKER_SCRIPT := \
                         targets/tkey/linker/tkey.ld
+endif
 
 # Target-specific SHELL COMMAND to execute before build start
 TARGET_PREBUILD_CMD :=
@@ -182,7 +201,11 @@ TARGET_PREBUILD_CMD :=
 TARGET_POSTBUILD_CMD :=
 
 # Targets to build before this target is built
+ifdef QEMU
+TARGET_NEEDS_TARGETS := tkey_uecc_debug.a
+else
 TARGET_NEEDS_TARGETS := tkey_uecc.a
+endif
 
 # Add the target to the global list of targets
 TARGETS += $(TARGET)

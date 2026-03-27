@@ -23,7 +23,9 @@ static volatile uint32_t *timer_ctrl =      (volatile uint32_t *)TK1_MMIO_TIMER_
 void hw_init()
 {
 	init_millisecond_timer();
+#ifndef QEMU_DEBUG
 	init_usb();
+#endif
 	rng_init();
 
 	if (fs_init() != 0) {

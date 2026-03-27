@@ -40,6 +40,7 @@ int main()
 
 	led_set(LED_BLUE);
 
+	// clang-format off
 	set_logging_mask(
 	    // TAG_GEN |
 	    // TAG_MC |
@@ -60,6 +61,7 @@ int main()
 	    // TAG_PROF|
 	    // TAG_ERR |
 	    0);
+	// clang-format on
 
 	device_init();
 
