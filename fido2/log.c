@@ -29,7 +29,7 @@ struct logtag tagtable[] = {
     {TAG_MC, "MC"},
     {TAG_GA, "GA"},
     {TAG_CP, "CP"},
-    {TAG_ERR, "ERR"},
+    {TAG_ERR, "[1;31mERR[0m"},
     {TAG_PARSE, "PARSE"},
     {TAG_CTAP, "CTAP"},
     {TAG_U2F, "U2F"},
