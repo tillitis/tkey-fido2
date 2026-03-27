@@ -6,6 +6,7 @@
 
 #include "fs.h"
 #include "lfs.h"
+#include "log.h"
 #include "printf-emb.h"
 
 // Flash parameters
@@ -112,6 +113,7 @@ int fs_init(void)
 	// Reformat if we can't mount the filesystem,
 	// this should only happen on the first boot
 	if (err) {
+		printf1(TAG_ERR, "Failed to mount filesystem, formatting!\n");
 		lfs_format(&lfs, &cfg);
 		err = lfs_mount(&lfs, &cfg);
 	}
@@ -234,8 +236,7 @@ int fs_truncate_file(fs_file_t *f, size_t size)
 		return -1;
 	}
 
-	lfs_file_truncate(&lfs, &f->file, size);
-	return 0;
+	return lfs_file_truncate(&lfs, &f->file, size);
 }
 
 // Reads from an already open file *f, len bytes starting from last file
