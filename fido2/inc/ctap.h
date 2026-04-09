@@ -7,110 +7,111 @@
 #include "cbor.h"
 #include <stdint.h>
 
-#define CTAP_MAKE_CREDENTIAL 0x01
-#define CTAP_GET_ASSERTION 0x02
-#define CTAP_CANCEL 0x03
-#define CTAP_GET_INFO 0x04
-#define CTAP_CLIENT_PIN 0x06
-#define CTAP_RESET 0x07
-#define GET_NEXT_ASSERTION 0x08
-#define CTAP_CBOR_CRED_MGMT 0x0A
+// clang-format off
+#define CTAP_MAKE_CREDENTIAL         0x01
+#define CTAP_GET_ASSERTION           0x02
+#define CTAP_CANCEL                  0x03
+#define CTAP_GET_INFO                0x04
+#define CTAP_CLIENT_PIN              0x06
+#define CTAP_RESET                   0x07
+#define GET_NEXT_ASSERTION           0x08
+#define CTAP_CBOR_CRED_MGMT          0x0A
 #define CTAP_AUTHENTICATOR_SELECTION 0x0B
-#define CTAP_VENDOR_FIRST 0x40
-#define CTAP_CBOR_CRED_MGMT_PRE 0x41
-#define CTAP_VENDOR_LAST 0xBF
+#define CTAP_VENDOR_FIRST            0x40
+#define CTAP_CBOR_CRED_MGMT_PRE      0x41
+#define CTAP_VENDOR_LAST             0xBF
 
-#define MC_clientDataHash 0x01
-#define MC_rp 0x02
-#define MC_user 0x03
+#define MC_clientDataHash   0x01
+#define MC_rp               0x02
+#define MC_user             0x03
 #define MC_pubKeyCredParams 0x04
-#define MC_excludeList 0x05
-#define MC_extensions 0x06
-#define MC_options 0x07
-#define MC_pinAuth 0x08
-#define MC_pinProtocol 0x09
+#define MC_excludeList      0x05
+#define MC_extensions       0x06
+#define MC_options          0x07
+#define MC_pinAuth          0x08
+#define MC_pinProtocol      0x09
 
-#define GA_rpId 0x01
+#define GA_rpId           0x01
 #define GA_clientDataHash 0x02
-#define GA_allowList 0x03
-#define GA_extensions 0x04
-#define GA_options 0x05
-#define GA_pinAuth 0x06
-#define GA_pinProtocol 0x07
+#define GA_allowList      0x03
+#define GA_extensions     0x04
+#define GA_options        0x05
+#define GA_pinAuth        0x06
+#define GA_pinProtocol    0x07
 
-#define CM_cmd 0x01
-#define CM_cmdMetadata 0x01
-#define CM_cmdRPBegin 0x02
-#define CM_cmdRPNext 0x03
-#define CM_cmdRKBegin 0x04
-#define CM_cmdRKNext 0x05
-#define CM_cmdRKDelete 0x06
+#define CM_cmd              0x01
+#define CM_cmdMetadata      0x01
+#define CM_cmdRPBegin       0x02
+#define CM_cmdRPNext        0x03
+#define CM_cmdRKBegin       0x04
+#define CM_cmdRKNext        0x05
+#define CM_cmdRKDelete      0x06
 #define CM_subCommandParams 0x02
-#define CM_subCommandRpId 0x01
-#define CM_subCommandCred 0x02
-#define CM_pinProtocol 0x03
-#define CM_pinAuth 0x04
+#define CM_subCommandRpId   0x01
+#define CM_subCommandCred   0x02
+#define CM_pinProtocol      0x03
+#define CM_pinAuth          0x04
 
-#define CP_pinProtocol 0x01
-#define CP_subCommand 0x02
-#define CP_cmdGetRetries 0x01
+#define CP_pinProtocol        0x01
+#define CP_subCommand         0x02
+#define CP_cmdGetRetries      0x01
 #define CP_cmdGetKeyAgreement 0x02
-#define CP_cmdSetPin 0x03
-#define CP_cmdChangePin 0x04
-#define CP_cmdGetPinToken 0x05
-#define CP_keyAgreement 0x03
-#define CP_pinAuth 0x04
-#define CP_newPinEnc 0x05
-#define CP_pinHashEnc 0x06
-#define CP_getKeyAgreement 0x07
-#define CP_getRetries 0x08
+#define CP_cmdSetPin          0x03
+#define CP_cmdChangePin       0x04
+#define CP_cmdGetPinToken     0x05
+#define CP_keyAgreement       0x03
+#define CP_pinAuth            0x04
+#define CP_newPinEnc          0x05
+#define CP_pinHashEnc         0x06
+#define CP_getKeyAgreement    0x07
+#define CP_getRetries         0x08
 
-#define EXT_HMAC_SECRET_COSE_KEY 0x01
-#define EXT_HMAC_SECRET_SALT_ENC 0x02
+#define EXT_HMAC_SECRET_COSE_KEY  0x01
+#define EXT_HMAC_SECRET_SALT_ENC  0x02
 #define EXT_HMAC_SECRET_SALT_AUTH 0x03
 
 #define EXT_HMAC_SECRET_REQUESTED 0x01
-#define EXT_HMAC_SECRET_PARSED 0x02
+#define EXT_HMAC_SECRET_PARSED    0x02
 
-#define EXT_CRED_PROTECT_INVALID 0x00
-#define EXT_CRED_PROTECT_OPTIONAL 0x01
+#define EXT_CRED_PROTECT_INVALID              0x00
+#define EXT_CRED_PROTECT_OPTIONAL             0x01
 #define EXT_CRED_PROTECT_OPTIONAL_WITH_CREDID 0x02
-#define EXT_CRED_PROTECT_REQUIRED 0x03
+#define EXT_CRED_PROTECT_REQUIRED             0x03
 
 #define CREDID_ALG_ES256 0x0
 #define CREDID_ALG_EDDSA 0x1
 
-#define RESP_versions 0x1
-#define RESP_extensions 0x2
-#define RESP_aaguid 0x3
-#define RESP_options 0x4
-#define RESP_maxMsgSize 0x5
+#define RESP_versions     0x1
+#define RESP_extensions   0x2
+#define RESP_aaguid       0x3
+#define RESP_options      0x4
+#define RESP_maxMsgSize   0x5
 #define RESP_pinProtocols 0x6
 
-#define RESP_fmt 0x01
+#define RESP_fmt      0x01
 #define RESP_authData 0x02
-#define RESP_attStmt 0x03
+#define RESP_attStmt  0x03
 
-#define RESP_credential 0x01
-#define RESP_signature 0x03
+#define RESP_credential                    0x01
+#define RESP_signature                     0x03
 #define RESP_publicKeyCredentialUserEntity 0x04
-#define RESP_numberOfCredentials 0x05
+#define RESP_numberOfCredentials           0x05
 
 #define RESP_keyAgreement 0x01
-#define RESP_pinToken 0x02
-#define RESP_retries 0x03
+#define RESP_pinToken     0x02
+#define RESP_retries      0x03
 
-#define PARAM_clientDataHash (1 << 0)
-#define PARAM_rp (1 << 1)
-#define PARAM_user (1 << 2)
+#define PARAM_clientDataHash   (1 << 0)
+#define PARAM_rp               (1 << 1)
+#define PARAM_user             (1 << 2)
 #define PARAM_pubKeyCredParams (1 << 3)
-#define PARAM_excludeList (1 << 4)
-#define PARAM_extensions (1 << 5)
-#define PARAM_options (1 << 6)
-#define PARAM_pinAuth (1 << 7)
-#define PARAM_pinProtocol (1 << 8)
-#define PARAM_rpId (1 << 9)
-#define PARAM_allowList (1 << 10)
+#define PARAM_excludeList      (1 << 4)
+#define PARAM_extensions       (1 << 5)
+#define PARAM_options          (1 << 6)
+#define PARAM_pinAuth          (1 << 7)
+#define PARAM_pinProtocol      (1 << 8)
+#define PARAM_rpId             (1 << 9)
+#define PARAM_allowList        (1 << 10)
 
 #define MC_requiredMask (0x0f)
 
@@ -156,6 +157,7 @@
 #define PIN_BOOT_ATTEMPTS 3    // number of attempts per boot
 
 #define CTAP2_UP_DELAY_MS 29000
+// clang-format off
 
 typedef struct {
 	uint8_t id[USER_ID_MAX_SIZE];
