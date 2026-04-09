@@ -21,25 +21,25 @@ TARGET_SRCS := \
                crypto/cifra/src/sha512.c                          \
                crypto/sha256/sha256.c                             \
                crypto/tiny-AES-c/aes.c                            \
-               fido2/apdu.c                                       \
-               fido2/crypto.c                                     \
-               fido2/ctap.c                                       \
-               fido2/ctaphid.c                                    \
-               fido2/ctap_parse.c                                 \
-               fido2/extensions/extensions.c                      \
-               fido2/log.c                                        \
-               fido2/stubs.c                                      \
-               fido2/test_power.c                                 \
-               fido2/u2f.c                                        \
-               fido2/util.c                                       \
-               fido2/version.c                                    \
+               fido2/extensions/src/extensions.c                  \
+               fido2/src/apdu.c                                   \
+               fido2/src/crypto.c                                 \
+               fido2/src/ctap.c                                   \
+               fido2/src/ctaphid.c                                \
+               fido2/src/ctap_parse.c                             \
+               fido2/src/log.c                                    \
+               fido2/src/stubs.c                                  \
+               fido2/src/test_power.c                             \
+               fido2/src/u2f.c                                    \
+               fido2/src/util.c                                   \
+               fido2/src/version.c                                \
                targets/tkey/src/attestation.c                     \
                targets/tkey/src/device.c                          \
                targets/tkey/src/fifo.c                            \
                targets/tkey/src/init.c                            \
                targets/tkey/src/main.c                            \
                targets/tkey/src/rng.c                             \
-               targets/tkey/src/fs.c                             \
+               targets/tkey/src/fs.c                              \
                targets/tkey/libc/newlib/libc/search/qsort.c       \
                targets/tkey/libc/newlib/libc/string/memcmp.c      \
                targets/tkey/libc/newlib/libc/string/memcpy.c      \
@@ -165,8 +165,8 @@ TARGET_INCLUDES := \
                    -Icrypto/micro-ecc \
                    -Icrypto/sha256 \
                    -Icrypto/tiny-AES-c \
-                   -Ifido2 \
-                   -Ifido2/extensions \
+                   -Ifido2/inc \
+                   -Ifido2/extensions/inc \
                    -Itargets/tkey/inc \
                    -Itargets/tkey/libc/include \
                    -Itargets/tkey/libc/newlib/libc/include \

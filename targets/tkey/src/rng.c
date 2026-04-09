@@ -7,7 +7,7 @@
 #include <tkey/lib.h>
 #include <tkey/tk1_mem.h>
 
-#include "../../../fido2/crypto.h"
+#include "crypto.h"
 #include "rng.h"
 
 // clang-format off

@@ -106,12 +106,13 @@ endef
 
 # Format code
 FMTFILES := \
-			targets/tkey/inc/*.[ch]  \
-			targets/tkey/libc/*.[ch] \
-			targets/tkey/src/*.[ch]  \
-			fido2/*.[ch]			 \
-			fido2/extensions/*.[ch]  \
-			pc/*.[ch]
+			targets/tkey/inc/*.[ch]			\
+			targets/tkey/libc/*.[ch]		\
+			targets/tkey/src/*.[ch]			\
+			fido2/extensions/inc/*.[ch]		\
+			fido2/extensions/src/*.[ch]		\
+			fido2/inc/*.[ch]				\
+			fido2/src/*.[ch]
 
 
 .PHONY: fmt
