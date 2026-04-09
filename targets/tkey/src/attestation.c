@@ -6,7 +6,6 @@
 #include "device.h"
 #include "fs.h"
 #include "log.h"
-#include "memory_layout.h"
 #include <stdint.h>
 #include <string.h>
 

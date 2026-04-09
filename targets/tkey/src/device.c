@@ -19,7 +19,6 @@
 #include "frame.h"
 #include "init.h"
 #include "log.h"
-#include "memory_layout.h"
 #include "rng.h"
 #include "timer.h"
 #include "tkey/io.h"
