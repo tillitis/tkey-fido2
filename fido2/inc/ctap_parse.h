@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2019 SoloKeys Developers
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef _CTAP_PARSE_H
-#define _CTAP_PARSE_H
+#ifndef _CTAP_PARSE_H_
+#define _CTAP_PARSE_H_
 
 #define check_ret(r)                                                           \
 	_check_ret(r, __LINE__, __FILE__);                                     \
 	if ((r) != CborNoError)                                                \
-		return CTAP2_ERR_CBOR_PARSING;
+		return CTAP2_ERR_INVALID_CBOR;
 
 #define check_retr(r)                                                          \
 	_check_ret(r, __LINE__, __FILE__);                                     \

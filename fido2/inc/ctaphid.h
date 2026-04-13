@@ -1,43 +1,44 @@
 // SPDX-FileCopyrightText: 2019 SoloKeys Developers
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef _CTAPHID_H_H
-#define _CTAPHID_H_H
+#ifndef _CTAPHID_H_
+#define _CTAPHID_H_
 
 #include "ctap_errors.h"
 #include "device.h"
 
-#define TYPE_INIT 0x80
-#define TYPE_CONT 0x00
+// clang-format off
+#define TYPE_INIT         0x80 // Initialization packets, always one
+#define TYPE_CONT         0x00 // Continuation packets, 0 or more
 
-#define CTAPHID_PING (TYPE_INIT | 0x01)
-#define CTAPHID_MSG (TYPE_INIT | 0x03)
-#define CTAPHID_LOCK (TYPE_INIT | 0x04)
-#define CTAPHID_INIT (TYPE_INIT | 0x06)
-#define CTAPHID_WINK (TYPE_INIT | 0x08)
-#define CTAPHID_CBOR (TYPE_INIT | 0x10)
-#define CTAPHID_CANCEL (TYPE_INIT | 0x11)
-#define CTAPHID_ERROR (TYPE_INIT | 0x3f)
+#define CTAPHID_PING      (TYPE_INIT | 0x01)
+#define CTAPHID_MSG       (TYPE_INIT | 0x03)
+#define CTAPHID_LOCK      (TYPE_INIT | 0x04)
+#define CTAPHID_INIT      (TYPE_INIT | 0x06)
+#define CTAPHID_WINK      (TYPE_INIT | 0x08)
+#define CTAPHID_CBOR      (TYPE_INIT | 0x10)
+#define CTAPHID_CANCEL    (TYPE_INIT | 0x11)
+#define CTAPHID_ERROR     (TYPE_INIT | 0x3f)
 #define CTAPHID_KEEPALIVE (TYPE_INIT | 0x3b)
 
-// Custom commands between 0x40-0x7f
+// Custom commands between CTAPHID_VENDOR_FIRST (0x40) and CTAPHID_VENDOR_LAST (0x7F).
 #define CTAPHID_WRITE_CERT (TYPE_INIT | 0x51)
-#define CTAPHID_WRITE_KEY (TYPE_INIT | 0x52)
-#define CTAPHID_REBOOT (TYPE_INIT | 0x53)
-#define CTAPHID_GETRNG (TYPE_INIT | 0x60)
+#define CTAPHID_WRITE_KEY  (TYPE_INIT | 0x52)
+#define CTAPHID_REBOOT     (TYPE_INIT | 0x53)
+#define CTAPHID_GETRNG     (TYPE_INIT | 0x60)
 #define CTAPHID_GETVERSION (TYPE_INIT | 0x61)
 
-#define ERR_INVALID_CMD 0x01
-#define ERR_INVALID_PAR 0x02
-#define ERR_INVALID_SEQ 0x04
-#define ERR_MSG_TIMEOUT 0x05
+#define ERR_INVALID_CMD  0x01
+#define ERR_INVALID_PAR  0x02
+#define ERR_INVALID_SEQ  0x04
+#define ERR_MSG_TIMEOUT  0x05
 #define ERR_CHANNEL_BUSY 0x06
 
 #define CTAPHID_PROTOCOL_VERSION 2
 
-#define CTAPHID_STATUS_IDLE 0
+#define CTAPHID_STATUS_IDLE       0
 #define CTAPHID_STATUS_PROCESSING 1
-#define CTAPHID_STATUS_UPNEEDED 2
+#define CTAPHID_STATUS_UPNEEDED   2
 
 #define CTAPHID_INIT_PAYLOAD_SIZE (HID_MESSAGE_SIZE - 7)
 #define CTAPHID_CONT_PAYLOAD_SIZE (HID_MESSAGE_SIZE - 5)
@@ -54,6 +55,7 @@
 #define CTAP_CAPABILITIES (CAPABILITY_WINK | CAPABILITY_CBOR)
 
 #define HID_MESSAGE_SIZE 64
+// clang-format on
 
 typedef struct {
 	uint32_t cid;

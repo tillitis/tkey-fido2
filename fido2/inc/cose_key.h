@@ -4,20 +4,28 @@
 #ifndef _COSE_KEY_H
 #define _COSE_KEY_H
 
-#define COSE_KEY_LABEL_KTY 1
-#define COSE_KEY_LABEL_ALG 3
-#define COSE_KEY_LABEL_CRV -1
-#define COSE_KEY_LABEL_X -2
-#define COSE_KEY_LABEL_Y -3
+// clang-format off
+// COSE Key Common Parameters, https://www.iana.org/assignments/cose/cose.xhtml#key-common-parameters
+#define COSE_KEY_LABEL_KTY   1 // Identification of the key type
+#define COSE_KEY_LABEL_ALG   3 // Key usage restriction to this algorithm
 
-#define COSE_KEY_KTY_OKP 1
-#define COSE_KEY_KTY_EC2 2
+// COSE Key Type Parameters, https://www.iana.org/assignments/cose/cose.xhtml#key-type-parameters
+#define COSE_KEY_LABEL_CRV  -1 // EC identifier -- Taken from the "COSE Elliptic Curves" registry
+#define COSE_KEY_LABEL_X    -2 // KTY=1 (OKP) -> Public Key, KTY=2 (EC2)-> x-coordinate
+#define COSE_KEY_LABEL_Y    -3 //                            KTY=2 (EC2)-> y-coordinate
 
-#define COSE_KEY_CRV_P256 1
-#define COSE_KEY_CRV_ED25519 6
+// COSE Key Types, https://www.iana.org/assignments/cose/cose.xhtml#key-type
+#define COSE_KEY_KTY_OKP     1 // Octet Key Pair
+#define COSE_KEY_KTY_EC2     2 // Elliptic Curve Keys w/ x- and y-coordinate pair
 
-#define COSE_ALG_ES256 -7
-#define COSE_ALG_EDDSA -8
-#define COSE_ALG_ECDH_ES_HKDF_256 -25
+// COSE Elliptic Curves, https://www.iana.org/assignments/cose/cose.xhtml#elliptic-curves
+#define COSE_KEY_CRV_P256    1 // NIST P-256 also known as secp256r1, KTY=2 (EC2)
+#define COSE_KEY_CRV_ED25519 6 // Ed25519 for use w/ EdDSA only,      KTY=1 (OKP)
+
+// COSE Algorithms, https://www.iana.org/assignments/cose/cose.xhtml#algorithms
+#define COSE_ALG_ES256            -7  // ECDSA w/ SHA-256
+#define COSE_ALG_EDDSA            -8  // EdDSA
+#define COSE_ALG_ECDH_ES_HKDF_256 -25 // ECDH ES w/ HKDF - generate key directly
+// clang-format on
 
 #endif

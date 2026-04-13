@@ -81,7 +81,7 @@ uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "error, wrong type\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(val, &map);
@@ -96,7 +96,7 @@ uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
 				"Error, expecting text string type for user "
 				"map key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 
 		sz = sizeof(key);
@@ -118,7 +118,7 @@ uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
 			if (cbor_value_get_type(&map) != CborByteStringType) {
 				printf2(TAG_ERR, "Error, expecting byte string "
 						 "type for rp map value\n");
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 
 			sz = USER_ID_MAX_SIZE;
@@ -135,7 +135,7 @@ uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
 			if (cbor_value_get_type(&map) != CborTextStringType) {
 				printf2(TAG_ERR, "Error, expecting text string "
 						 "type for user.name value\n");
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			sz = USER_NAME_LIMIT;
 			ret = cbor_value_copy_text_string(
@@ -150,7 +150,7 @@ uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
 				printf2(TAG_ERR,
 					"Error, expecting text string type for "
 					"user.displayName value\n");
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			sz = DISPLAY_NAME_LIMIT;
 			ret = cbor_value_copy_text_string(
@@ -170,7 +170,7 @@ uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
 			if (cbor_value_get_type(&map) != CborTextStringType) {
 				printf2(TAG_ERR, "Error, expecting text string "
 						 "type for user.icon value\n");
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 
 		} else {
@@ -199,7 +199,7 @@ uint8_t parse_pub_key_cred_param(CborValue *val, uint8_t *cred_type,
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "error, expecting map type, got %s\n",
 			cbor_value_get_type_string(val));
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_map_find_value(val, "type", &cred);
@@ -259,7 +259,7 @@ uint8_t parse_pub_key_cred_params(CTAP_makeCredential *MC, CborValue *val)
 
 	if (cbor_value_get_type(val) != CborArrayType) {
 		printf2(TAG_ERR, "error, expecting array type\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(val, &arr);
@@ -318,7 +318,7 @@ uint8_t parse_fixed_byte_string(CborValue *map, uint8_t *dst, unsigned int len)
 		}
 	} else {
 		printf2(TAG_ERR, "error, CborByteStringType expected\r\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 	return 0;
 }
@@ -332,7 +332,7 @@ uint8_t parse_verify_exclude_list(CborValue *val)
 	CTAP_credentialDescriptor cred;
 	if (cbor_value_get_type(val) != CborArrayType) {
 		printf2(TAG_ERR, "error, exclude list is not a map\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 	ret = cbor_value_get_array_length(val, &size);
 	check_ret(ret);
@@ -351,7 +351,7 @@ uint8_t parse_rp_id(struct rpId *rp, CborValue *val)
 {
 	size_t sz = DOMAIN_NAME_MAX_SIZE;
 	if (cbor_value_get_type(val) != CborTextStringType) {
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 	int ret = cbor_value_copy_text_string(val, (char *)rp->id, &sz, NULL);
 	if (ret == CborErrorOutOfMemory) {
@@ -374,7 +374,7 @@ uint8_t parse_rp(struct rpId *rp, CborValue *val)
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "error, wrong type\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(val, &map);
@@ -391,7 +391,7 @@ uint8_t parse_rp(struct rpId *rp, CborValue *val)
 				"Error, expecting text string type for rp map "
 				"key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 
 		sz = sizeof(key);
@@ -410,7 +410,7 @@ uint8_t parse_rp(struct rpId *rp, CborValue *val)
 		if (cbor_value_get_type(&map) != CborTextStringType) {
 			printf2(TAG_ERR, "Error, expecting text string type "
 					 "for rp map value\n");
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 
 		if (strcmp(key, "id") == 0) {
@@ -453,7 +453,7 @@ uint8_t parse_options(CborValue *val, uint8_t *rk, uint8_t *uv, uint8_t *up)
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "error, wrong type\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(val, &map);
@@ -468,7 +468,7 @@ uint8_t parse_options(CborValue *val, uint8_t *rk, uint8_t *uv, uint8_t *up)
 				"Error, expecting text string type for options "
 				"map key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 		sz = sizeof(key);
 		ret = cbor_value_copy_text_string(&map, key, &sz, NULL);
@@ -486,7 +486,7 @@ uint8_t parse_options(CborValue *val, uint8_t *rk, uint8_t *uv, uint8_t *up)
 		if (cbor_value_get_type(&map) != CborBooleanType) {
 			printf2(TAG_ERR, "Error, expecting bool type for "
 					 "option map value\n");
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 
 		if (strncmp(key, "rk", 2) == 0) {
@@ -526,7 +526,7 @@ uint8_t ctap_parse_hmac_secret(CborValue *val, CTAP_hmac_secret *hs)
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "error, wrong type\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(val, &map);
@@ -541,7 +541,7 @@ uint8_t ctap_parse_hmac_secret(CborValue *val, CTAP_hmac_secret *hs)
 				"Error, expecting CborIntegerTypefor "
 				"hmac-secret map key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 		ret = cbor_value_get_int(&map, &key);
 		check_ret(ret);
@@ -602,7 +602,7 @@ uint8_t ctap_parse_extensions(CborValue *val, CTAP_extensions *ext)
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "error, wrong type\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(val, &map);
@@ -617,7 +617,7 @@ uint8_t ctap_parse_extensions(CborValue *val, CTAP_extensions *ext)
 				"Error, expecting text string type for options "
 				"map key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 		sz = sizeof(key);
 		ret = cbor_value_copy_text_string(&map, key, &sz, NULL);
@@ -730,8 +730,8 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 
 		switch (key) {
 
-		case MC_clientDataHash:
-			printf1(TAG_MC, "CTAP_clientDataHash\n");
+		case MC_Cmd_clientDataHash:
+			printf1(TAG_MC, "MC_Cmd_clientDataHash\n");
 
 			ret = parse_fixed_byte_string(&map, MC->clientDataHash,
 						      CLIENT_DATA_HASH_SIZE);
@@ -741,8 +741,8 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 
 			dump_hex1(TAG_MC, MC->clientDataHash, 32);
 			break;
-		case MC_rp:
-			printf1(TAG_MC, "CTAP_rp\n");
+		case MC_Cmd_rp:
+			printf1(TAG_MC, "MC_Cmd_rp\n");
 
 			ret = parse_rp(&MC->rp, &map);
 			if (ret == 0) {
@@ -752,8 +752,8 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 			printf1(TAG_MC, "  ID: %s\n", MC->rp.id);
 			printf1(TAG_MC, "  name: %s\n", MC->rp.name);
 			break;
-		case MC_user:
-			printf1(TAG_MC, "CTAP_user\n");
+		case MC_Cmd_user:
+			printf1(TAG_MC, "MC_Cmd_user\n");
 
 			ret = parse_user(MC, &map);
 
@@ -763,8 +763,8 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 			printf1(TAG_MC, "  name: %s\n", MC->credInfo.user.name);
 
 			break;
-		case MC_pubKeyCredParams:
-			printf1(TAG_MC, "CTAP_pubKeyCredParams\n");
+		case MC_Cmd_pubKeyCredParams:
+			printf1(TAG_MC, "MC_Cmd_pubKeyCredParams\n");
 
 			ret = parse_pub_key_cred_params(MC, &map);
 
@@ -774,8 +774,8 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 				MC->credInfo.COSEAlgorithmIdentifier);
 
 			break;
-		case MC_excludeList:
-			printf1(TAG_MC, "CTAP_excludeList\n");
+		case MC_Cmd_excludeList:
+			printf1(TAG_MC, "MC_Cmd_excludeList\n");
 			ret = parse_verify_exclude_list(&map);
 			check_ret(ret);
 
@@ -787,26 +787,26 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 							  &MC->excludeListSize);
 			check_ret(ret);
 
-			printf1(TAG_MC, "CTAP_excludeList done\n");
+			printf1(TAG_MC, "excludeList done\n");
 			break;
-		case MC_extensions:
-			printf1(TAG_MC, "CTAP_extensions\n");
+		case MC_Cmd_extensions:
+			printf1(TAG_MC, "MC_Cmd_extensions\n");
 			type = cbor_value_get_type(&map);
 			if (type != CborMapType) {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			ret = ctap_parse_extensions(&map, &MC->extensions);
 			check_retr(ret);
 			break;
 
-		case MC_options:
-			printf1(TAG_MC, "CTAP_options\n");
+		case MC_Cmd_options:
+			printf1(TAG_MC, "MC_Cmd_options\n");
 			ret = parse_options(&map, &MC->credInfo.rk, &MC->uv,
 					    &MC->up);
 			check_retr(ret);
 			break;
-		case MC_pinAuth: {
-			printf1(TAG_MC, "CTAP_pinAuth\n");
+		case MC_Cmd_pinUvAuthParam: {
+			printf1(TAG_MC, "MC_Cmd_pinUvAuthParam\n");
 
 			size_t pinSize;
 			if (cbor_value_get_type(&map) == CborByteStringType &&
@@ -827,15 +827,15 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 			MC->pinAuthPresent = 1;
 			break;
 		}
-		case MC_pinProtocol:
-			printf1(TAG_MC, "CTAP_pinProtocol\n");
+		case MC_Cmd_pinUvAuthProtocol:
+			printf1(TAG_MC, "MC_Cmd_pinUvAuthProtocol\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {
 				ret = cbor_value_get_int_checked(
 				    &map, &MC->pinProtocol);
 				check_ret(ret);
 				printf1(TAG_MC, " == %d\n", MC->pinProtocol);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 
 			break;
@@ -864,7 +864,7 @@ uint8_t parse_credential_descriptor(CborValue *arr,
 
 	if (cbor_value_get_type(arr) != CborMapType) {
 		printf2(TAG_ERR, "Error, CborMapType expected in credential\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_map_find_value(arr, "id", &val);
@@ -932,7 +932,7 @@ uint8_t parse_allow_list(CTAP_getAssertion *GA, CborValue *it)
 
 	if (cbor_value_get_type(it) != CborArrayType) {
 		printf2(TAG_ERR, "Error, expecting cbor array\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(it, &arr);
@@ -947,7 +947,7 @@ uint8_t parse_allow_list(CTAP_getAssertion *GA, CborValue *it)
 		if (i >= ALLOW_LIST_MAX_SIZE) {
 			printf1(TAG_PARSE,
 				"Error, out of memory for allow list.\n");
-			return CTAP2_ERR_TOO_MANY_ELEMENTS;
+			return CTAP2_ERR_LIMIT_EXCEEDED;
 		}
 
 		GA->credLen += 1;
@@ -975,7 +975,7 @@ static uint8_t parse_cred_mgmt_subcommandparams(CborValue *val,
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "error, wrong type\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(val, &map);
@@ -992,14 +992,14 @@ static uint8_t parse_cred_mgmt_subcommandparams(CborValue *val,
 				"Error, expecting integer type for map key, "
 				"got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 		ret = cbor_value_get_int(&map, &key);
 		check_ret(ret);
 		ret = cbor_value_advance(&map);
 		check_ret(ret);
 		switch (key) {
-		case CM_subCommandRpId:
+		case CM_SubCmdParam_rpIDHash:
 			ret = cbor_value_copy_byte_string(
 			    &map, CM->subCommandParams.rpIdHash, &sz, NULL);
 			if (ret == CborErrorOutOfMemory) {
@@ -1009,7 +1009,7 @@ static uint8_t parse_cred_mgmt_subcommandparams(CborValue *val,
 			}
 			check_ret(ret);
 			break;
-		case CM_subCommandCred:
+		case CM_SubCmdParam_credentialID:
 			ret = parse_credential_descriptor(
 			    &map, &CM->subCommandParams.credentialDescriptor);
 			check_ret(ret);
@@ -1050,7 +1050,7 @@ uint8_t ctap_parse_cred_mgmt(CTAP_credMgmt *CM, uint8_t *request, int length)
 	CborType type = cbor_value_get_type(&it);
 	if (type != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(&it, &map);
@@ -1065,7 +1065,7 @@ uint8_t ctap_parse_cred_mgmt(CTAP_credMgmt *CM, uint8_t *request, int length)
 		type = cbor_value_get_type(&map);
 		if (type != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 		ret = cbor_value_get_int_checked(&map, &key);
 		check_ret(ret);
@@ -1074,34 +1074,34 @@ uint8_t ctap_parse_cred_mgmt(CTAP_credMgmt *CM, uint8_t *request, int length)
 		check_ret(ret);
 
 		switch (key) {
-		case CM_cmd:
-			printf1(TAG_PARSE, "CM_cmd\n");
+		case CM_Cmd_subCommand:
+			printf1(TAG_PARSE, "CM_Cmd_subCommand\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {
 				ret =
 				    cbor_value_get_int_checked(&map, &CM->cmd);
 				check_ret(ret);
 				CM->hashed.cmd = CM->cmd;
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			break;
-		case CM_subCommandParams:
-			printf1(TAG_PARSE, "CM_subCommandParams\n");
+		case CM_Cmd_subCommandParams:
+			printf1(TAG_PARSE, "CM_Cmd_subCommandParams\n");
 			ret = parse_cred_mgmt_subcommandparams(&map, CM);
 			check_ret(ret);
 			break;
-		case CM_pinProtocol:
-			printf1(TAG_PARSE, "CM_pinProtocol\n");
+		case CM_Cmd_pinUvAuthProtocol:
+			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthProtocol\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {
 				ret = cbor_value_get_int_checked(
 				    &map, &CM->pinProtocol);
 				check_ret(ret);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			break;
-		case CM_pinAuth:
-			printf1(TAG_PARSE, "CM_pinAuth\n");
+		case CM_Cmd_pinUvAuthParam:
+			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthParam\n");
 			ret = parse_fixed_byte_string(&map, CM->pinAuth, 16);
 			check_retr(ret);
 			CM->pinAuthPresent = 1;
@@ -1135,7 +1135,7 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 	CborType type = cbor_value_get_type(&it);
 	if (type != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(&it, &map);
@@ -1150,7 +1150,7 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 		type = cbor_value_get_type(&map);
 		if (type != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 		ret = cbor_value_get_int_checked(&map, &key);
 		check_ret(ret);
@@ -1161,8 +1161,8 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 
 		switch (key) {
 
-		case GA_clientDataHash:
-			printf1(TAG_GA, "GA_clientDataHash\n");
+		case GA_Cmd_clientDataHash:
+			printf1(TAG_GA, "GA_Cmd_clientDataHash\n");
 
 			ret = parse_fixed_byte_string(&map, GA->clientDataHash,
 						      CLIENT_DATA_HASH_SIZE);
@@ -1172,33 +1172,33 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 			printf1(TAG_GA, "\n");
 			dump_hex1(TAG_GA, GA->clientDataHash, 32);
 			break;
-		case GA_rpId:
-			printf1(TAG_GA, "GA_rpId\n");
+		case GA_Cmd_rpId:
+			printf1(TAG_GA, "GA_Cmd_rpId\n");
 
 			ret = parse_rp_id(&GA->rp, &map);
 
 			printf1(TAG_GA, "  ID: %s\n", GA->rp.id);
 			break;
-		case GA_allowList:
-			printf1(TAG_GA, "GA_allowList\n");
+		case GA_Cmd_allowList:
+			printf1(TAG_GA, "GA_Cmd_allowList\n");
 			ret = parse_allow_list(GA, &map);
 			check_ret(ret);
 			GA->allowListPresent = 1;
 
 			break;
-		case GA_extensions:
-			printf1(TAG_GA, "GA_extensions\n");
+		case GA_Cmd_extensions:
+			printf1(TAG_GA, "GA_Cmd_extensions\n");
 			ret = ctap_parse_extensions(&map, &GA->extensions);
 			check_retr(ret);
 			break;
 
-		case GA_options:
-			printf1(TAG_GA, "CTAP_options\n");
+		case GA_Cmd_options:
+			printf1(TAG_GA, "GA_Cmd_options\n");
 			ret = parse_options(&map, &GA->rk, &GA->uv, &GA->up);
 			check_retr(ret);
 			break;
-		case GA_pinAuth: {
-			printf1(TAG_GA, "CTAP_pinAuth\n");
+		case GA_Cmd_pinUvAuthParam: {
+			printf1(TAG_GA, "GA_Cmd_pinUvAuthParam\n");
 
 			size_t pinSize;
 			if (cbor_value_get_type(&map) == CborByteStringType &&
@@ -1223,14 +1223,14 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 
 			break;
 		}
-		case GA_pinProtocol:
-			printf1(TAG_GA, "CTAP_pinProtocol\n");
+		case GA_Cmd_pinUvAuthProtocol:
+			printf1(TAG_GA, "GA_Cmd_pinUvAuthProtocol\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {
 				ret = cbor_value_get_int_checked(
 				    &map, &GA->pinProtocol);
 				check_ret(ret);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 
 			break;
@@ -1260,7 +1260,7 @@ uint8_t parse_cose_key(CborValue *it, COSE_key *cose)
 	CborType type = cbor_value_get_type(it);
 	if (type != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(it, &map);
@@ -1274,7 +1274,7 @@ uint8_t parse_cose_key(CborValue *it, COSE_key *cose)
 	for (i = 0; i < map_length; i++) {
 		if (cbor_value_get_type(&map) != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 
 		ret = cbor_value_get_int_checked(&map, &key);
@@ -1291,7 +1291,7 @@ uint8_t parse_cose_key(CborValue *it, COSE_key *cose)
 								 &cose->kty);
 				check_ret(ret);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			break;
 		case COSE_KEY_LABEL_ALG:
@@ -1304,7 +1304,7 @@ uint8_t parse_cose_key(CborValue *it, COSE_key *cose)
 								 &cose->crv);
 				check_ret(ret);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			break;
 		case COSE_KEY_LABEL_X:
@@ -1354,7 +1354,7 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
 	CborType type = cbor_value_get_type(&it);
 	if (type != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR_TYPE;
+		return CTAP2_ERR_INVALID_CBOR;
 	}
 
 	ret = cbor_value_enter_container(&it, &map);
@@ -1369,7 +1369,7 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
 		type = cbor_value_get_type(&map);
 		if (type != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
-			return CTAP2_ERR_INVALID_CBOR_TYPE;
+			return CTAP2_ERR_INVALID_CBOR;
 		}
 		ret = cbor_value_get_int_checked(&map, &key);
 		check_ret(ret);
@@ -1379,42 +1379,42 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
 		ret = 0;
 
 		switch (key) {
-		case CP_pinProtocol:
-			printf1(TAG_CP, "CP_pinProtocol\n");
+		case CP_Cmd_pinUvAuthProtocol:
+			printf1(TAG_CP, "CP_Cmd_pinUvAuthProtocol\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {
 				cbor_value_get_int_checked(&map,
 							   &CP->pinProtocol);
 				check_ret(ret);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			break;
-		case CP_subCommand:
-			printf1(TAG_CP, "CP_subCommand\n");
+		case CP_Cmd_subCommand:
+			printf1(TAG_CP, "CP_Cmd_subCommand\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {
 				cbor_value_get_int_checked(&map,
 							   &CP->subCommand);
 				check_ret(ret);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 
 			break;
-		case CP_keyAgreement:
-			printf1(TAG_CP, "CP_keyAgreement\n");
+		case CP_Cmd_keyAgreement:
+			printf1(TAG_CP, "CP_Cmd_keyAgreement\n");
 			ret = parse_cose_key(&map, &CP->keyAgreement);
 			check_retr(ret);
 			CP->keyAgreementPresent = 1;
 			break;
-		case CP_pinAuth:
-			printf1(TAG_CP, "CP_pinAuth\n");
+		case CP_Cmd_pinUvAuthParam:
+			printf1(TAG_CP, "CP_Cmd_pinUvAuthParam\n");
 
 			ret = parse_fixed_byte_string(&map, CP->pinAuth, 16);
 			check_retr(ret);
 			CP->pinAuthPresent = 1;
 			break;
-		case CP_newPinEnc:
-			printf1(TAG_CP, "CP_newPinEnc\n");
+		case CP_Cmd_newPinEnc:
+			printf1(TAG_CP, "CP_Cmd_newPinEnc\n");
 			if (cbor_value_get_type(&map) == CborByteStringType) {
 				ret = cbor_value_calculate_string_length(&map,
 									 &sz);
@@ -1430,24 +1430,26 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
 				    &map, CP->newPinEnc, &sz, NULL);
 				check_ret(ret);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 
 			break;
-		case CP_pinHashEnc:
-			printf1(TAG_CP, "CP_pinHashEnc\n");
+		case CP_Cmd_pinHashEnc:
+			printf1(TAG_CP, "CP_Cmd_pinHashEnc\n");
 
 			ret = parse_fixed_byte_string(&map, CP->pinHashEnc, 16);
 			check_retr(ret);
 			CP->pinHashEncPresent = 1;
 
 			break;
+		// TODO - Remove?
+		/*
 		case CP_getKeyAgreement:
 			printf1(TAG_CP, "CP_getKeyAgreement\n");
 			if (cbor_value_get_type(&map) != CborBooleanType) {
 				printf2(TAG_ERR,
 					"Error, expecting cbor boolean\n");
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			ret =
 			    cbor_value_get_boolean(&map, &CP->getKeyAgreement);
@@ -1458,10 +1460,17 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
 			if (cbor_value_get_type(&map) != CborBooleanType) {
 				printf2(TAG_ERR,
 					"Error, expecting cbor boolean\n");
-				return CTAP2_ERR_INVALID_CBOR_TYPE;
+				return CTAP2_ERR_INVALID_CBOR;
 			}
 			ret = cbor_value_get_boolean(&map, &CP->getRetries);
 			check_ret(ret);
+			break;
+		*/
+		case CP_Cmd_permissions:
+			printf1(TAG_CP, "CP_Cmd_permissions\n");
+			break;
+		case CP_Cmd_rpId:
+			printf1(TAG_CP, "CP_Cmd_rpId\n");
 			break;
 		default:
 			printf1(TAG_CP, "Unknown key %d\n", key);
