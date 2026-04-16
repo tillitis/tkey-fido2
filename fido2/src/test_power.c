@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2019 SoloKeys Developers
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include APP_CONFIG
 #ifdef TEST_POWER
 
 /*

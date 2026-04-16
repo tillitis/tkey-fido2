@@ -4,10 +4,6 @@
 #ifndef _LOG_H
 #define _LOG_H
 
-#ifdef APP_CONFIG
-#include APP_CONFIG
-#endif
-
 #include <stdint.h>
 
 #ifndef DEBUG_LEVEL

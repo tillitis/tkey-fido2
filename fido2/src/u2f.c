@@ -12,7 +12,6 @@
 #ifdef ENABLE_U2F_EXTENSIONS
 #include "extensions.h"
 #endif
-#include APP_CONFIG
 
 // void u2f_response_writeback(uint8_t * buf, uint8_t len);
 #ifdef ENABLE_U2F

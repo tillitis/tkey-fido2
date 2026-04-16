@@ -249,4 +249,10 @@ int device_attestation_write_cert(uint8_t *cert, size_t cert_size);
  * */
 void device_read_aaguid(uint8_t *dst);
 
+void device_init();
+void usbhid_init();
+void usbhid_close();
+int usbhid_recv(uint8_t *msg);
+void delay(uint32_t ms);
+
 #endif

@@ -4,6 +4,7 @@
 #ifndef _INIT_H_
 #define _INIT_H_
 
+void hw_init();
 void init_millisecond_timer();
 void init_usb(void);
 

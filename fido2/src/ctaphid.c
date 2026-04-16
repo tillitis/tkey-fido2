@@ -20,8 +20,6 @@
 #include "crypto.h"
 #include "sha2.h"
 
-#include APP_CONFIG
-
 typedef enum {
 	IDLE = 0,
 	HANDLING_REQUEST,

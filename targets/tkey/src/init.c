@@ -6,7 +6,6 @@
 #include <tkey/io.h>
 #include <tkey/tk1_mem.h>
 
-#include APP_CONFIG
 #include "init.h"
 #include "rng.h"
 #include "timer.h"

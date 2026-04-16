@@ -20,7 +20,6 @@
 #include "storage.h"
 #include "u2f.h"
 #include "util.h"
-#include APP_CONFIG
 #include "extensions.h"
 
 #include "device.h"

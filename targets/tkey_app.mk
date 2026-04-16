@@ -141,7 +141,7 @@ TARGET_OBJDUMPFLAGS := \
 # Target-specific DEFINES
 TARGET_DEFINES := \
                   -DAES256=1 \
-                  -DAPP_CONFIG=\"app.h\" \
+                  -DENABLE_U2F \
                   -DuECC_PLATFORM=0
 
 ifdef QEMU

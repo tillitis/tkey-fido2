@@ -10,7 +10,6 @@
 #include "device.h"
 #include "storage.h"
 
-#include APP_CONFIG
 #include "assert.h"
 #include "ctap.h"
 #include "ctaphid.h"

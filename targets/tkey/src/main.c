@@ -8,7 +8,6 @@
 #include "ctaphid.h"
 #include "fifo.h"
 #include "log.h"
-#include APP_CONFIG
 
 #include "frame.h"
 #include "tkey/debug.h"

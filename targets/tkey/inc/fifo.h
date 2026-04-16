@@ -6,8 +6,6 @@
 
 #include <stdint.h>
 
-#include APP_CONFIG
-
 #ifndef TEST_FIFO
 #define TEST_FIFO 0
 #endif
