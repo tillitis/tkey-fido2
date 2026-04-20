@@ -24,9 +24,18 @@ TARGET_SRCS := \
                fido2/extensions/src/extensions.c                  \
                fido2/src/apdu.c                                   \
                fido2/src/crypto.c                                 \
+               fido2/src/cose_key.c                               \
                fido2/src/ctap.c                                   \
-               fido2/src/ctaphid.c                                \
+               fido2/src/ctap_client_pin.c                        \
+               fido2/src/ctap_credential_management.c             \
+               fido2/src/ctap_extensions.c                        \
+               fido2/src/ctap_get_assertion.c                     \
+               fido2/src/ctap_get_info.c                          \
+               fido2/src/ctap_get_next_assertion.c                \
+               fido2/src/ctap_make_credential.c                   \
                fido2/src/ctap_parse.c                             \
+               fido2/src/ctap_reset.c                             \
+               fido2/src/ctaphid.c                                \
                fido2/src/log.c                                    \
                fido2/src/stubs.c                                  \
                fido2/src/test_power.c                             \

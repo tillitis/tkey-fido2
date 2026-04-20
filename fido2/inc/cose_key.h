@@ -1,8 +1,12 @@
 // SPDX-FileCopyrightText: 2019 SoloKeys Developers
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef _COSE_KEY_H
-#define _COSE_KEY_H
+#ifndef _COSE_KEY_H_
+#define _COSE_KEY_H_
+
+#include <stdint.h>
+
+#include "cbor.h"
 
 // clang-format off
 // COSE Key Common Parameters, https://www.iana.org/assignments/cose/cose.xhtml#key-common-parameters
@@ -27,5 +31,21 @@
 #define COSE_ALG_EDDSA            -8  // EdDSA
 #define COSE_ALG_ECDH_ES_HKDF_256 -25 // ECDH ES w/ HKDF - generate key directly
 // clang-format on
+
+typedef struct {
+	struct {
+		uint8_t x[32];
+		uint8_t y[32];
+	} pubkey;
+
+	int kty;
+	int crv;
+} COSE_key;
+
+int ctap_add_cose_key(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
+		      uint8_t credtype, int32_t algtype);
+int ctap_generate_cose_key(CborEncoder *cose_key, uint8_t *hmac_input, int len,
+			   uint8_t credtype, int32_t algtype);
+uint8_t parse_cose_key(CborValue *it, COSE_key *cose);
 
 #endif

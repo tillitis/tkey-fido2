@@ -4,8 +4,11 @@
 #ifndef _CTAP_H_
 #define _CTAP_H_
 
-#include "cbor.h"
 #include <stdint.h>
+
+#include "cbor.h"
+#include "cose_key.h"
+#include "ctap_extensions.h"
 
 // Authenticator API commands
 // clang-format off
@@ -270,7 +273,6 @@
 
 #define ALLOW_LIST_MAX_SIZE 20
 
-#define NEW_PIN_ENC_MAX_SIZE 256 // Includes NULL terminator
 #define NEW_PIN_ENC_MIN_SIZE 64
 #define NEW_PIN_MAX_SIZE     64
 #define NEW_PIN_MIN_SIZE     4
@@ -360,124 +362,12 @@ struct rpId {
 };
 
 typedef struct {
-	struct {
-		uint8_t x[32];
-		uint8_t y[32];
-	} pubkey;
-
-	int kty;
-	int crv;
-} COSE_key;
-
-typedef struct {
-	uint8_t saltLen;
-	uint8_t saltEnc[64];
-	uint8_t saltAuth[32];
-	COSE_key keyAgreement;
-	struct Credential *credential;
-} CTAP_hmac_secret;
-
-typedef struct {
-	uint8_t hmac_secret_present;
-	CTAP_hmac_secret hmac_secret;
-	uint8_t cred_protect;
-} CTAP_extensions;
-
-typedef struct {
 	CTAP_userEntity user;
 	uint8_t publicKeyCredentialType;
 	int32_t COSEAlgorithmIdentifier;
 	uint8_t rk;
 } CTAP_credInfo;
 
-typedef struct {
-	uint32_t paramsParsed;
-	uint8_t clientDataHash[CLIENT_DATA_HASH_SIZE];
-	struct rpId rp;
-
-	CTAP_credInfo credInfo;
-
-	CborValue excludeList;
-	size_t excludeListSize;
-
-	uint8_t uv;
-	uint8_t up;
-
-	uint8_t pinAuth[16];
-	uint8_t pinAuthPresent;
-	// pinAuthEmpty is true iff an empty bytestring was provided as pinAuth.
-	// This is exclusive with |pinAuthPresent|. It exists because an empty
-	// pinAuth is a special signal to block for touch. See
-	// https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#using-pinToken-in-authenticatorMakeCredential
-	uint8_t pinAuthEmpty;
-	int pinProtocol;
-	CTAP_extensions extensions;
-
-} CTAP_makeCredential;
-
-typedef struct {
-	uint32_t paramsParsed;
-	uint8_t clientDataHash[CLIENT_DATA_HASH_SIZE];
-	uint8_t clientDataHashPresent;
-
-	struct rpId rp;
-
-	int credLen;
-
-	uint8_t rk;
-	uint8_t uv;
-	uint8_t up;
-
-	uint8_t pinAuth[16];
-	uint8_t pinAuthPresent;
-	// pinAuthEmpty is true iff an empty bytestring was provided as pinAuth.
-	// This is exclusive with |pinAuthPresent|. It exists because an empty
-	// pinAuth is a special signal to block for touch. See
-	// https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#using-pinToken-in-authenticatorGetAssertion
-	uint8_t pinAuthEmpty;
-	int pinProtocol;
-
-	CTAP_credentialDescriptor *creds;
-	uint8_t allowListPresent;
-
-	CTAP_extensions extensions;
-
-} CTAP_getAssertion;
-
-typedef struct {
-	int cmd;
-	struct {
-		uint8_t rpIdHash[32];
-		CTAP_credentialDescriptor credentialDescriptor;
-	} subCommandParams;
-
-	struct {
-		uint8_t cmd;
-		uint8_t
-		    subCommandParamsCborCopy[sizeof(CTAP_credentialDescriptor) +
-					     16];
-	} hashed;
-	uint32_t subCommandParamsCborSize;
-
-	uint8_t pinAuth[16];
-	uint8_t pinAuthPresent;
-	int pinProtocol;
-} CTAP_credMgmt;
-
-typedef struct {
-	int pinProtocol;
-	int subCommand;
-	COSE_key keyAgreement;
-	uint8_t keyAgreementPresent;
-	uint8_t pinAuth[16];
-	uint8_t pinAuthPresent;
-	uint8_t newPinEnc[NEW_PIN_ENC_MAX_SIZE];
-	int newPinEncSize;
-	uint8_t pinHashEnc[16];
-	uint8_t pinHashEncPresent;
-	_Bool getKeyAgreement;
-	_Bool getRetries;
-} CTAP_clientPin;
 
 struct _getAssertionState {
 	// Room for both authData struct and extensions
@@ -509,25 +399,36 @@ int ctap_encode_der_sig(uint8_t const *const in_sigbuf,
 
 // Run ctap related power-up procedures (init pinToken, generate shared secret)
 void ctap_init();
-
-// Resets state between different accesses of different applications
-void ctap_reset_state();
-
-uint8_t ctap_add_pin_if_verified(uint8_t *pinTokenEnc, uint8_t *platform_pubkey,
-				 uint8_t *pinHashEnc);
-uint8_t ctap_update_pin_if_verified(uint8_t *pinEnc, int len,
-				    uint8_t *platform_pubkey, uint8_t *pinAuth,
-				    uint8_t *pinHashEnc);
-
-void ctap_update_pin(uint8_t *pin, int len);
 uint8_t ctap_decrement_pin_attempts();
 int8_t ctap_leftover_pin_attempts();
-void ctap_reset_pin_attempts();
 uint8_t ctap_is_pin_set();
 uint8_t ctap_pin_matches(uint8_t *pin, int len);
-void ctap_reset();
 int8_t ctap_device_locked();
 int8_t ctap_device_boot_locked();
+
+uint32_t auth_data_update_count(CTAP_authDataHeader *authData);
+uint8_t check_credential_metadata(CredentialId *credential, uint8_t is_verified, uint8_t is_from_credid_list, uint8_t *is_rk);
+int ctap2_user_presence_test();
+uint8_t ctap_add_attest_statement(CborEncoder *map, uint8_t *sigder, int len);
+uint8_t ctap_add_credential_descriptor(CborEncoder *map, struct Credential *cred, int type);
+uint8_t ctap_add_user_entity(CborEncoder *map, CTAP_userEntity *user, int is_verified);
+int ctap_authenticate_credential(uint8_t *rp_id_lookup, uint8_t *rp_id_hash, CTAP_credentialDescriptor *desc);
+int ctap_calculate_signature(uint8_t *data, int datalen, uint8_t *clientDataHash, uint8_t *hashbuf, uint8_t *sigbuf, uint8_t *sigder, int32_t alg);
+void ctap_decrement_rk_store();
+void ctap_flush_state();
+void ctap_increment_rk_store();
+int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash, uint8_t *rp_id_lookup, CborEncoder *map, uint8_t *auth_data_buf, uint32_t *len, CTAP_credInfo *credInfo, CTAP_extensions *extensions);
+int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf, unsigned int *ext_encoder_buf_size);
+void ctap_state_init();
+void derive_rp_id_info(const uint8_t *rp_id, size_t size, uint8_t *rp_id_hash, uint8_t *rp_id_lookup);
+unsigned int get_credential_id_size(int type);
+void make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce, uint8_t *metadata, uint32_t count, uint8_t *tag);
+int32_t restore_metadata_cose_alg(CredentialId *credential);
+int verify_mac(const uint8_t *mac, const void *data, size_t data_len);
+uint8_t verify_pin_auth_ex(uint8_t *pinAuth, uint8_t *buf, size_t len);
+uint8_t verify_pin_auth(uint8_t *pinAuth, uint8_t *clientDataHash);
+int verify_rk_exists(const CredentialId *input_cred);
+void xcrypt_buf(const uint8_t *iv, const void *in, void *out, uint8_t length);
 
 #define PIN_TOKEN_SIZE 16
 extern uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];

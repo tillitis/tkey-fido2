@@ -22,9 +22,6 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
 int8_t u2f_response_writeback(const uint8_t *buf, uint16_t len);
 void u2f_reset_response();
 
-void make_auth_tag(uint8_t *rpIdHash, uint8_t *nonce, uint8_t *metadata,
-		   uint32_t count, uint8_t *tag);
-
 static CTAP_RESPONSE *_u2f_resp = NULL;
 
 void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len,
