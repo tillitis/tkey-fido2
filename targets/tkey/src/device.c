@@ -456,10 +456,3 @@ void ctap_load_rk(int index, CTAP_residentKey *dst_rk)
 
 	printf1(TAG_GREEN, "Load RK: %d\r\n", index);
 }
-
-void device_read_aaguid(uint8_t *dst)
-{
-	uint8_t *aaguid = (uint8_t *)"\xdb\xe4\x2d\x66\x22\xbe\x46\x24\x88\x11"
-				     "\x97\x2a\x8e\x65\x36\x7e";
-	memmove(dst, aaguid, 16);
-}

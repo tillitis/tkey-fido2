@@ -11,6 +11,7 @@
  * */
 #ifndef EXTERNAL_SOLO_CRYPTO
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,7 @@
 #include <tkey/lib.h>
 
 #include "aes.h"
+#include "attestation.h"
 #include "crypto.h"
 #include "device.h"
 #include "log.h"
@@ -34,9 +36,15 @@
 static SHA256_CTX sha256_ctx;
 static cf_sha512_context sha512_ctx;
 static const struct uECC_Curve_t *_es256_curve = NULL;
-static uint8_t signing_key[32] = {0};
 static const uint8_t *_signing_key = NULL;
 static int _key_len = 0;
+
+static att_key_t key_attest = {0};
+static bool attestation_available = false;
+static uint8_t key_attest_sign[ATTESTATION_SIGN_KEY_SIZE];
+
+static uint8_t key_device_enc[CRYPTO_KEY_LEN];
+static uint8_t key_device_mac[CRYPTO_KEY_LEN];
 
 static uint8_t key_cred_priv[CRYPTO_KEY_LEN];
 static uint8_t key_cred_mac[CRYPTO_KEY_LEN];
@@ -56,6 +64,21 @@ const uint8_t *crypto_get_key_meta()
 const uint8_t *crypto_get_key_hmac()
 {
 	return key_hmac_ext;
+}
+
+const uint8_t *crypto_get_key_device_enc()
+{
+	return key_device_enc;
+}
+
+const uint8_t *crypto_get_key_device_mac()
+{
+	return key_device_mac;
+}
+
+bool crypto_attestation_available(void)
+{
+	return attestation_available;
 }
 
 // Constant time memory comparison
@@ -110,6 +133,28 @@ void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size)
 				  key_hmac_ext, sizeof(key_hmac_ext));
 
 	secure_wipe(prk, sizeof(prk));
+
+	// Generate device bound encryption key
+	static const uint8_t info_device_enc[] = "device_enc";
+	crypto_hkdf_expand_sha256(device_secret, info_device_enc,
+				  sizeof(info_device_enc), key_device_enc,
+				  sizeof(key_device_enc));
+
+	// Generate device bound mac key
+	static const uint8_t info_device_mac[] = "device_mac";
+	crypto_hkdf_expand_sha256(device_secret, info_device_mac,
+				  sizeof(info_device_mac), key_device_mac,
+				  sizeof(key_device_mac));
+
+	// Load attestation key
+	int ret = attestation_read_key(&key_attest);
+
+	if (ret < 0) {
+		printf2(TAG_GREEN, "Device_attestation_read_key failed\n");
+		return;
+	}
+
+	attestation_available = true;
 }
 
 void crypto_sha256_update(const uint8_t *data, size_t len)
@@ -181,6 +226,36 @@ void crypto_sha256_hmac_final(const uint8_t *key, uint32_t klen, uint8_t *hmac)
 	crypto_sha256_final(hmac);
 }
 
+// Computes the MAC over data, using the device bound mac key
+// mac_len cannot be longer than 32.
+void crypto_compute_device_mac(const void *data, size_t data_len, uint8_t *mac,
+			       size_t mac_len)
+{
+
+	const uint8_t *p = (const uint8_t *)data;
+	const uint8_t *mac_key = crypto_get_key_device_mac();
+
+	uint8_t buf[32] = {0x00};
+
+	crypto_sha256_hmac_init(mac_key, CRYPTO_KEY_LEN);
+	crypto_sha256_update(p, data_len);
+	crypto_sha256_hmac_final(mac_key, CRYPTO_KEY_LEN, buf);
+
+	memcpy(mac, buf, mac_len);
+}
+
+// Returns 1 if the mac matches the re-generated mac over the input data,
+// otherwise zero.
+// mac_len cannot be longer than 32.
+int crypto_verify_device_mac(const void *data, size_t data_len, uint8_t *mac,
+			     size_t mac_len)
+{
+	uint8_t local_mac[32];
+	crypto_compute_device_mac(data, data_len, local_mac, mac_len);
+
+	return memcmp(local_mac, mac, mac_len) == 0;
+}
+
 void crypto_ecc256_init(void)
 {
 	uECC_set_rng((uECC_RNG_Function)ctap_generate_rng);
@@ -189,14 +264,14 @@ void crypto_ecc256_init(void)
 
 void crypto_ecc256_load_attestation_key(void)
 {
-	int ret = device_attestation_read_key(signing_key, sizeof(signing_key));
-	if (ret < 0) {
-		printf2(TAG_ERR,
-			"Error, device_attestation_read_key failed!\n");
-		exit(1);
-	}
-	_signing_key = (uint8_t *)signing_key;
-	_key_len = 32;
+	// Decrypt attestation key
+	memmove(key_attest_sign, key_attest.key_enc, ATTESTATION_SIGN_KEY_SIZE);
+	crypto_aes256_ctr_xcrypt_buffer(key_device_enc, key_attest.nonce,
+					key_attest_sign,
+					ATTESTATION_SIGN_KEY_SIZE);
+
+	_signing_key = key_attest_sign;
+	_key_len = ATTESTATION_SIGN_KEY_SIZE;
 }
 
 void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig)
@@ -204,6 +279,10 @@ void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig)
 	if (uECC_sign(_signing_key, data, len, sig, _es256_curve) == 0) {
 		printf2(TAG_ERR, "error, uECC failed\n");
 		exit(1);
+	}
+
+	if (_signing_key == key_attest_sign) {
+		secure_wipe(key_attest_sign, ATTESTATION_SIGN_KEY_SIZE);
 	}
 }
 

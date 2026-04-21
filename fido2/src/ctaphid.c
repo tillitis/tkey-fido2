@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2019 SoloKeys Developers
+// SPDX-FileCopyrightText: 2025 Tillitis AB <tillitis.se>
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "attestation.h"
 #include "ctap.h"
 #include "ctaphid.h"
 #include "device.h"
@@ -658,7 +660,7 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 			return 0;
 		}
 
-		ret = device_attestation_write_key(ctap_buffer, len);
+		ret = attestation_write_key(ctap_buffer, len);
 		if (ret < 0) {
 			status = CTAP1_ERR_OTHER;
 		} else {
@@ -683,7 +685,7 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 			return 0;
 		}
 
-		ret = device_attestation_write_cert(ctap_buffer, len);
+		ret = attestation_write_cert(ctap_buffer, len);
 		if (ret < 0) {
 			status = CTAP1_ERR_OTHER;
 		} else {

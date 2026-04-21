@@ -100,15 +100,21 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 	}
 
 	CborEncoder map;
+	// Encode in Canonical CBOR order: "fmt", "authdata", "attstmt"
 	ret = cbor_encoder_create_map(encoder, &map, 3);
 	check_ret(ret);
 
-	{
-		ret = cbor_encode_int(&map, MC_Resp_fmt);
-		check_ret(ret);
+	ret = cbor_encode_int(&map, MC_Resp_fmt);
+	check_ret(ret);
+
+	// Check if attestation is available
+	if (crypto_attestation_available()) {
 		ret = cbor_encode_text_stringz(&map, "packed");
-		check_ret(ret);
+	} else {
+		ret = cbor_encode_text_stringz(&map, "none");
 	}
+
+	check_ret(ret);
 
 	uint32_t auth_data_sz = sizeof(auth_data_buf);
 
@@ -140,12 +146,18 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 		check_ret(ret);
 	}
 
-	crypto_ecc256_load_attestation_key();
-	int sigder_sz = ctap_calculate_signature(
-	    auth_data_buf, auth_data_sz, MC.clientDataHash, auth_data_buf,
-	    sigbuf, sigder, COSE_ALG_ES256);
-	printf1(TAG_MC, "der sig [%d]:\n", sigder_sz);
-	dump_hex1(TAG_MC, sigder, sigder_sz);
+	int sigder_sz = 0;
+
+	if (crypto_attestation_available()) {
+		crypto_ecc256_load_attestation_key();
+		sigder_sz = ctap_calculate_signature(
+		    auth_data_buf, auth_data_sz, MC.clientDataHash,
+		    auth_data_buf, sigbuf, sigder, COSE_ALG_ES256);
+		printf1(TAG_MC, "der sig [%d]:\n", sigder_sz);
+		dump_hex1(TAG_MC, sigder, sigder_sz);
+	} else {
+		printf1(TAG_MC, "Skipping attest signature\n");
+	}
 
 	ret = ctap_add_attest_statement(&map, sigder, sigder_sz);
 	check_retr(ret);

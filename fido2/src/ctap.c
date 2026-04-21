@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "attestation.h"
 #include "cbor.h"
 #include "cose_key.h"
 #include "crypto.h"
@@ -403,7 +404,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 		cbor_encoder_init(&cose_key, cose_key_buf,
 				  *len - sizeof(CTAP_authData), 0);
 
-		device_read_aaguid(authData->attest.aaguid);
+		attestation_read_aaguid(authData->attest.aaguid);
 		authData->attest.credLenL = sizeof(CredentialId) & 0x00FF;
 		authData->attest.credLenH =
 		    (sizeof(CredentialId) & 0xFF00) >> 8;
@@ -584,48 +585,58 @@ int ctap_calculate_signature(uint8_t *data, int datalen,
 uint8_t ctap_add_attest_statement(CborEncoder *map, uint8_t *sigder, int len)
 {
 	int ret;
-	uint8_t cert[1024];
-	uint16_t cert_size;
-	ret = device_attestation_get_size_cert(&cert_size);
-	check_ret(ret);
-	if (cert_size > sizeof(cert)) {
-		printf2(TAG_ERR,
-			"Certificate is too large for CTAP2 buffer\r\n");
-		return CTAP2_ERR_PROCESSING;
-	}
-	ret = device_attestation_read_cert(cert, sizeof(cert));
-	check_ret(ret);
-
 	CborEncoder stmtmap;
-	CborEncoder x5carr;
 
 	ret = cbor_encode_int(map, MC_Resp_attStmt);
 	check_ret(ret);
-	ret = cbor_encoder_create_map(map, &stmtmap, 3);
-	check_ret(ret);
-	{
-		ret = cbor_encode_text_stringz(&stmtmap, "alg");
-		check_ret(ret);
-		ret = cbor_encode_int(&stmtmap, COSE_ALG_ES256);
-		check_ret(ret);
-	}
-	{
-		ret = cbor_encode_text_stringz(&stmtmap, "sig");
-		check_ret(ret);
-		ret = cbor_encode_byte_string(&stmtmap, sigder, len);
-		check_ret(ret);
-	}
-	{
-		ret = cbor_encode_text_stringz(&stmtmap, "x5c");
-		check_ret(ret);
-		ret = cbor_encoder_create_array(&stmtmap, &x5carr, 1);
+
+	if (crypto_attestation_available()) {
+		uint8_t cert[ATTESTATION_MAX_CERT_SIZE];
+		size_t cert_size;
+
+		ret = attestation_read_cert(cert, ATTESTATION_MAX_CERT_SIZE,
+					    &cert_size);
+		if (ret < 0) {
+			printf2(TAG_GREEN,
+				"Certificate read failed %d (size: %d)\n", ret,
+				cert_size);
+			return CTAP1_ERR_OTHER;
+		}
+
+		CborEncoder x5carr;
+
+		ret = cbor_encoder_create_map(map, &stmtmap, 3);
 		check_ret(ret);
 		{
-			ret = cbor_encode_byte_string(&x5carr, cert, cert_size);
+			ret = cbor_encode_text_stringz(&stmtmap, "alg");
 			check_ret(ret);
-			ret = cbor_encoder_close_container(&stmtmap, &x5carr);
+			ret = cbor_encode_int(&stmtmap, COSE_ALG_ES256);
 			check_ret(ret);
 		}
+		{
+			ret = cbor_encode_text_stringz(&stmtmap, "sig");
+			check_ret(ret);
+			ret = cbor_encode_byte_string(&stmtmap, sigder, len);
+			check_ret(ret);
+		}
+		{
+			ret = cbor_encode_text_stringz(&stmtmap, "x5c");
+			check_ret(ret);
+			ret = cbor_encoder_create_array(&stmtmap, &x5carr, 1);
+			check_ret(ret);
+			{
+				ret = cbor_encode_byte_string(&x5carr, cert,
+							      cert_size);
+				check_ret(ret);
+				ret = cbor_encoder_close_container(&stmtmap,
+								   &x5carr);
+				check_ret(ret);
+			}
+		}
+	} else {
+
+		ret = cbor_encoder_create_map(map, &stmtmap, 0);
+		check_ret(ret);
 	}
 
 	ret = cbor_encoder_close_container(map, &stmtmap);

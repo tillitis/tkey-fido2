@@ -4,6 +4,7 @@
 #include "ctap_errors.h"
 #include "ctap_parse.h"
 #include "device.h"
+#include <attestation.h>
 
 uint8_t ctap_get_info(CborEncoder *encoder)
 {
@@ -13,7 +14,7 @@ uint8_t ctap_get_info(CborEncoder *encoder)
 	CborEncoder options;
 	CborEncoder pins;
 	uint8_t aaguid[16];
-	device_read_aaguid(aaguid);
+	attestation_read_aaguid(aaguid);
 
 	ret = cbor_encoder_create_map(encoder, &map, 8);
 	check_ret(ret);

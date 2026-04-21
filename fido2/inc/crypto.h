@@ -4,6 +4,7 @@
 #ifndef _CRYPTO_H
 #define _CRYPTO_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -12,6 +13,8 @@
 const uint8_t *crypto_get_key_mac();
 const uint8_t *crypto_get_key_meta();
 const uint8_t *crypto_get_key_hmac();
+const uint8_t *crypto_get_key_device_enc();
+const uint8_t *crypto_get_key_device_mac();
 
 int secure_memeq(const void *a, const void *b, size_t n);
 
@@ -22,6 +25,11 @@ void crypto_sha256(uint8_t *digest, const uint8_t *data, size_t len);
 
 void crypto_sha256_hmac_init(const uint8_t *key, uint32_t klen);
 void crypto_sha256_hmac_final(const uint8_t *key, uint32_t klen, uint8_t *hmac);
+
+void crypto_compute_device_mac(const void *data, size_t data_len, uint8_t *mac,
+			       size_t mac_len);
+int crypto_verify_device_mac(const void *data, size_t data_len, uint8_t *mac,
+			     size_t mac_len);
 
 void crypto_hkdf_extract_sha256(const uint8_t *salt, uint8_t salt_len,
 				const uint8_t *ikm, uint8_t ikm_len,
@@ -39,6 +47,7 @@ void crypto_ecc256_derive_public_key(uint8_t *data, int len, uint8_t *x,
 void crypto_ecc256_compute_public_key(uint8_t *privkey, uint8_t *pubkey);
 
 void crypto_ecc256_load_key(uint8_t *data, int len, uint8_t *data2, int len2);
+bool crypto_attestation_available(void);
 void crypto_ecc256_load_attestation_key();
 void crypto_load_external_key(uint8_t *key, int len);
 void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig);

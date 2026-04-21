@@ -3,6 +3,7 @@
 
 #include "u2f.h"
 #include "apdu.h"
+#include "attestation.h"
 #include "crypto.h"
 #include "ctap.h"
 #include "ctaphid.h"
@@ -292,15 +293,7 @@ static int16_t u2f_register(struct u2f_register_request *req)
 	uint8_t pubkey[64];
 	uint8_t hash[32];
 	uint8_t *sig = (uint8_t *)req;
-	uint16_t attest_size;
-	ret = device_attestation_get_size_cert(&attest_size);
-	if (ret < 0) {
-		return U2F_SW_WRONG_LENGTH;
-	}
-	if (attest_size > sizeof(cert)) {
-		printf2(TAG_ERR, "Certificate is too large for buffer\r\n");
-		return U2F_SW_INSUFFICIENT_MEMORY;
-	}
+	size_t attest_size;
 
 	if (!ctap_user_presence_test(750)) {
 		return U2F_SW_CONDITIONS_NOT_SATISFIED;
@@ -334,8 +327,13 @@ static int16_t u2f_register(struct u2f_register_request *req)
 	u2f_response_writeback(i, 1);
 	u2f_response_writeback((uint8_t *)&key_handle, U2F_KEY_HANDLE_SIZE);
 
-	ret = device_attestation_read_cert(cert, sizeof(cert));
+	ret = attestation_read_cert(cert, sizeof(cert), &attest_size);
 	if (ret < 0) {
+		if (attest_size > sizeof(cert)) {
+			printf2(TAG_ERR,
+				"Certificate is too large for buffer\r\n");
+		}
+
 		return U2F_SW_INSUFFICIENT_MEMORY;
 	}
 
