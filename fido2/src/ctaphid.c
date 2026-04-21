@@ -666,6 +666,7 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 		}
 
 		timestamp();
+		wb->bcnt = 1;
 		ctaphid_write(wb, &status, 1);
 		ctaphid_write(wb, NULL, 0);
 		printf1(TAG_TIME, "WRITE_KEY writeback: %d ms\n", timestamp());
@@ -690,6 +691,7 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 		}
 
 		timestamp();
+		wb->bcnt = 1;
 		ctaphid_write(wb, &status, 1);
 		ctaphid_write(wb, NULL, 0);
 		printf1(TAG_TIME, "WRITE_CERT writeback: %d ms\n", timestamp());
