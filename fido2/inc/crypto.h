@@ -7,9 +7,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-const uint8_t *crypto_get_key_mac(uint8_t *len);
-const uint8_t *crypto_get_key_meta(uint8_t *len);
-const uint8_t *crypto_get_key_hmac(uint8_t *len);
+#define CRYPTO_KEY_LEN 32
+
+const uint8_t *crypto_get_key_mac();
+const uint8_t *crypto_get_key_meta();
+const uint8_t *crypto_get_key_hmac();
 
 int secure_memeq(const void *a, const void *b, size_t n);
 

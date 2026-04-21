@@ -38,26 +38,23 @@ static uint8_t signing_key[32] = {0};
 static const uint8_t *_signing_key = NULL;
 static int _key_len = 0;
 
-static uint8_t key_cred_priv[32];
-static uint8_t key_cred_mac[32];
-static uint8_t key_meta_enc[32];
-static uint8_t key_hmac_ext[32];
+static uint8_t key_cred_priv[CRYPTO_KEY_LEN];
+static uint8_t key_cred_mac[CRYPTO_KEY_LEN];
+static uint8_t key_meta_enc[CRYPTO_KEY_LEN];
+static uint8_t key_hmac_ext[CRYPTO_KEY_LEN];
 
-const uint8_t *crypto_get_key_mac(uint8_t *len)
+const uint8_t *crypto_get_key_mac()
 {
-	*len = sizeof(key_cred_mac);
 	return key_cred_mac;
 }
 
-const uint8_t *crypto_get_key_meta(uint8_t *len)
+const uint8_t *crypto_get_key_meta()
 {
-	*len = sizeof(key_meta_enc);
 	return key_meta_enc;
 }
 
-const uint8_t *crypto_get_key_hmac(uint8_t *len)
+const uint8_t *crypto_get_key_hmac()
 {
-	*len = sizeof(key_hmac_ext);
 	return key_hmac_ext;
 }
 

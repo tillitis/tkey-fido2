@@ -53,8 +53,7 @@ void xcrypt_buf(const uint8_t *iv, const void *in, void *out, uint8_t length)
 	const uint8_t *p_in = (const uint8_t *)in;
 	uint8_t *p_out = (uint8_t *)out;
 
-	uint8_t key_len = 0;
-	const uint8_t *meta_key = crypto_get_key_meta(&key_len);
+	const uint8_t *meta_key = crypto_get_key_meta();
 
 	// Don't copy if it is the same buffer
 	if (p_in != p_out) {
@@ -175,14 +174,13 @@ static void compute_mac(const void *data, size_t data_len, uint8_t *mac,
 			size_t mac_len)
 {
 	const uint8_t *p = (const uint8_t *)data;
-	uint8_t key_len = 0;
-	const uint8_t *mac_key = crypto_get_key_mac(&key_len);
+	const uint8_t *mac_key = crypto_get_key_mac();
 
 	uint8_t buf[32] = {0x00};
 
-	crypto_sha256_hmac_init(mac_key, key_len);
+	crypto_sha256_hmac_init(mac_key, CRYPTO_KEY_LEN);
 	crypto_sha256_update(p, data_len);
-	crypto_sha256_hmac_final(mac_key, key_len, buf);
+	crypto_sha256_hmac_final(mac_key, CRYPTO_KEY_LEN, buf);
 
 	memcpy(mac, buf, mac_len);
 }
@@ -229,15 +227,14 @@ void make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce, uint8_t *metadata,
 	uint8_t hashbuf[32];
 	memset(hashbuf, 0, sizeof(hashbuf));
 
-	uint8_t key_len = 0;
-	const uint8_t *mac_key = crypto_get_key_mac(&key_len);
+	const uint8_t *mac_key = crypto_get_key_mac();
 
-	crypto_sha256_hmac_init(mac_key, key_len);
+	crypto_sha256_hmac_init(mac_key, CRYPTO_KEY_LEN);
 	crypto_sha256_update(rp_id_lookup, CREDENTIAL_TAG_SIZE);
 	crypto_sha256_update(nonce, CREDENTIAL_NONCE_SIZE);
 	crypto_sha256_update(metadata, CREDENTIAL_METADATA_SIZE);
 	crypto_sha256_update((uint8_t *)&count, 4);
-	crypto_sha256_hmac_final(mac_key, key_len, hashbuf);
+	crypto_sha256_hmac_final(mac_key, CRYPTO_KEY_LEN, hashbuf);
 
 	memmove(tag, hashbuf, CREDENTIAL_TAG_SIZE);
 }

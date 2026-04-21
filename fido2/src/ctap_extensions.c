@@ -46,16 +46,15 @@ int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
 			return CTAP2_ERR_EXTENSION_FIRST;
 		}
 
-		uint8_t key_len = 0;
-		const uint8_t *hmac_key = crypto_get_key_hmac(&key_len);
+		const uint8_t *hmac_key = crypto_get_key_hmac();
 
 		// Generate credRandom
-		crypto_sha256_hmac_init(hmac_key, key_len);
+		crypto_sha256_hmac_init(hmac_key, CRYPTO_KEY_LEN);
 		crypto_sha256_update(
 		    (uint8_t *)&ext->hmac_secret.credential->id,
 		    sizeof(CredentialId));
 		crypto_sha256_update(&getAssertionState.user_verified, 1);
-		crypto_sha256_hmac_final(hmac_key, key_len, credRandom);
+		crypto_sha256_hmac_final(hmac_key, CRYPTO_KEY_LEN, credRandom);
 
 		// Decrypt saltEnc
 		crypto_aes256_init(shared_secret, NULL);
