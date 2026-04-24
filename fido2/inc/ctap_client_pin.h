@@ -11,6 +11,13 @@
 #include "cose_key.h"
 
 // clang-format off
+#define CP_pinUvAuthToken_permissions_mc    0x01 // MakeCredential,              RP ID: Required
+#define CP_pinUvAuthToken_permissions_ga    0x02 // GetAssertion,                RP ID: Required
+#define CP_pinUvAuthToken_permissions_cm    0x04 // Credential Management,       RP ID: Optional
+#define CP_pinUvAuthToken_permissions_be    0x08 // Bio Enrollment,              RP ID: Ignored
+#define CP_pinUvAuthToken_permissions_lbw   0x10 // Large Blob Write,            RP ID: Ignored
+#define CP_pinUvAuthToken_permissions_acfg  0x20 // Authenticator Configuration, RP ID: Ignored
+
 #define NEW_PIN_ENC_MAX_SIZE 256 // Includes NULL terminator
 #define NEW_PIN_ENC_MIN_SIZE 64
 #define NEW_PIN_MAX_SIZE     64
