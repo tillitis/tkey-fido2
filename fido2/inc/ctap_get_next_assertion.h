@@ -10,6 +10,5 @@
 #include "ctap.h"
 
 uint8_t ctap_get_next_assertion(CborEncoder *encoder);
-CTAP_credentialDescriptor *pop_credential();
 
 #endif

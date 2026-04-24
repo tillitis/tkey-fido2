@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "ctap.h"
+#include "ctap_client_pin.h"
 #include "ctap_errors.h"
 #include "ctap_parse.h"
 #include "device.h"
@@ -124,7 +125,7 @@ uint8_t ctap_get_info(CborEncoder *encoder)
 				check_ret(ret);
 				{
 					ret = cbor_encode_boolean(
-					    &options, ctap_is_pin_set());
+					    &options, ctap_client_pin_is_set());
 					check_ret(ret);
 				}
 			}

@@ -12,76 +12,41 @@
 #include "log.h"
 #include "storage.h"
 
-extern uint8_t KEY_AGREEMENT_PRIV[32];
+uint8_t KEY_AGREEMENT_PRIV[32];
+uint8_t KEY_AGREEMENT_PUB[64];
+uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];
+int8_t PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
+
 extern AuthenticatorState STATE;
-extern int8_t PIN_BOOT_ATTEMPTS_LEFT;
 
-uint8_t ctap_add_pin_if_verified(uint8_t *pinTokenEnc, uint8_t *platform_pubkey,
-				 uint8_t *pinHashEnc)
-{
-	uint8_t shared_secret[32];
-
-	crypto_ecc256_shared_secret(platform_pubkey, KEY_AGREEMENT_PRIV,
-				    shared_secret);
-
-	crypto_sha256_init();
-	crypto_sha256_update(shared_secret, 32);
-	crypto_sha256_final(shared_secret);
-
-	crypto_aes256_init(shared_secret, NULL);
-
-	crypto_aes256_decrypt(pinHashEnc, 16);
-
-	uint8_t pinHashEncSalted[32];
-	crypto_sha256_init();
-	crypto_sha256_update(pinHashEnc, 16);
-	crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
-	crypto_sha256_final(pinHashEncSalted);
-	if (memcmp(pinHashEncSalted, STATE.PIN_CODE_HASH, 16) != 0) {
-		printf2(TAG_ERR, "Pin does not match!\n");
-		printf2(TAG_ERR, "platform-pin-hash:\n");
-		dump_hex1(TAG_ERR, pinHashEnc, 16);
-		printf2(TAG_ERR, "authentic-pin-hash:\n");
-		dump_hex1(TAG_ERR, STATE.PIN_CODE_HASH, 16);
-		printf2(TAG_ERR, "shared-secret:\n");
-		dump_hex1(TAG_ERR, shared_secret, 32);
-		printf2(TAG_ERR, "platform-pubkey:\n");
-		dump_hex1(TAG_ERR, platform_pubkey, 64);
-		printf2(TAG_ERR, "device-pubkey:\n");
-		dump_hex1(TAG_ERR, KEY_AGREEMENT_PUB, 64);
-		// Generate new keyAgreement pair
-		ctap_reset_key_agreement();
-		ctap_decrement_pin_attempts();
-		if (ctap_device_boot_locked()) {
-			return CTAP2_ERR_PIN_AUTH_BLOCKED;
-		}
-		return CTAP2_ERR_PIN_INVALID;
-	}
-
-	ctap_reset_pin_attempts();
-	crypto_aes256_reset_iv(NULL);
-
-	memmove(pinTokenEnc, PIN_TOKEN, PIN_TOKEN_SIZE);
-	crypto_aes256_encrypt(pinTokenEnc, PIN_TOKEN_SIZE);
-
-	return 0;
-}
+static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
+				   uint8_t *platform_pubkey,
+				   uint8_t *pinHashEnc);
+static int8_t leftover_pin_attempts();
+static void lock_device_permanently();
+static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
+					int length);
+static int trailing_zeros(uint8_t *buf, int indx);
+static void update_pin(uint8_t *pin, int len);
+static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
+				      uint8_t *platform_pubkey,
+				      uint8_t *pinAuth, uint8_t *pinHashEnc);
 
 uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 {
 	CTAP_clientPin CP;
 	CborEncoder map;
 	uint8_t pinTokenEnc[PIN_TOKEN_SIZE];
-	int ret = ctap_parse_client_pin(&CP, request, length);
+	int ret = parse_client_pin_request(&CP, request, length);
 
 	switch (CP.subCommand) {
 	case CP_SubCmd_setPIN:
 	case CP_SubCmd_changePIN:
 	case CP_SubCmd_getPinToken:
-		if (ctap_device_locked()) {
+		if (ctap_client_pin_is_locked()) {
 			return CTAP2_ERR_PIN_BLOCKED;
 		}
-		if (ctap_device_boot_locked()) {
+		if (ctap_client_pin_is_boot_locked()) {
 			return CTAP2_ERR_PIN_AUTH_BLOCKED;
 		}
 	}
@@ -118,16 +83,16 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		crypto_ecc256_compute_public_key(KEY_AGREEMENT_PRIV,
 						 KEY_AGREEMENT_PUB);
 
-		ret = ctap_add_cose_key(
-		    &map, KEY_AGREEMENT_PUB, KEY_AGREEMENT_PUB + 32,
-		    PUB_KEY_CRED_PUB_KEY, COSE_ALG_ECDH_ES_HKDF_256);
+		ret = cose_key_add(&map, KEY_AGREEMENT_PUB,
+				   KEY_AGREEMENT_PUB + 32, PUB_KEY_CRED_PUB_KEY,
+				   COSE_ALG_ECDH_ES_HKDF_256);
 		check_retr(ret);
 
 		break;
 	case CP_SubCmd_setPIN:
 		printf1(TAG_CP, "CP_SubCmd_setPIN\n");
 
-		if (ctap_is_pin_set()) {
+		if (ctap_client_pin_is_set()) {
 			return CTAP2_ERR_NOT_ALLOWED;
 		}
 		if (!CP.newPinEncSize || !CP.pinAuthPresent ||
@@ -135,15 +100,15 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			return CTAP2_ERR_MISSING_PARAMETER;
 		}
 
-		ret = ctap_update_pin_if_verified(
-		    CP.newPinEnc, CP.newPinEncSize,
-		    (uint8_t *)&CP.keyAgreement.pubkey, CP.pinAuth, NULL);
+		ret = update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize,
+					     (uint8_t *)&CP.keyAgreement.pubkey,
+					     CP.pinAuth, NULL);
 		check_retr(ret);
 		break;
 	case CP_SubCmd_changePIN:
 		printf1(TAG_CP, "CP_SubCmd_changePIN\n");
 
-		if (!ctap_is_pin_set()) {
+		if (!ctap_client_pin_is_set()) {
 			return CTAP2_ERR_PIN_NOT_SET;
 		}
 
@@ -152,14 +117,13 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			return CTAP2_ERR_MISSING_PARAMETER;
 		}
 
-		ret = ctap_update_pin_if_verified(
-		    CP.newPinEnc, CP.newPinEncSize,
-		    (uint8_t *)&CP.keyAgreement.pubkey, CP.pinAuth,
-		    CP.pinHashEnc);
+		ret = update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize,
+					     (uint8_t *)&CP.keyAgreement.pubkey,
+					     CP.pinAuth, CP.pinHashEnc);
 		check_retr(ret);
 		break;
 	case CP_SubCmd_getPinToken:
-		if (!ctap_is_pin_set()) {
+		if (!ctap_client_pin_is_set()) {
 			return CTAP2_ERR_PIN_NOT_SET;
 		}
 		num_map++;
@@ -177,9 +141,9 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 
 		/*ret = ctap_add_pin_if_verified(&map,
 		 * (uint8_t*)&CP.keyAgreement.pubkey, CP.pinHashEnc);*/
-		ret = ctap_add_pin_if_verified(
-		    pinTokenEnc, (uint8_t *)&CP.keyAgreement.pubkey,
-		    CP.pinHashEnc);
+		ret = add_pin_if_verified(pinTokenEnc,
+					  (uint8_t *)&CP.keyAgreement.pubkey,
+					  CP.pinHashEnc);
 		check_retr(ret);
 
 		ret =
@@ -196,7 +160,7 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	if (CP.getRetries) {
 		ret = cbor_encode_int(&map, CP_Resp_pinRetries);
 		check_ret(ret);
-		ret = cbor_encode_int(&map, ctap_leftover_pin_attempts());
+		ret = cbor_encode_int(&map, leftover_pin_attempts());
 		check_ret(ret);
 	}
 
@@ -208,7 +172,142 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	return 0;
 }
 
-uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
+uint8_t ctap_client_pin_decrement_attempts()
+{
+	if (PIN_BOOT_ATTEMPTS_LEFT > 0) {
+		PIN_BOOT_ATTEMPTS_LEFT--;
+	}
+	if (!ctap_client_pin_is_locked()) {
+		STATE.remaining_tries--;
+		ctap_flush_state();
+		printf1(TAG_CP, "ATTEMPTS left: %d\n", STATE.remaining_tries);
+
+		if (ctap_client_pin_is_locked()) {
+			lock_device_permanently();
+		}
+	} else {
+		printf1(TAG_CP, "Device locked!\n");
+		return -1;
+	}
+	return 0;
+}
+
+int8_t ctap_client_pin_is_boot_locked()
+{
+	return PIN_BOOT_ATTEMPTS_LEFT <= 0;
+}
+
+int8_t ctap_client_pin_is_locked()
+{
+	return STATE.remaining_tries <= 0;
+}
+
+uint8_t ctap_client_pin_is_set()
+{
+	return STATE.is_pin_set == 1;
+}
+
+void ctap_client_pin_reset_attempts()
+{
+	STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
+	PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
+	ctap_flush_state();
+}
+
+uint8_t ctap_client_pin_verify_auth(uint8_t *pinAuth, uint8_t *clientDataHash)
+{
+	return ctap_client_pin_verify_auth_ex(pinAuth, clientDataHash,
+					      CLIENT_DATA_HASH_SIZE);
+}
+
+uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
+				       size_t len)
+{
+	uint8_t hmac[32];
+
+	crypto_sha256_hmac_init(PIN_TOKEN, PIN_TOKEN_SIZE);
+	crypto_sha256_update(buf, len);
+	crypto_sha256_hmac_final(PIN_TOKEN, PIN_TOKEN_SIZE, hmac);
+
+	if (memcmp(pinAuth, hmac, 16) == 0) {
+		return 0;
+	} else {
+		printf2(TAG_ERR, "Pin auth failed\n");
+		dump_hex1(TAG_ERR, pinAuth, 16);
+		dump_hex1(TAG_ERR, hmac, 16);
+		return CTAP2_ERR_PIN_AUTH_INVALID;
+	}
+}
+
+static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
+				   uint8_t *platform_pubkey,
+				   uint8_t *pinHashEnc)
+{
+	uint8_t shared_secret[32];
+
+	crypto_ecc256_shared_secret(platform_pubkey, KEY_AGREEMENT_PRIV,
+				    shared_secret);
+
+	crypto_sha256_init();
+	crypto_sha256_update(shared_secret, 32);
+	crypto_sha256_final(shared_secret);
+
+	crypto_aes256_init(shared_secret, NULL);
+
+	crypto_aes256_decrypt(pinHashEnc, 16);
+
+	uint8_t pinHashEncSalted[32];
+	crypto_sha256_init();
+	crypto_sha256_update(pinHashEnc, 16);
+	crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
+	crypto_sha256_final(pinHashEncSalted);
+	if (memcmp(pinHashEncSalted, STATE.PIN_CODE_HASH, 16) != 0) {
+		printf2(TAG_ERR, "Pin does not match!\n");
+		printf2(TAG_ERR, "platform-pin-hash:\n");
+		dump_hex1(TAG_ERR, pinHashEnc, 16);
+		printf2(TAG_ERR, "authentic-pin-hash:\n");
+		dump_hex1(TAG_ERR, STATE.PIN_CODE_HASH, 16);
+		printf2(TAG_ERR, "shared-secret:\n");
+		dump_hex1(TAG_ERR, shared_secret, 32);
+		printf2(TAG_ERR, "platform-pubkey:\n");
+		dump_hex1(TAG_ERR, platform_pubkey, 64);
+		printf2(TAG_ERR, "device-pubkey:\n");
+		dump_hex1(TAG_ERR, KEY_AGREEMENT_PUB, 64);
+		// Generate new keyAgreement pair
+		ctap_reset_key_agreement();
+		ctap_client_pin_decrement_attempts();
+		if (ctap_client_pin_is_boot_locked()) {
+			return CTAP2_ERR_PIN_AUTH_BLOCKED;
+		}
+		return CTAP2_ERR_PIN_INVALID;
+	}
+
+	ctap_client_pin_reset_attempts();
+	crypto_aes256_reset_iv(NULL);
+
+	memmove(pinTokenEnc, PIN_TOKEN, PIN_TOKEN_SIZE);
+	crypto_aes256_encrypt(pinTokenEnc, PIN_TOKEN_SIZE);
+
+	return 0;
+}
+
+static int8_t leftover_pin_attempts()
+{
+	return STATE.remaining_tries;
+}
+
+static void lock_device_permanently()
+{
+	memset(PIN_TOKEN, 0, sizeof(PIN_TOKEN));
+	memset(STATE.PIN_CODE_HASH, 0, sizeof(STATE.PIN_CODE_HASH));
+
+	printf1(TAG_CP, "Device locked!\n");
+
+	authenticator_write_state(&STATE);
+}
+
+static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
+					int length)
 {
 	int ret;
 	unsigned int i;
@@ -274,14 +373,15 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
 			break;
 		case CP_Cmd_keyAgreement:
 			printf1(TAG_CP, "CP_Cmd_keyAgreement\n");
-			ret = parse_cose_key(&map, &CP->keyAgreement);
+			ret = cose_key_parse(&map, &CP->keyAgreement);
 			check_retr(ret);
 			CP->keyAgreementPresent = 1;
 			break;
 		case CP_Cmd_pinUvAuthParam:
 			printf1(TAG_CP, "CP_Cmd_pinUvAuthParam\n");
 
-			ret = parse_fixed_byte_string(&map, CP->pinAuth, 16);
+			ret = ctap_parse_fixed_length_byte_string(
+			    &map, CP->pinAuth, 16);
 			check_retr(ret);
 			CP->pinAuthPresent = 1;
 			break;
@@ -309,7 +409,8 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
 		case CP_Cmd_pinHashEnc:
 			printf1(TAG_CP, "CP_Cmd_pinHashEnc\n");
 
-			ret = parse_fixed_byte_string(&map, CP->pinHashEnc, 16);
+			ret = ctap_parse_fixed_length_byte_string(
+			    &map, CP->pinHashEnc, 16);
 			check_retr(ret);
 			CP->pinHashEncPresent = 1;
 
@@ -355,16 +456,52 @@ uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length)
 	return 0;
 }
 
-void ctap_reset_pin_attempts()
+// Return how many trailing zeros in a buffer
+static int trailing_zeros(uint8_t *buf, int indx)
 {
-	STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
-	PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
-	ctap_flush_state();
+	int c = 0;
+	while (0 == buf[indx] && indx) {
+		indx--;
+		c++;
+	}
+	return c;
 }
 
-uint8_t ctap_update_pin_if_verified(uint8_t *pinEnc, int len,
-				    uint8_t *platform_pubkey, uint8_t *pinAuth,
-				    uint8_t *pinHashEnc)
+/**
+ * Set new PIN, by updating PIN hash. Save state.
+ * Globals: STATE
+ * @param pin new PIN (raw)
+ * @param len pin array length
+ */
+static void update_pin(uint8_t *pin, int len)
+{
+	if (len >= NEW_PIN_ENC_MIN_SIZE || len < 4) {
+		printf2(TAG_ERR, "Update pin fail length\n");
+		exit(1);
+	}
+
+	crypto_sha256_init();
+	crypto_sha256_update(pin, len);
+	uint8_t intermediateHash[32];
+	crypto_sha256_final(intermediateHash);
+
+	crypto_sha256_init();
+	crypto_sha256_update(intermediateHash, 16);
+	memset(intermediateHash, 0, sizeof(intermediateHash));
+	crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
+	crypto_sha256_final(STATE.PIN_CODE_HASH);
+
+	STATE.is_pin_set = 1;
+
+	authenticator_write_state(&STATE);
+
+	printf1(TAG_CTAP, "New pin set: %s [%d]\n", pin, len);
+	dump_hex1(TAG_CTAP, STATE.PIN_CODE_HASH, sizeof(STATE.PIN_CODE_HASH));
+}
+
+uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
+			       uint8_t *platform_pubkey, uint8_t *pinAuth,
+			       uint8_t *pinHashEnc)
 {
 	uint8_t shared_secret[32];
 	uint8_t hmac[32];
@@ -376,12 +513,12 @@ uint8_t ctap_update_pin_if_verified(uint8_t *pinEnc, int len,
 	}
 
 	//    Validate device's state
-	if (ctap_is_pin_set()) // Check first, prevent SCA
+	if (ctap_client_pin_is_set()) // Check first, prevent SCA
 	{
-		if (ctap_device_locked()) {
+		if (ctap_client_pin_is_locked()) {
 			return CTAP2_ERR_PIN_BLOCKED;
 		}
-		if (ctap_device_boot_locked()) {
+		if (ctap_client_pin_is_boot_locked()) {
 			return CTAP2_ERR_PIN_AUTH_BLOCKED;
 		}
 	}
@@ -435,11 +572,11 @@ uint8_t ctap_update_pin_if_verified(uint8_t *pinEnc, int len,
 	//    validate device's state, decrypt and compare pinHashEnc (user
 	//    provided current PIN hash) with stored PIN_CODE_HASH
 
-	if (ctap_is_pin_set()) {
-		if (ctap_device_locked()) {
+	if (ctap_client_pin_is_set()) {
+		if (ctap_client_pin_is_locked()) {
 			return CTAP2_ERR_PIN_BLOCKED;
 		}
-		if (ctap_device_boot_locked()) {
+		if (ctap_client_pin_is_boot_locked()) {
 			return CTAP2_ERR_PIN_AUTH_BLOCKED;
 		}
 		crypto_aes256_reset_iv(NULL);
@@ -453,61 +590,18 @@ uint8_t ctap_update_pin_if_verified(uint8_t *pinEnc, int len,
 
 		if (memcmp(pinHashEncSalted, STATE.PIN_CODE_HASH, 16) != 0) {
 			ctap_reset_key_agreement();
-			ctap_decrement_pin_attempts();
-			if (ctap_device_boot_locked()) {
+			ctap_client_pin_decrement_attempts();
+			if (ctap_client_pin_is_boot_locked()) {
 				return CTAP2_ERR_PIN_AUTH_BLOCKED;
 			}
 			return CTAP2_ERR_PIN_INVALID;
 		} else {
-			ctap_reset_pin_attempts();
+			ctap_client_pin_reset_attempts();
 		}
 	}
 
 	//      set new PIN (update and store PIN_CODE_HASH)
-	ctap_update_pin(pinEnc, ret);
+	update_pin(pinEnc, ret);
 
 	return 0;
-}
-
-/**
- * Set new PIN, by updating PIN hash. Save state.
- * Globals: STATE
- * @param pin new PIN (raw)
- * @param len pin array length
- */
-void ctap_update_pin(uint8_t *pin, int len)
-{
-	if (len >= NEW_PIN_ENC_MIN_SIZE || len < 4) {
-		printf2(TAG_ERR, "Update pin fail length\n");
-		exit(1);
-	}
-
-	crypto_sha256_init();
-	crypto_sha256_update(pin, len);
-	uint8_t intermediateHash[32];
-	crypto_sha256_final(intermediateHash);
-
-	crypto_sha256_init();
-	crypto_sha256_update(intermediateHash, 16);
-	memset(intermediateHash, 0, sizeof(intermediateHash));
-	crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
-	crypto_sha256_final(STATE.PIN_CODE_HASH);
-
-	STATE.is_pin_set = 1;
-
-	authenticator_write_state(&STATE);
-
-	printf1(TAG_CTAP, "New pin set: %s [%d]\n", pin, len);
-	dump_hex1(TAG_CTAP, STATE.PIN_CODE_HASH, sizeof(STATE.PIN_CODE_HASH));
-}
-
-// Return how many trailing zeros in a buffer
-int trailing_zeros(uint8_t *buf, int indx)
-{
-	int c = 0;
-	while (0 == buf[indx] && indx) {
-		indx--;
-		c++;
-	}
-	return c;
 }

@@ -6,8 +6,8 @@
 #include "ctap_parse.h"
 #include "log.h"
 
-int ctap_add_cose_key(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
-		      uint8_t credtype, int32_t algtype)
+int cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
+		 uint8_t credtype, int32_t algtype)
 {
 	int ret;
 	CborEncoder map;
@@ -61,8 +61,8 @@ int ctap_add_cose_key(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
 	return 0;
 }
 
-int ctap_generate_cose_key(CborEncoder *cose_key, uint8_t *hmac_input, int len,
-			   uint8_t credtype, int32_t algtype)
+int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
+		      uint8_t credtype, int32_t algtype)
 {
 	uint8_t x[32], y[32];
 
@@ -82,12 +82,12 @@ int ctap_generate_cose_key(CborEncoder *cose_key, uint8_t *hmac_input, int len,
 		printf2(TAG_ERR, "Error, COSE alg %d not supported\n", algtype);
 		return -1;
 	}
-	int ret = ctap_add_cose_key(cose_key, x, y, credtype, algtype);
+	int ret = cose_key_add(cose_key, x, y, credtype, algtype);
 	check_ret(ret);
 	return 0;
 }
 
-uint8_t parse_cose_key(CborValue *it, COSE_key *cose)
+uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 {
 	CborValue map;
 	size_t map_length;
@@ -149,14 +149,16 @@ uint8_t parse_cose_key(CborValue *it, COSE_key *cose)
 			break;
 		case COSE_KEY_LABEL_X:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_X\n");
-			ret = parse_fixed_byte_string(&map, cose->pubkey.x, 32);
+			ret = ctap_parse_fixed_length_byte_string(
+			    &map, cose->pubkey.x, 32);
 			check_retr(ret);
 			xkey = 1;
 
 			break;
 		case COSE_KEY_LABEL_Y:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_Y\n");
-			ret = parse_fixed_byte_string(&map, cose->pubkey.y, 32);
+			ret = ctap_parse_fixed_length_byte_string(
+			    &map, cose->pubkey.y, 32);
 			check_retr(ret);
 			ykey = 1;
 

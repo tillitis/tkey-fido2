@@ -8,7 +8,18 @@
 
 #include "cbor.h"
 #include "cose_key.h"
-#include "ctap.h"
+
+#define EXT_HMAC_SECRET_COSE_KEY 0x01
+#define EXT_HMAC_SECRET_SALT_ENC 0x02
+#define EXT_HMAC_SECRET_SALT_AUTH 0x03
+
+#define EXT_HMAC_SECRET_REQUESTED 0x01
+#define EXT_HMAC_SECRET_PARSED 0x02
+
+#define EXT_CRED_PROTECT_INVALID 0x00
+#define EXT_CRED_PROTECT_OPTIONAL 0x01
+#define EXT_CRED_PROTECT_OPTIONAL_WITH_CREDID 0x02
+#define EXT_CRED_PROTECT_REQUIRED 0x03
 
 typedef struct {
 	uint8_t saltLen;
@@ -24,9 +35,9 @@ typedef struct {
 	uint8_t cred_protect;
 } CTAP_extensions;
 
-int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
-			 unsigned int *ext_encoder_buf_size);
-uint8_t ctap_parse_extensions(CborValue *val, CTAP_extensions *ext);
-uint8_t ctap_parse_hmac_secret(CborValue *val, CTAP_hmac_secret *hs);
+int ctap_extensions_encode_output(CTAP_extensions *ext,
+				  uint8_t *ext_encoder_buf,
+				  unsigned int *ext_encoder_buf_size);
+uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext);
 
 #endif

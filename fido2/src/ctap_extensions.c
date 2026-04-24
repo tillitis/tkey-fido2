@@ -9,8 +9,12 @@
 extern uint8_t KEY_AGREEMENT_PRIV[32];
 extern struct _getAssertionState getAssertionState;
 
-int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
-			 unsigned int *ext_encoder_buf_size)
+static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
+						 CTAP_hmac_secret *hs);
+
+int ctap_extensions_encode_output(CTAP_extensions *ext,
+				  uint8_t *ext_encoder_buf,
+				  unsigned int *ext_encoder_buf_size)
 {
 	CborEncoder extensions;
 	int ret;
@@ -158,7 +162,7 @@ int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf,
 	return 0;
 }
 
-uint8_t ctap_parse_extensions(CborValue *val, CTAP_extensions *ext)
+uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 {
 	CborValue map;
 	size_t sz, map_length;
@@ -212,8 +216,8 @@ uint8_t ctap_parse_extensions(CborValue *val, CTAP_extensions *ext)
 				printf1(TAG_CTAP,
 					"set hmac_secret_present to %d\r\n", b);
 			} else if (cbor_value_get_type(&map) == CborMapType) {
-				ret = ctap_parse_hmac_secret(&map,
-							     &ext->hmac_secret);
+				ret = ctap_extensions_parse_hmac_secret(
+				    &map, &ext->hmac_secret);
 				check_retr(ret);
 				ext->hmac_secret_present =
 				    EXT_HMAC_SECRET_PARSED;
@@ -251,7 +255,8 @@ uint8_t ctap_parse_extensions(CborValue *val, CTAP_extensions *ext)
 	return 0;
 }
 
-uint8_t ctap_parse_hmac_secret(CborValue *val, CTAP_hmac_secret *hs)
+static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
+						 CTAP_hmac_secret *hs)
 {
 	size_t map_length;
 	size_t salt_len;
@@ -288,7 +293,7 @@ uint8_t ctap_parse_hmac_secret(CborValue *val, CTAP_hmac_secret *hs)
 
 		switch (key) {
 		case EXT_HMAC_SECRET_COSE_KEY:
-			ret = parse_cose_key(&map, &hs->keyAgreement);
+			ret = cose_key_parse(&map, &hs->keyAgreement);
 			check_retr(ret);
 			parsed_count++;
 			break;

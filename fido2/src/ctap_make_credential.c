@@ -1,11 +1,28 @@
 #include <stdint.h>
 
+#include "attestation.h"
 #include "crypto.h"
 #include "ctap.h"
+#include "ctap_client_pin.h"
 #include "ctap_errors.h"
 #include "ctap_make_credential.h"
 #include "ctap_parse.h"
 #include "log.h"
+
+static uint8_t cbor_encode_attestation_statement(CborEncoder *map,
+						 uint8_t *sigder, int len);
+static uint8_t find_supported_pubkey_credential_param(CTAP_makeCredential *MC,
+						      CborValue *val);
+static int is_pubkey_credential_param_supported(uint8_t cred, int32_t alg);
+static uint8_t parse_exclude_list(CborValue *val);
+static uint8_t parse_make_credential(CTAP_makeCredential *MC,
+				     CborEncoder *encoder, uint8_t *request,
+				     int length);
+static uint8_t parse_pubkey_credential_params(CborValue *val,
+					      uint8_t *cred_type,
+					      int32_t *alg_type);
+static uint8_t parse_relying_party_entity(struct rpId *rp, CborValue *val);
+static uint8_t parse_user_entity(CTAP_makeCredential *MC, CborValue *val);
 
 uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 {
@@ -18,7 +35,7 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 	uint8_t *sigbuf = auth_data_buf + 32;
 	uint8_t *sigder = auth_data_buf + 32 + 64;
 
-	ret = ctap_parse_make_credential(&MC, encoder, request, length);
+	ret = parse_make_credential(&MC, encoder, request, length);
 
 	if (ret != 0) {
 		printf2(TAG_ERR, "error, parse_make_credential failed\n");
@@ -27,8 +44,9 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 	if (MC.pinAuthEmpty) {
 		ret = ctap2_user_presence_test();
 		check_retr(ret);
-		return ctap_is_pin_set() == 1 ? CTAP2_ERR_PIN_AUTH_INVALID
-					      : CTAP2_ERR_PIN_NOT_SET;
+		return ctap_client_pin_is_set() == 1
+			   ? CTAP2_ERR_PIN_AUTH_INVALID
+			   : CTAP2_ERR_PIN_NOT_SET;
 	}
 	if ((MC.paramsParsed & MC_requiredMask) != MC_requiredMask) {
 		printf2(TAG_ERR, "error, required parameter(s) for "
@@ -36,12 +54,13 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 		return CTAP2_ERR_MISSING_PARAMETER;
 	}
 
-	if (ctap_is_pin_set() == 1 && MC.pinAuthPresent == 0) {
+	if (ctap_client_pin_is_set() == 1 && MC.pinAuthPresent == 0) {
 		printf2(TAG_ERR, "pinAuth is required\n");
 		return CTAP2_ERR_PUAT_REQUIRED;
 	} else {
-		if (ctap_is_pin_set() || (MC.pinAuthPresent)) {
-			ret = verify_pin_auth(MC.pinAuth, MC.clientDataHash);
+		if (ctap_client_pin_is_set() || (MC.pinAuthPresent)) {
+			ret = ctap_client_pin_verify_auth(MC.pinAuth,
+							  MC.clientDataHash);
 			check_retr(ret);
 		}
 	}
@@ -52,14 +71,15 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 
 	uint8_t rp_id_hash[32];
 	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE];
-	derive_rp_id_info(MC.rp.id, MC.rp.size, rp_id_hash, rp_id_lookup);
+	ctap_derive_rp_id_info(MC.rp.id, MC.rp.size, rp_id_hash, rp_id_lookup);
 	printf1(TAG_MC, "rpid:\n");
 	dump_hex1(TAG_MC, rp_id_hash, sizeof(rp_id_hash));
 	printf1(TAG_MC, "rpid_lookup:\n");
 	dump_hex1(TAG_MC, rp_id_lookup, sizeof(rp_id_lookup));
 
 	for (i = 0; i < MC.excludeListSize; i++) {
-		ret = parse_credential_descriptor(&MC.excludeList, excl_cred);
+		ret = ctap_parse_pubkey_credential_descriptor(&MC.excludeList,
+							      excl_cred);
 		if (ret == CTAP2_ERR_CBOR_UNEXPECTED_TYPE) {
 			continue;
 		}
@@ -69,19 +89,19 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 		dump_hex1(TAG_GREEN, (uint8_t *)&excl_cred->credential.id,
 			  sizeof(CredentialId));
 
-		if (!ctap_authenticate_credential(rp_id_lookup, rp_id_hash,
-						  excl_cred)) {
+		if (!ctap_credential_belongs_to_rp(rp_id_lookup, rp_id_hash,
+						   excl_cred)) {
 			// Credential does not belong to this token
 			continue;
 		}
 
 		uint8_t is_rk = 0;
-		if (check_credential_metadata(&excl_cred->credential.id,
-					      MC.pinAuthPresent, 1,
-					      &is_rk) == 0) {
+		if (ctap_check_credential_metadata(&excl_cred->credential.id,
+						   MC.pinAuthPresent, 1,
+						   &is_rk) == 0) {
 
 			if (is_rk) {
-				if (!verify_rk_exists(
+				if (!ctap_verify_rk_exists(
 					&excl_cred->credential.id)) {
 					// Does not exist, procced with
 					// registration
@@ -128,8 +148,8 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 		    sizeof(auth_data_buf) - auth_data_sz;
 		uint8_t *ext_encoder_buf = auth_data_buf + auth_data_sz;
 
-		ret = ctap_make_extensions(&MC.extensions, ext_encoder_buf,
-					   &ext_encoder_buf_size);
+		ret = ctap_extensions_encode_output(
+		    &MC.extensions, ext_encoder_buf, &ext_encoder_buf_size);
 		check_retr(ret);
 		if (ext_encoder_buf_size) {
 			((CTAP_authData *)auth_data_buf)->head.flags |=
@@ -150,16 +170,16 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 
 	if (crypto_attestation_available()) {
 		crypto_ecc256_load_attestation_key();
-		sigder_sz = ctap_calculate_signature(
-		    auth_data_buf, auth_data_sz, MC.clientDataHash,
-		    auth_data_buf, sigbuf, sigder, COSE_ALG_ES256);
+		sigder_sz = ctap_sign_data(auth_data_buf, auth_data_sz,
+					   MC.clientDataHash, auth_data_buf,
+					   sigbuf, sigder, COSE_ALG_ES256);
 		printf1(TAG_MC, "der sig [%d]:\n", sigder_sz);
 		dump_hex1(TAG_MC, sigder, sigder_sz);
 	} else {
 		printf1(TAG_MC, "Skipping attest signature\n");
 	}
 
-	ret = ctap_add_attest_statement(&map, sigder, sigder_sz);
+	ret = cbor_encode_attestation_statement(&map, sigder, sigder_sz);
 	check_retr(ret);
 
 	ret = cbor_encoder_close_container(encoder, &map);
@@ -167,9 +187,163 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 	return CTAP1_ERR_SUCCESS;
 }
 
-uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
-				   CborEncoder *encoder, uint8_t *request,
-				   int length)
+static uint8_t cbor_encode_attestation_statement(CborEncoder *map,
+						 uint8_t *sigder, int len)
+{
+	int ret;
+	CborEncoder stmtmap;
+
+	ret = cbor_encode_int(map, MC_Resp_attStmt);
+	check_ret(ret);
+
+	if (crypto_attestation_available()) {
+		uint8_t cert[ATTESTATION_MAX_CERT_SIZE];
+		size_t cert_size;
+
+		ret = attestation_read_cert(cert, ATTESTATION_MAX_CERT_SIZE,
+					    &cert_size);
+		if (ret < 0) {
+			printf2(TAG_GREEN,
+				"Certificate read failed %d (size: %d)\n", ret,
+				cert_size);
+			return CTAP1_ERR_OTHER;
+		}
+
+		CborEncoder x5carr;
+
+		ret = cbor_encoder_create_map(map, &stmtmap, 3);
+		check_ret(ret);
+		{
+			ret = cbor_encode_text_stringz(&stmtmap, "alg");
+			check_ret(ret);
+			ret = cbor_encode_int(&stmtmap, COSE_ALG_ES256);
+			check_ret(ret);
+		}
+		{
+			ret = cbor_encode_text_stringz(&stmtmap, "sig");
+			check_ret(ret);
+			ret = cbor_encode_byte_string(&stmtmap, sigder, len);
+			check_ret(ret);
+		}
+		{
+			ret = cbor_encode_text_stringz(&stmtmap, "x5c");
+			check_ret(ret);
+			ret = cbor_encoder_create_array(&stmtmap, &x5carr, 1);
+			check_ret(ret);
+			{
+				ret = cbor_encode_byte_string(&x5carr, cert,
+							      cert_size);
+				check_ret(ret);
+				ret = cbor_encoder_close_container(&stmtmap,
+								   &x5carr);
+				check_ret(ret);
+			}
+		}
+	} else {
+
+		ret = cbor_encoder_create_map(map, &stmtmap, 0);
+		check_ret(ret);
+	}
+
+	ret = cbor_encoder_close_container(map, &stmtmap);
+	check_ret(ret);
+	return 0;
+}
+
+static uint8_t find_supported_pubkey_credential_param(CTAP_makeCredential *MC,
+						      CborValue *val)
+{
+	size_t arr_length;
+	uint8_t cred_type;
+	int32_t alg_type;
+	int ret;
+	unsigned int i;
+	CborValue arr;
+
+	if (cbor_value_get_type(val) != CborArrayType) {
+		printf2(TAG_ERR, "error, expecting array type\n");
+		return CTAP2_ERR_INVALID_CBOR;
+	}
+
+	ret = cbor_value_enter_container(val, &arr);
+	check_ret(ret);
+
+	ret = cbor_value_get_array_length(val, &arr_length);
+	check_ret(ret);
+
+	for (i = 0; i < arr_length; i++) {
+		if ((ret = parse_pubkey_credential_params(&arr, &cred_type,
+							  &alg_type)) != 0) {
+			return ret;
+		}
+		ret = cbor_value_advance(&arr);
+		check_ret(ret);
+	}
+
+	ret = cbor_value_enter_container(val, &arr);
+	check_ret(ret);
+
+	for (i = 0; i < arr_length; i++) {
+		if ((ret = parse_pubkey_credential_params(&arr, &cred_type,
+							  &alg_type)) == 0) {
+			if (is_pubkey_credential_param_supported(cred_type,
+								 alg_type) ==
+			    CREDENTIAL_IS_SUPPORTED) {
+				MC->credInfo.publicKeyCredentialType =
+				    cred_type;
+				MC->credInfo.COSEAlgorithmIdentifier = alg_type;
+				MC->paramsParsed |= PARAM_pubKeyCredParams;
+				return 0;
+			}
+		}
+		ret = cbor_value_advance(&arr);
+		check_ret(ret);
+	}
+
+	printf2(TAG_ERR,
+		"Error, no public key credential parameters are supported!\n");
+	return CTAP2_ERR_UNSUPPORTED_ALGORITHM;
+}
+
+// Check if public key credential+algorithm type is supported
+static int is_pubkey_credential_param_supported(uint8_t cred, int32_t alg)
+{
+	if (cred == PUB_KEY_CRED_PUB_KEY) {
+		if (alg == COSE_ALG_ES256 || alg == COSE_ALG_EDDSA) {
+			return CREDENTIAL_IS_SUPPORTED;
+		}
+	}
+
+	return CREDENTIAL_NOT_SUPPORTED;
+}
+
+static uint8_t parse_exclude_list(CborValue *val)
+{
+	unsigned int i;
+	int ret;
+	CborValue arr;
+	size_t size;
+	CTAP_credentialDescriptor cred;
+	if (cbor_value_get_type(val) != CborArrayType) {
+		printf2(TAG_ERR, "error, exclude list is not a map\n");
+		return CTAP2_ERR_INVALID_CBOR;
+	}
+	ret = cbor_value_get_array_length(val, &size);
+	check_ret(ret);
+	ret = cbor_value_enter_container(val, &arr);
+	check_ret(ret);
+	for (i = 0; i < size; i++) {
+		ret = ctap_parse_pubkey_credential_descriptor(&arr, &cred);
+		check_ret(ret);
+		ret = cbor_value_advance(&arr);
+		check_ret(ret);
+	}
+	return 0;
+}
+
+static uint8_t parse_make_credential(CTAP_makeCredential *MC,
+				     CborEncoder *encoder, uint8_t *request,
+				     int length)
 {
 	int ret;
 	unsigned int i;
@@ -216,8 +390,8 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 		case MC_Cmd_clientDataHash:
 			printf1(TAG_MC, "MC_Cmd_clientDataHash\n");
 
-			ret = parse_fixed_byte_string(&map, MC->clientDataHash,
-						      CLIENT_DATA_HASH_SIZE);
+			ret = ctap_parse_fixed_length_byte_string(
+			    &map, MC->clientDataHash, CLIENT_DATA_HASH_SIZE);
 			if (ret == 0) {
 				MC->paramsParsed |= PARAM_clientDataHash;
 			}
@@ -227,7 +401,7 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 		case MC_Cmd_rp:
 			printf1(TAG_MC, "MC_Cmd_rp\n");
 
-			ret = parse_rp(&MC->rp, &map);
+			ret = parse_relying_party_entity(&MC->rp, &map);
 			if (ret == 0) {
 				MC->paramsParsed |= PARAM_rp;
 			}
@@ -238,7 +412,7 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 		case MC_Cmd_user:
 			printf1(TAG_MC, "MC_Cmd_user\n");
 
-			ret = parse_user(MC, &map);
+			ret = parse_user_entity(MC, &map);
 
 			printf1(TAG_MC, "  ID:\n");
 			dump_hex1(TAG_MC, MC->credInfo.user.id,
@@ -249,7 +423,7 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 		case MC_Cmd_pubKeyCredParams:
 			printf1(TAG_MC, "MC_Cmd_pubKeyCredParams\n");
 
-			ret = parse_pub_key_cred_params(MC, &map);
+			ret = find_supported_pubkey_credential_param(MC, &map);
 
 			printf1(TAG_MC, "  cred_type: 0x%02x\n",
 				MC->credInfo.publicKeyCredentialType);
@@ -259,7 +433,7 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 			break;
 		case MC_Cmd_excludeList:
 			printf1(TAG_MC, "MC_Cmd_excludeList\n");
-			ret = parse_verify_exclude_list(&map);
+			ret = parse_exclude_list(&map);
 			check_ret(ret);
 
 			ret =
@@ -278,14 +452,15 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 			if (type != CborMapType) {
 				return CTAP2_ERR_INVALID_CBOR;
 			}
-			ret = ctap_parse_extensions(&map, &MC->extensions);
+			ret =
+			    ctap_extensions_parse_input(&map, &MC->extensions);
 			check_retr(ret);
 			break;
 
 		case MC_Cmd_options:
 			printf1(TAG_MC, "MC_Cmd_options\n");
-			ret = parse_options(&map, &MC->credInfo.rk, &MC->uv,
-					    &MC->up);
+			ret = ctap_parse_options(&map, &MC->credInfo.rk,
+						 &MC->uv, &MC->up);
 			check_retr(ret);
 			break;
 		case MC_Cmd_pinUvAuthParam: {
@@ -300,7 +475,8 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 				break;
 			}
 
-			ret = parse_fixed_byte_string(&map, MC->pinAuth, 16);
+			ret = ctap_parse_fixed_length_byte_string(
+			    &map, MC->pinAuth, 16);
 			if (CTAP1_ERR_INVALID_LENGTH != ret) // damn microsoft
 			{
 				check_retr(ret);
@@ -336,8 +512,9 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
 	return 0;
 }
 
-uint8_t parse_pub_key_cred_param(CborValue *val, uint8_t *cred_type,
-				 int32_t *alg_type)
+static uint8_t parse_pubkey_credential_params(CborValue *val,
+					      uint8_t *cred_type,
+					      int32_t *alg_type)
 {
 	CborValue cred;
 	CborValue alg;
@@ -385,60 +562,7 @@ uint8_t parse_pub_key_cred_param(CborValue *val, uint8_t *cred_type,
 	return 0;
 }
 
-uint8_t parse_pub_key_cred_params(CTAP_makeCredential *MC, CborValue *val)
-{
-	size_t arr_length;
-	uint8_t cred_type;
-	int32_t alg_type;
-	int ret;
-	unsigned int i;
-	CborValue arr;
-
-	if (cbor_value_get_type(val) != CborArrayType) {
-		printf2(TAG_ERR, "error, expecting array type\n");
-		return CTAP2_ERR_INVALID_CBOR;
-	}
-
-	ret = cbor_value_enter_container(val, &arr);
-	check_ret(ret);
-
-	ret = cbor_value_get_array_length(val, &arr_length);
-	check_ret(ret);
-
-	for (i = 0; i < arr_length; i++) {
-		if ((ret = parse_pub_key_cred_param(&arr, &cred_type,
-						    &alg_type)) != 0) {
-			return ret;
-		}
-		ret = cbor_value_advance(&arr);
-		check_ret(ret);
-	}
-
-	ret = cbor_value_enter_container(val, &arr);
-	check_ret(ret);
-
-	for (i = 0; i < arr_length; i++) {
-		if ((ret = parse_pub_key_cred_param(&arr, &cred_type,
-						    &alg_type)) == 0) {
-			if (pub_key_cred_param_supported(cred_type, alg_type) ==
-			    CREDENTIAL_IS_SUPPORTED) {
-				MC->credInfo.publicKeyCredentialType =
-				    cred_type;
-				MC->credInfo.COSEAlgorithmIdentifier = alg_type;
-				MC->paramsParsed |= PARAM_pubKeyCredParams;
-				return 0;
-			}
-		}
-		ret = cbor_value_advance(&arr);
-		check_ret(ret);
-	}
-
-	printf2(TAG_ERR,
-		"Error, no public key credential parameters are supported!\n");
-	return CTAP2_ERR_UNSUPPORTED_ALGORITHM;
-}
-
-uint8_t parse_rp(struct rpId *rp, CborValue *val)
+static uint8_t parse_relying_party_entity(struct rpId *rp, CborValue *val)
 {
 	size_t sz, map_length;
 	char key[8];
@@ -488,7 +612,7 @@ uint8_t parse_rp(struct rpId *rp, CborValue *val)
 		}
 
 		if (strcmp(key, "id") == 0) {
-			ret = parse_rp_id(rp, &map);
+			ret = ctap_parse_rp_id(rp, &map);
 			if (ret != 0) {
 				return ret;
 			}
@@ -516,7 +640,7 @@ uint8_t parse_rp(struct rpId *rp, CborValue *val)
 	return 0;
 }
 
-uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
+static uint8_t parse_user_entity(CTAP_makeCredential *MC, CborValue *val)
 {
 	size_t sz, map_length;
 	uint8_t key[24];
@@ -630,40 +754,4 @@ uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val)
 	MC->paramsParsed |= PARAM_user;
 
 	return 0;
-}
-
-uint8_t parse_verify_exclude_list(CborValue *val)
-{
-	unsigned int i;
-	int ret;
-	CborValue arr;
-	size_t size;
-	CTAP_credentialDescriptor cred;
-	if (cbor_value_get_type(val) != CborArrayType) {
-		printf2(TAG_ERR, "error, exclude list is not a map\n");
-		return CTAP2_ERR_INVALID_CBOR;
-	}
-	ret = cbor_value_get_array_length(val, &size);
-	check_ret(ret);
-	ret = cbor_value_enter_container(val, &arr);
-	check_ret(ret);
-	for (i = 0; i < size; i++) {
-		ret = parse_credential_descriptor(&arr, &cred);
-		check_ret(ret);
-		ret = cbor_value_advance(&arr);
-		check_ret(ret);
-	}
-	return 0;
-}
-
-// Check if public key credential+algorithm type is supported
-int pub_key_cred_param_supported(uint8_t cred, int32_t alg)
-{
-	if (cred == PUB_KEY_CRED_PUB_KEY) {
-		if (alg == COSE_ALG_ES256 || alg == COSE_ALG_EDDSA) {
-			return CREDENTIAL_IS_SUPPORTED;
-		}
-	}
-
-	return CREDENTIAL_NOT_SUPPORTED;
 }

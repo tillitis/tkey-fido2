@@ -70,8 +70,8 @@ const char *cbor_value_get_type_string(const CborValue *value)
 	}
 }
 
-uint8_t parse_credential_descriptor(CborValue *arr,
-				    CTAP_credentialDescriptor *cred)
+uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
+						CTAP_credentialDescriptor *cred)
 {
 	int ret;
 	size_t buflen;
@@ -139,7 +139,8 @@ uint8_t parse_credential_descriptor(CborValue *arr,
 	return 0;
 }
 
-uint8_t parse_fixed_byte_string(CborValue *map, uint8_t *dst, unsigned int len)
+uint8_t ctap_parse_fixed_length_byte_string(CborValue *map, uint8_t *dst,
+					    unsigned int len)
 {
 	size_t sz;
 	int ret;
@@ -161,7 +162,8 @@ uint8_t parse_fixed_byte_string(CborValue *map, uint8_t *dst, unsigned int len)
 	return 0;
 }
 
-uint8_t parse_options(CborValue *val, uint8_t *rk, uint8_t *uv, uint8_t *up)
+uint8_t ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
+			   uint8_t *up)
 {
 	size_t sz, map_length;
 	char key[8];
@@ -233,7 +235,7 @@ uint8_t parse_options(CborValue *val, uint8_t *rk, uint8_t *uv, uint8_t *up)
 	return 0;
 }
 
-uint8_t parse_rp_id(struct rpId *rp, CborValue *val)
+uint8_t ctap_parse_rp_id(struct rpId *rp, CborValue *val)
 {
 	size_t sz = DOMAIN_NAME_MAX_SIZE;
 	if (cbor_value_get_type(val) != CborTextStringType) {

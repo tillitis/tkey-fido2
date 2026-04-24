@@ -2,11 +2,13 @@
 
 #include "crypto.h"
 #include "ctap.h"
+#include "ctap_client_pin.h"
 #include "ctap_reset.h"
 #include "device.h"
 #include "log.h"
 
 extern uint8_t KEY_AGREEMENT_PRIV[32];
+extern uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];
 extern struct _getAssertionState getAssertionState;
 
 void ctap_reset()

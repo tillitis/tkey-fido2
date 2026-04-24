@@ -9,12 +9,14 @@
 
 extern struct _getAssertionState getAssertionState;
 
+static CTAP_credentialDescriptor *get_next_credential();
+
 uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 {
 	int ret;
 	CborEncoder map;
 
-	CTAP_credentialDescriptor *cred = pop_credential();
+	CTAP_credentialDescriptor *cred = get_next_credential();
 
 	if (cred == NULL) {
 		return CTAP2_ERR_NOT_ALLOWED;
@@ -23,7 +25,7 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 	printf1(TAG_GREEN, "NextAssertion: Cred count %d\n",
 		cred->credential.id.count);
 
-	auth_data_update_count(&getAssertionState.buf.authData);
+	ctap_auth_data_update_count(&getAssertionState.buf.authData);
 	// TODO: Is this move necessary? Should already be there, and
 	// not change.
 	// memmove(getAssertionState.buf.authData.rpIdHash,
@@ -51,9 +53,9 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 
 	unsigned int ext_encoder_buf_size =
 	    sizeof(getAssertionState.buf.extensions);
-	ret = ctap_make_extensions(&getAssertionState.extensions,
-				   getAssertionState.buf.extensions,
-				   &ext_encoder_buf_size);
+	ret = ctap_extensions_encode_output(&getAssertionState.extensions,
+					    getAssertionState.buf.extensions,
+					    &ext_encoder_buf_size);
 
 	if (ret == 0) {
 		if (ext_encoder_buf_size) {
@@ -63,7 +65,7 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 		}
 	}
 
-	ret = ctap_end_get_assertion(
+	ret = ctap_get_assertion_cbor_encode_assertion_response(
 	    &map, cred, (uint8_t *)&getAssertionState.buf.authData,
 	    sizeof(CTAP_authDataHeader) + ext_encoder_buf_size,
 	    getAssertionState.clientDataHash);
@@ -76,7 +78,7 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 	return 0;
 }
 
-CTAP_credentialDescriptor *pop_credential()
+static CTAP_credentialDescriptor *get_next_credential()
 {
 	if (getAssertionState.count > 0 &&
 	    getAssertionState.index < getAssertionState.count) {

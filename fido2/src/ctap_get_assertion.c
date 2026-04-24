@@ -3,6 +3,7 @@
 
 #include "crypto.h"
 #include "ctap.h"
+#include "ctap_client_pin.h"
 #include "ctap_errors.h"
 #include "ctap_get_assertion.h"
 #include "ctap_parse.h"
@@ -11,239 +12,23 @@
 
 extern struct _getAssertionState getAssertionState;
 
-// @return the number of valid credentials
-// sorts the credentials.  Most recent creds will be first, invalid ones
-// last.
-int create_applicable_credentials_list(CTAP_getAssertion *GA,
-				       uint8_t *rp_id_hash,
-				       uint8_t *rp_id_lookup)
-{
-	unsigned int i;
-	int count = 0;
-	CTAP_residentKey rk;
-
-	for (i = 0; i < (unsigned int)GA->credLen; i++) {
-
-		CTAP_credentialDescriptor *cred = &GA->creds[i];
-		uint8_t is_rk = 0;
-
-		if (!ctap_authenticate_credential(rp_id_lookup, rp_id_hash,
-						  cred)) {
-#ifdef ENABLE_U2F_EXTENSIONS
-			if (is_extension_request(
-				(uint8_t *)&cred->credential.id,
-				sizeof(CredentialId))) {
-				printf1(TAG_EXT, "CRED #%d is extension\n",
-					cred->credential.id.count);
-				count++;
-			} else
-#endif
-			{
-
-				printf1(TAG_GA,
-					"allowList: CRED #%d is invalid\n",
-					cred->credential.id.count);
-
-				cred->credential.id.count = 0; // invalidate
-			}
-			continue;
-		}
-
-		int protection_status = check_credential_metadata(
-		    &cred->credential.id, getAssertionState.user_verified, 1,
-		    &is_rk);
-
-		if (protection_status != 0) {
-			printf1(TAG_GREEN,
-				"allowList: skipping protected credential.\n");
-			cred->credential.id.count = 0; // invalidate
-			continue;
-		}
-
-		// If it is discoverable, verify that it still exists -
-		// otherwise invalidate
-		if (is_rk) {
-			if (!verify_rk_exists(&cred->credential.id)) {
-				cred->credential.id.count = 0; // invalidate
-				continue;
-			}
-		}
-
-		count++;
-		GA->credLen = i + 1;
-	}
-
-	// No allowList, so use all matching RK's matching rpId
-	if (!GA->credLen) {
-
-		int nr_rk = ctap_open_rk_file(rp_id_lookup);
-		if (nr_rk < 0) {
-			printf1(TAG_GREEN, "No file to open: %d \r\n", nr_rk);
-			nr_rk = 0;
-		}
-
-		for (i = 0; i < nr_rk; i++) {
-
-			ctap_load_next_rk(&rk);
-
-			printf1(TAG_GREEN, "rp_id_lookup %d:\n", i);
-			dump_hex1(TAG_GREEN, rk.id.rp_id_lookup,
-				  CREDENTIAL_TAG_SIZE);
-
-			if (memcmp(rp_id_lookup, rk.id.rp_id_lookup,
-				   CREDENTIAL_TAG_SIZE)) {
-				// Not the right RPID
-				continue;
-			}
-
-			// Verify credential mac
-			uint8_t local_tag[16];
-			make_auth_tag(rp_id_lookup, rk.id.nonce,
-				      rk.id.protected_metadata, rk.id.count,
-				      local_tag);
-
-			if (memcmp(rk.id.tag, local_tag, CREDENTIAL_TAG_SIZE) !=
-			    0) {
-				printf1(TAG_GREEN,
-					"Cred failed mac verification\n");
-				continue;
-			}
-
-			// Check cred protect
-			uint8_t is_rk = 0;
-			int protection_status = check_credential_metadata(
-			    &rk.id, getAssertionState.user_verified, 0, &is_rk);
-
-			if (protection_status != 0) {
-				printf1(TAG_GREEN, "skipping protected rk "
-						   "credential.\r\n");
-				continue;
-			}
-
-			if (count >= ALLOW_LIST_MAX_SIZE) {
-				printf2(TAG_ERR,
-					"not enough ram allocated for "
-					"matching RK's (%d).  "
-					"Skipping.\r\n",
-					count);
-				break;
-			}
-
-			// Verify mac over the residential key.
-			if (!verify_mac(rk.rk_tag, &rk.user, RK_HMAC_SIZE)) {
-				printf1(TAG_GREEN,
-					"rk failed mac verification\r\n");
-				continue;
-			}
-
-			// Decrypt user data in place
-			xcrypt_buf(rk.rk_nonce, &rk.user, &rk.user,
-				   sizeof(CTAP_userEntity) + sizeof(rpEntity));
-
-			GA->creds[count].type = PUB_KEY_CRED_PUB_KEY;
-
-			memmove(&GA->creds[count].credential.id, &rk.id,
-				sizeof(CredentialId));
-
-			// Fill in user as well, needed by RP
-			memmove(&GA->creds[count].credential.user, &rk.user,
-				sizeof(CTAP_userEntity));
-
-			count++;
-		}
-		ctap_close_rk_file();
-		GA->credLen = count;
-	}
-
-	printf1(TAG_GA, "qsort length: %d\n", GA->credLen);
-	qsort(GA->creds, GA->credLen, sizeof(CTAP_credentialDescriptor),
-	      cred_cmp_func);
-	return count;
-}
-
-int cred_cmp_func(const void *_a, const void *_b)
-{
-	CTAP_credentialDescriptor *a = (CTAP_credentialDescriptor *)_a;
-	CTAP_credentialDescriptor *b = (CTAP_credentialDescriptor *)_b;
-	return b->credential.id.count - a->credential.id.count;
-}
-
-// adds 2 to map, or 3 if add_user is true
-uint8_t ctap_end_get_assertion(CborEncoder *map,
-			       CTAP_credentialDescriptor *cred,
-			       uint8_t *auth_data_buf,
-			       unsigned int auth_data_buf_sz,
-			       uint8_t *clientDataHash)
-{
-	int ret;
-	uint8_t sigbuf[64];
-	uint8_t sigder[72];
-	int sigder_sz;
-
-	ret = cbor_encode_int(map, GA_Resp_credential);
-	check_ret(ret);
-
-	ret =
-	    ctap_add_credential_descriptor(map, &cred->credential, cred->type);
-	check_retr(ret);
-
-	{
-		ret = cbor_encode_int(map, MC_Resp_authData);
-		check_ret(ret);
-		ret = cbor_encode_byte_string(map, auth_data_buf,
-					      auth_data_buf_sz);
-		check_ret(ret);
-	}
-
-	unsigned int cred_size = get_credential_id_size(cred->type);
-	int32_t cose_alg = restore_metadata_cose_alg(&cred->credential.id);
-	if (cose_alg == COSE_ALG_EDDSA) {
-		fido2_crypto_ed25519_load_key((uint8_t *)&cred->credential.id,
-					      cred_size);
-	} else {
-		crypto_ecc256_load_key((uint8_t *)&cred->credential.id,
-				       cred_size, NULL, 0);
-	}
-
-#ifdef ENABLE_U2F_EXTENSIONS
-	if (extend_fido2(&cred->credential.id, sigder)) {
-		sigder_sz = 72;
-	} else
-#endif
-	{
-		sigder_sz = ctap_calculate_signature(
-		    auth_data_buf, auth_data_buf_sz, clientDataHash,
-		    auth_data_buf, sigbuf, sigder, cose_alg);
-	}
-
-	printf1(TAG_GREEN, "sigder_sz = %d\n", sigder_sz);
-
-	{
-		ret = cbor_encode_int(map, GA_Resp_signature);
-		check_ret(ret);
-		ret = cbor_encode_byte_string(map, sigder, sigder_sz);
-		check_ret(ret);
-	}
-
-	if (cred->credential.user.id_size) {
-		printf1(TAG_GREEN, "adding user details to output\r\n");
-
-		int ret = cbor_encode_int(map, GA_Resp_user);
-		check_ret(ret);
-
-		ret = ctap_add_user_entity(map, &cred->credential.user,
-					   getAssertionState.user_verified);
-		check_retr(ret);
-	}
-
-	return 0;
-}
+static int build_filtered_credential_list(CTAP_getAssertion *GA,
+					  uint8_t *rp_id_hash,
+					  uint8_t *rp_id_lookup);
+static int cred_cmp_func(const void *_a, const void *_b);
+static uint8_t parse_allow_list_credentials(CTAP_getAssertion *GA,
+					    CborValue *it);
+static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
+					   uint8_t *request, int length);
+static int8_t save_credential_list(uint8_t *clientDataHash,
+				   CTAP_credentialDescriptor *creds,
+				   uint32_t count, CTAP_extensions *extensions);
 
 uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 {
 	CTAP_getAssertion GA;
 
-	int ret = ctap_parse_get_assertion(&GA, request, length);
+	int ret = parse_get_assertion_request(&GA, request, length);
 
 	if (ret != 0) {
 		printf2(TAG_ERR, "error, parse_get_assertion failed\n");
@@ -253,11 +38,13 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 	if (GA.pinAuthEmpty) {
 		ret = ctap2_user_presence_test();
 		check_retr(ret);
-		return ctap_is_pin_set() == 1 ? CTAP2_ERR_PIN_AUTH_INVALID
-					      : CTAP2_ERR_PIN_NOT_SET;
+		return ctap_client_pin_is_set() == 1
+			   ? CTAP2_ERR_PIN_AUTH_INVALID
+			   : CTAP2_ERR_PIN_NOT_SET;
 	}
 	if (GA.pinAuthPresent) {
-		ret = verify_pin_auth(GA.pinAuth, GA.clientDataHash);
+		ret =
+		    ctap_client_pin_verify_auth(GA.pinAuth, GA.clientDataHash);
 		check_retr(ret);
 		getAssertionState.user_verified = 1;
 	} else {
@@ -273,7 +60,7 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 
 	uint8_t rp_id_hash[32];
 	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE];
-	derive_rp_id_info(GA.rp.id, GA.rp.size, rp_id_hash, rp_id_lookup);
+	ctap_derive_rp_id_info(GA.rp.id, GA.rp.size, rp_id_hash, rp_id_lookup);
 
 	printf1(TAG_GA, "rpid:\n");
 	dump_hex1(TAG_GA, rp_id_hash, sizeof(rp_id_hash));
@@ -282,7 +69,7 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 
 	printf1(TAG_GA, "ALLOW_LIST has %d creds\n", GA.credLen);
 	int validCredCount =
-	    create_applicable_credentials_list(&GA, rp_id_hash, rp_id_lookup);
+	    build_filtered_credential_list(&GA, rp_id_hash, rp_id_lookup);
 
 	if (validCredCount == 0) {
 		printf2(TAG_ERR, "Error, no authentic credential\n");
@@ -352,7 +139,7 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 			unsigned int ext_encoder_buf_size =
 			    sizeof(getAssertionState.buf.extensions);
 
-			ret = ctap_make_extensions(
+			ret = ctap_extensions_encode_output(
 			    &GA.extensions, getAssertionState.buf.extensions,
 			    &ext_encoder_buf_size);
 			check_retr(ret);
@@ -364,7 +151,7 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 		}
 	}
 
-	ret = ctap_end_get_assertion(
+	ret = ctap_get_assertion_cbor_encode_assertion_response(
 	    &map, cred, (uint8_t *)&getAssertionState.buf, auth_data_buf_sz,
 	    GA.clientDataHash); // 1,2,3,4
 	check_retr(ret);
@@ -387,8 +174,237 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 	return 0;
 }
 
-uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
-				 int length)
+// adds 2 to map, or 3 if add_user is true
+uint8_t ctap_get_assertion_cbor_encode_assertion_response(
+    CborEncoder *map, CTAP_credentialDescriptor *cred, uint8_t *auth_data_buf,
+    unsigned int auth_data_buf_sz, uint8_t *clientDataHash)
+{
+	int ret;
+	uint8_t sigbuf[64];
+	uint8_t sigder[72];
+	int sigder_sz;
+
+	ret = cbor_encode_int(map, GA_Resp_credential);
+	check_ret(ret);
+
+	ret = ctap_cbor_encode_credential_descriptor(map, &cred->credential,
+						     cred->type);
+	check_retr(ret);
+
+	{
+		ret = cbor_encode_int(map, MC_Resp_authData);
+		check_ret(ret);
+		ret = cbor_encode_byte_string(map, auth_data_buf,
+					      auth_data_buf_sz);
+		check_ret(ret);
+	}
+
+	unsigned int cred_size = ctap_get_credential_id_size(cred->type);
+	int32_t cose_alg = ctap_restore_metadata_cose_alg(&cred->credential.id);
+	if (cose_alg == COSE_ALG_EDDSA) {
+		fido2_crypto_ed25519_load_key((uint8_t *)&cred->credential.id,
+					      cred_size);
+	} else {
+		crypto_ecc256_load_key((uint8_t *)&cred->credential.id,
+				       cred_size, NULL, 0);
+	}
+
+#ifdef ENABLE_U2F_EXTENSIONS
+	if (extend_fido2(&cred->credential.id, sigder)) {
+		sigder_sz = 72;
+	} else
+#endif
+	{
+		sigder_sz = ctap_sign_data(auth_data_buf, auth_data_buf_sz,
+					   clientDataHash, auth_data_buf,
+					   sigbuf, sigder, cose_alg);
+	}
+
+	printf1(TAG_GREEN, "sigder_sz = %d\n", sigder_sz);
+
+	{
+		ret = cbor_encode_int(map, GA_Resp_signature);
+		check_ret(ret);
+		ret = cbor_encode_byte_string(map, sigder, sigder_sz);
+		check_ret(ret);
+	}
+
+	if (cred->credential.user.id_size) {
+		printf1(TAG_GREEN, "adding user details to output\r\n");
+
+		int ret = cbor_encode_int(map, GA_Resp_user);
+		check_ret(ret);
+
+		ret = ctap_cbor_encode_user_entity(
+		    map, &cred->credential.user,
+		    getAssertionState.user_verified);
+		check_retr(ret);
+	}
+
+	return 0;
+}
+
+// @return the number of valid credentials
+// sorts the credentials.  Most recent creds will be first, invalid ones
+// last.
+static int build_filtered_credential_list(CTAP_getAssertion *GA,
+					  uint8_t *rp_id_hash,
+					  uint8_t *rp_id_lookup)
+{
+	unsigned int i;
+	int count = 0;
+	CTAP_residentKey rk;
+
+	for (i = 0; i < (unsigned int)GA->credLen; i++) {
+
+		CTAP_credentialDescriptor *cred = &GA->creds[i];
+		uint8_t is_rk = 0;
+
+		if (!ctap_credential_belongs_to_rp(rp_id_lookup, rp_id_hash,
+						   cred)) {
+#ifdef ENABLE_U2F_EXTENSIONS
+			if (is_extension_request(
+				(uint8_t *)&cred->credential.id,
+				sizeof(CredentialId))) {
+				printf1(TAG_EXT, "CRED #%d is extension\n",
+					cred->credential.id.count);
+				count++;
+			} else
+#endif
+			{
+
+				printf1(TAG_GA,
+					"allowList: CRED #%d is invalid\n",
+					cred->credential.id.count);
+
+				cred->credential.id.count = 0; // invalidate
+			}
+			continue;
+		}
+
+		int protection_status = ctap_check_credential_metadata(
+		    &cred->credential.id, getAssertionState.user_verified, 1,
+		    &is_rk);
+
+		if (protection_status != 0) {
+			printf1(TAG_GREEN,
+				"allowList: skipping protected credential.\n");
+			cred->credential.id.count = 0; // invalidate
+			continue;
+		}
+
+		// If it is discoverable, verify that it still exists -
+		// otherwise invalidate
+		if (is_rk) {
+			if (!ctap_verify_rk_exists(&cred->credential.id)) {
+				cred->credential.id.count = 0; // invalidate
+				continue;
+			}
+		}
+
+		count++;
+		GA->credLen = i + 1;
+	}
+
+	// No allowList, so use all matching RK's matching rpId
+	if (!GA->credLen) {
+
+		int nr_rk = ctap_open_rk_file(rp_id_lookup);
+		if (nr_rk < 0) {
+			printf1(TAG_GREEN, "No file to open: %d \r\n", nr_rk);
+			nr_rk = 0;
+		}
+
+		for (i = 0; i < nr_rk; i++) {
+
+			ctap_load_next_rk(&rk);
+
+			printf1(TAG_GREEN, "rp_id_lookup %d:\n", i);
+			dump_hex1(TAG_GREEN, rk.id.rp_id_lookup,
+				  CREDENTIAL_TAG_SIZE);
+
+			if (memcmp(rp_id_lookup, rk.id.rp_id_lookup,
+				   CREDENTIAL_TAG_SIZE)) {
+				// Not the right RPID
+				continue;
+			}
+
+			// Verify credential mac
+			uint8_t local_tag[16];
+			ctap_make_auth_tag(rp_id_lookup, rk.id.nonce,
+					   rk.id.protected_metadata,
+					   rk.id.count, local_tag);
+
+			if (memcmp(rk.id.tag, local_tag, CREDENTIAL_TAG_SIZE) !=
+			    0) {
+				printf1(TAG_GREEN,
+					"Cred failed mac verification\n");
+				continue;
+			}
+
+			// Check cred protect
+			uint8_t is_rk = 0;
+			int protection_status = ctap_check_credential_metadata(
+			    &rk.id, getAssertionState.user_verified, 0, &is_rk);
+
+			if (protection_status != 0) {
+				printf1(TAG_GREEN, "skipping protected rk "
+						   "credential.\r\n");
+				continue;
+			}
+
+			if (count >= ALLOW_LIST_MAX_SIZE) {
+				printf2(TAG_ERR,
+					"not enough ram allocated for "
+					"matching RK's (%d).  "
+					"Skipping.\r\n",
+					count);
+				break;
+			}
+
+			// Verify mac over the residential key.
+			if (!ctap_verify_mac(rk.rk_tag, &rk.user,
+					     RK_HMAC_SIZE)) {
+				printf1(TAG_GREEN,
+					"rk failed mac verification\r\n");
+				continue;
+			}
+
+			// Decrypt user data in place
+			ctap_xcrypt_buf(rk.rk_nonce, &rk.user, &rk.user,
+					sizeof(CTAP_userEntity) +
+					    sizeof(rpEntity));
+
+			GA->creds[count].type = PUB_KEY_CRED_PUB_KEY;
+
+			memmove(&GA->creds[count].credential.id, &rk.id,
+				sizeof(CredentialId));
+
+			// Fill in user as well, needed by RP
+			memmove(&GA->creds[count].credential.user, &rk.user,
+				sizeof(CTAP_userEntity));
+
+			count++;
+		}
+		ctap_close_rk_file();
+		GA->credLen = count;
+	}
+
+	printf1(TAG_GA, "qsort length: %d\n", GA->credLen);
+	qsort(GA->creds, GA->credLen, sizeof(CTAP_credentialDescriptor),
+	      cred_cmp_func);
+	return count;
+}
+
+static int cred_cmp_func(const void *_a, const void *_b)
+{
+	CTAP_credentialDescriptor *a = (CTAP_credentialDescriptor *)_a;
+	CTAP_credentialDescriptor *b = (CTAP_credentialDescriptor *)_b;
+	return b->credential.id.count - a->credential.id.count;
+}
+
+static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
+					   uint8_t *request, int length)
 {
 	int ret;
 	unsigned int i;
@@ -437,8 +453,8 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 		case GA_Cmd_clientDataHash:
 			printf1(TAG_GA, "GA_Cmd_clientDataHash\n");
 
-			ret = parse_fixed_byte_string(&map, GA->clientDataHash,
-						      CLIENT_DATA_HASH_SIZE);
+			ret = ctap_parse_fixed_length_byte_string(
+			    &map, GA->clientDataHash, CLIENT_DATA_HASH_SIZE);
 			check_retr(ret);
 			GA->clientDataHashPresent = 1;
 
@@ -448,26 +464,28 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 		case GA_Cmd_rpId:
 			printf1(TAG_GA, "GA_Cmd_rpId\n");
 
-			ret = parse_rp_id(&GA->rp, &map);
+			ret = ctap_parse_rp_id(&GA->rp, &map);
 
 			printf1(TAG_GA, "  ID: %s\n", GA->rp.id);
 			break;
 		case GA_Cmd_allowList:
 			printf1(TAG_GA, "GA_Cmd_allowList\n");
-			ret = parse_allow_list(GA, &map);
+			ret = parse_allow_list_credentials(GA, &map);
 			check_ret(ret);
 			GA->allowListPresent = 1;
 
 			break;
 		case GA_Cmd_extensions:
 			printf1(TAG_GA, "GA_Cmd_extensions\n");
-			ret = ctap_parse_extensions(&map, &GA->extensions);
+			ret =
+			    ctap_extensions_parse_input(&map, &GA->extensions);
 			check_retr(ret);
 			break;
 
 		case GA_Cmd_options:
 			printf1(TAG_GA, "GA_Cmd_options\n");
-			ret = parse_options(&map, &GA->rk, &GA->uv, &GA->up);
+			ret =
+			    ctap_parse_options(&map, &GA->rk, &GA->uv, &GA->up);
 			check_retr(ret);
 			break;
 		case GA_Cmd_pinUvAuthParam: {
@@ -482,7 +500,8 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 				break;
 			}
 
-			ret = parse_fixed_byte_string(&map, GA->pinAuth, 16);
+			ret = ctap_parse_fixed_length_byte_string(
+			    &map, GA->pinAuth, 16);
 			if (CTAP1_ERR_INVALID_LENGTH != ret) // damn microsoft
 			{
 				check_retr(ret);
@@ -520,7 +539,8 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
 	return 0;
 }
 
-uint8_t parse_allow_list(CTAP_getAssertion *GA, CborValue *it)
+static uint8_t parse_allow_list_credentials(CTAP_getAssertion *GA,
+					    CborValue *it)
 {
 	CborValue arr;
 	size_t len;
@@ -552,7 +572,7 @@ uint8_t parse_allow_list(CTAP_getAssertion *GA, CborValue *it)
 		cred = &GA->creds[i];
 
 		memset(cred, 0, sizeof(CTAP_credentialDescriptor));
-		ret = parse_credential_descriptor(&arr, cred);
+		ret = ctap_parse_pubkey_credential_descriptor(&arr, cred);
 		check_retr(ret);
 
 		ret = cbor_value_advance(&arr);
@@ -561,9 +581,9 @@ uint8_t parse_allow_list(CTAP_getAssertion *GA, CborValue *it)
 	return 0;
 }
 
-int8_t save_credential_list(uint8_t *clientDataHash,
-			    CTAP_credentialDescriptor *creds, uint32_t count,
-			    CTAP_extensions *extensions)
+static int8_t save_credential_list(uint8_t *clientDataHash,
+				   CTAP_credentialDescriptor *creds,
+				   uint32_t count, CTAP_extensions *extensions)
 {
 	if (count) {
 		if (count > ALLOW_LIST_MAX_SIZE - 1) {

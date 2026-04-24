@@ -37,15 +37,5 @@ typedef struct {
 
 uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 			     int length);
-uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC,
-				   CborEncoder *encoder, uint8_t *request,
-				   int length);
-uint8_t parse_pub_key_cred_param(CborValue *val, uint8_t *cred_type,
-				 int32_t *alg_type);
-uint8_t parse_pub_key_cred_params(CTAP_makeCredential *MC, CborValue *val);
-uint8_t parse_rp(struct rpId *rp, CborValue *val);
-uint8_t parse_user(CTAP_makeCredential *MC, CborValue *val);
-uint8_t parse_verify_exclude_list(CborValue *val);
-int pub_key_cred_param_supported(uint8_t cred, int32_t alg);
 
 #endif

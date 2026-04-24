@@ -10,7 +10,18 @@
 #include "cbor.h"
 #include "cose_key.h"
 
+// clang-format off
 #define NEW_PIN_ENC_MAX_SIZE 256 // Includes NULL terminator
+#define NEW_PIN_ENC_MIN_SIZE 64
+#define NEW_PIN_MAX_SIZE     64
+#define NEW_PIN_MIN_SIZE     4
+
+#define PIN_LOCKOUT_ATTEMPTS 8 // Number of attempts total
+#define PIN_BOOT_ATTEMPTS    3 // Number of attempts per boot
+
+#define PIN_TOKEN_SIZE 16
+
+// clang-format on
 
 typedef struct {
 	int pinProtocol;
@@ -27,15 +38,14 @@ typedef struct {
 	_Bool getRetries;
 } CTAP_clientPin;
 
-uint8_t ctap_add_pin_if_verified(uint8_t *pinTokenEnc, uint8_t *platform_pubkey,
-				 uint8_t *pinHashEnc);
 uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length);
-uint8_t ctap_parse_client_pin(CTAP_clientPin *CP, uint8_t *request, int length);
-void ctap_reset_pin_attempts();
-uint8_t ctap_update_pin_if_verified(uint8_t *pinEnc, int len,
-				    uint8_t *platform_pubkey, uint8_t *pinAuth,
-				    uint8_t *pinHashEnc);
-void ctap_update_pin(uint8_t *pin, int len);
-int trailing_zeros(uint8_t *buf, int indx);
+uint8_t ctap_client_pin_decrement_attempts();
+int8_t ctap_client_pin_is_boot_locked();
+int8_t ctap_client_pin_is_locked();
+uint8_t ctap_client_pin_is_set();
+void ctap_client_pin_reset_attempts();
+uint8_t ctap_client_pin_verify_auth(uint8_t *pinAuth, uint8_t *clientDataHash);
+uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
+				       size_t len);
 
 #endif

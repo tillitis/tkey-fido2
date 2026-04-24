@@ -42,10 +42,10 @@ typedef struct {
 	int crv;
 } COSE_key;
 
-int ctap_add_cose_key(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
+int cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
+		 uint8_t credtype, int32_t algtype);
+int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
 		      uint8_t credtype, int32_t algtype);
-int ctap_generate_cose_key(CborEncoder *cose_key, uint8_t *hmac_input, int len,
-			   uint8_t credtype, int32_t algtype);
-uint8_t parse_cose_key(CborValue *it, COSE_key *cose);
+uint8_t cose_key_parse(CborValue *it, COSE_key *cose);
 
 #endif

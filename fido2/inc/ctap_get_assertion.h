@@ -39,21 +39,9 @@ typedef struct {
 
 } CTAP_getAssertion;
 
-int create_applicable_credentials_list(CTAP_getAssertion *GA,
-				       uint8_t *rp_id_hash,
-				       uint8_t *rp_id_lookup);
-int cred_cmp_func(const void *_a, const void *_b);
-uint8_t ctap_end_get_assertion(CborEncoder *map,
-			       CTAP_credentialDescriptor *cred,
-			       uint8_t *auth_data_buf,
-			       unsigned int auth_data_buf_sz,
-			       uint8_t *clientDataHash);
 uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length);
-uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request,
-				 int length);
-uint8_t parse_allow_list(CTAP_getAssertion *GA, CborValue *it);
-int8_t save_credential_list(uint8_t *clientDataHash,
-			    CTAP_credentialDescriptor *creds, uint32_t count,
-			    CTAP_extensions *extensions);
+uint8_t ctap_get_assertion_cbor_encode_assertion_response(
+    CborEncoder *map, CTAP_credentialDescriptor *cred, uint8_t *auth_data_buf,
+    unsigned int auth_data_buf_sz, uint8_t *clientDataHash);
 
 #endif

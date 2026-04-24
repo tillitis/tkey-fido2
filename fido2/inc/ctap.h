@@ -213,18 +213,6 @@
 
 //-----------------------------------------------------------------------------
 
-#define EXT_HMAC_SECRET_COSE_KEY  0x01
-#define EXT_HMAC_SECRET_SALT_ENC  0x02
-#define EXT_HMAC_SECRET_SALT_AUTH 0x03
-
-#define EXT_HMAC_SECRET_REQUESTED 0x01
-#define EXT_HMAC_SECRET_PARSED    0x02
-
-#define EXT_CRED_PROTECT_INVALID              0x00
-#define EXT_CRED_PROTECT_OPTIONAL             0x01
-#define EXT_CRED_PROTECT_OPTIONAL_WITH_CREDID 0x02
-#define EXT_CRED_PROTECT_REQUIRED             0x03
-
 #define CREDID_ALG_ES256 0x0
 #define CREDID_ALG_EDDSA 0x1
 
@@ -273,17 +261,10 @@
 
 #define ALLOW_LIST_MAX_SIZE 20
 
-#define NEW_PIN_ENC_MIN_SIZE 64
-#define NEW_PIN_MAX_SIZE     64
-#define NEW_PIN_MIN_SIZE     4
-
 #define CTAP_RESPONSE_BUFFER_SIZE 4096
 
-#define PIN_LOCKOUT_ATTEMPTS 8 // Number of attempts total
-#define PIN_BOOT_ATTEMPTS    3 // Number of attempts per boot
-
 #define CTAP2_UP_DELAY_MS 29000
-// clang-format off
+// clang-format on
 
 typedef struct {
 	uint8_t id[USER_ID_MAX_SIZE];
@@ -368,7 +349,6 @@ typedef struct {
 	uint8_t rk;
 } CTAP_credInfo;
 
-
 struct _getAssertionState {
 	// Room for both authData struct and extensions
 	struct {
@@ -387,53 +367,44 @@ struct _getAssertionState {
 	uint8_t customCredIdSize;
 };
 
-void ctap_response_init(CTAP_RESPONSE *resp);
-
-uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp);
-
-// Encodes R,S signature to 2 der sequence of two integers.  Sigder must be at
-// least 72 bytes.
-// @return length of der signature
+int ctap2_user_presence_test();
+uint32_t ctap_auth_data_update_count(CTAP_authDataHeader *authData);
+uint8_t ctap_cbor_encode_credential_descriptor(CborEncoder *map,
+					       struct Credential *cred,
+					       int type);
+uint8_t ctap_cbor_encode_user_entity(CborEncoder *map, CTAP_userEntity *user,
+				     int is_verified);
+uint8_t ctap_check_credential_metadata(CredentialId *credential,
+				       uint8_t is_verified,
+				       uint8_t is_from_credid_list,
+				       uint8_t *is_rk);
+int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
+				  CTAP_credentialDescriptor *desc);
+void ctap_decrement_rk_store();
+void ctap_derive_rp_id_info(const uint8_t *rp_id, size_t size,
+			    uint8_t *rp_id_hash, uint8_t *rp_id_lookup);
 int ctap_encode_der_sig(uint8_t const *const in_sigbuf,
 			uint8_t *const out_sigder);
-
-// Run ctap related power-up procedures (init pinToken, generate shared secret)
-void ctap_init();
-uint8_t ctap_decrement_pin_attempts();
-int8_t ctap_leftover_pin_attempts();
-uint8_t ctap_is_pin_set();
-uint8_t ctap_pin_matches(uint8_t *pin, int len);
-int8_t ctap_device_locked();
-int8_t ctap_device_boot_locked();
-
-uint32_t auth_data_update_count(CTAP_authDataHeader *authData);
-uint8_t check_credential_metadata(CredentialId *credential, uint8_t is_verified, uint8_t is_from_credid_list, uint8_t *is_rk);
-int ctap2_user_presence_test();
-uint8_t ctap_add_attest_statement(CborEncoder *map, uint8_t *sigder, int len);
-uint8_t ctap_add_credential_descriptor(CborEncoder *map, struct Credential *cred, int type);
-uint8_t ctap_add_user_entity(CborEncoder *map, CTAP_userEntity *user, int is_verified);
-int ctap_authenticate_credential(uint8_t *rp_id_lookup, uint8_t *rp_id_hash, CTAP_credentialDescriptor *desc);
-int ctap_calculate_signature(uint8_t *data, int datalen, uint8_t *clientDataHash, uint8_t *hashbuf, uint8_t *sigbuf, uint8_t *sigder, int32_t alg);
-void ctap_decrement_rk_store();
 void ctap_flush_state();
+unsigned int ctap_get_credential_id_size(int type);
 void ctap_increment_rk_store();
-int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash, uint8_t *rp_id_lookup, CborEncoder *map, uint8_t *auth_data_buf, uint32_t *len, CTAP_credInfo *credInfo, CTAP_extensions *extensions);
-int ctap_make_extensions(CTAP_extensions *ext, uint8_t *ext_encoder_buf, unsigned int *ext_encoder_buf_size);
+void ctap_init();
+int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
+			uint8_t *rp_id_lookup, CborEncoder *map,
+			uint8_t *auth_data_buf, uint32_t *len,
+			CTAP_credInfo *credInfo, CTAP_extensions *extensions);
+void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
+			uint8_t *metadata, uint32_t count, uint8_t *tag);
+uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp);
+void ctap_response_init(CTAP_RESPONSE *resp);
+int32_t ctap_restore_metadata_cose_alg(CredentialId *credential);
+int ctap_sign_data(uint8_t *data, int datalen, uint8_t *clientDataHash,
+		   uint8_t *hashbuf, uint8_t *sigbuf, uint8_t *sigder,
+		   int32_t alg);
 void ctap_state_init();
-void derive_rp_id_info(const uint8_t *rp_id, size_t size, uint8_t *rp_id_hash, uint8_t *rp_id_lookup);
-unsigned int get_credential_id_size(int type);
-void make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce, uint8_t *metadata, uint32_t count, uint8_t *tag);
-int32_t restore_metadata_cose_alg(CredentialId *credential);
-int verify_mac(const uint8_t *mac, const void *data, size_t data_len);
-uint8_t verify_pin_auth_ex(uint8_t *pinAuth, uint8_t *buf, size_t len);
-uint8_t verify_pin_auth(uint8_t *pinAuth, uint8_t *clientDataHash);
-int verify_rk_exists(const CredentialId *input_cred);
-void xcrypt_buf(const uint8_t *iv, const void *in, void *out, uint8_t length);
-
-#define PIN_TOKEN_SIZE 16
-extern uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];
-extern uint8_t KEY_AGREEMENT_PUB[64];
-
-void lock_device_permanently();
+int ctap_verify_mac(const uint8_t *mac, const void *data, size_t data_len);
+int ctap_verify_rk_exists(const CredentialId *input_cred);
+void ctap_xcrypt_buf(const uint8_t *iv, const void *in, void *out,
+		     uint8_t length);
 
 #endif
