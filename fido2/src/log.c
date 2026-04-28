@@ -111,14 +111,14 @@ void LOG_PROFILE(const char *msg, uint8_t indent_level, uint32_t duration_ms,
 {
 	char indent[16];
 	if (indent_level > (sizeof(indent) - 1)) {
-		LOG(TAG_PROF, NULL, 0, "CALL STACK TOO DEEP!\r\n");
+		LOG(TAG_PROF, NULL, 0, "CALL STACK TOO DEEP!\n");
 	}
 	for (uint8_t i = 0; i < indent_level; i++) {
 		indent[i] = ' ';
 	}
 	indent[indent_level] = '\0';
 
-	LOG(TAG_PROF, NULL, 0, "%s+ %6u ms, %s, %s:%d-%d\r\n", indent,
+	LOG(TAG_PROF, NULL, 0, "%s+ %6u ms, %s, %s:%d-%d\n", indent,
 	    duration_ms, msg, filename, start_line, end_line);
 }
 

@@ -32,12 +32,11 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 	// 	cred->credential.id.rpIdHash, 32);
 
 	if (cred->credential.user.id_size) {
-		printf1(TAG_GREEN,
-			"adding user info to assertion response\r\n");
+		printf1(TAG_GREEN, "adding user info to assertion response\n");
 		ret = cbor_encoder_create_map(encoder, &map, 4);
 	} else {
 		printf1(TAG_GREEN,
-			"NOT adding user info to assertion response\r\n");
+			"NOT adding user info to assertion response\n");
 		ret = cbor_encoder_create_map(encoder, &map, 3);
 	}
 
@@ -45,9 +44,8 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 
 	// if only one account for this RP, null out the user details
 	if (!getAssertionState.user_verified) {
-		printf1(
-		    TAG_GREEN,
-		    "Not verified, nulling out user details on response\r\n");
+		printf1(TAG_GREEN,
+			"Not verified, nulling out user details on response\n");
 		memset(cred->credential.user.name, 0, USER_NAME_LIMIT);
 	}
 

@@ -624,8 +624,7 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 		if (ctaphid_custom_command(len, &ctap_resp, &wb) != 0) {
 			is_busy = 0;
 		} else {
-			printf2(TAG_ERR,
-				"error, unimplemented HID cmd: %02x\r\n",
+			printf2(TAG_ERR, "Error, unimplemented HID cmd: %02x\n",
 				buffer_cmd());
 			ctaphid_send_error(cid, CTAP1_ERR_INVALID_COMMAND);
 		}

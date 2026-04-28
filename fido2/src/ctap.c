@@ -217,7 +217,7 @@ int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 					    getAssertionState.customCredIdSize);
 		break;
 	default:
-		printf1(TAG_ERR, "PUB_KEY_CRED_UNKNOWN %x\r\n", desc->type);
+		printf1(TAG_ERR, "PUB_KEY_CRED_UNKNOWN %x\n", desc->type);
 		break;
 	}
 
@@ -321,15 +321,14 @@ void ctap_increment_rk_store()
 //  Run ctap related power-up procedures (init pinToken, generate shared secret)
 void ctap_init()
 {
-	printf1(TAG_GREEN, "Current firmware version address: %p\r\n",
+	printf1(TAG_GREEN, "Current firmware version address: %p\n",
 		&firmware_version);
-	printf1(
-	    TAG_GREEN,
-	    "Current firmware version: %d.%d.%d.%d (%02x.%02x.%02x.%02x)\r\n",
-	    firmware_version.major, firmware_version.minor,
-	    firmware_version.patch, firmware_version.reserved,
-	    firmware_version.major, firmware_version.minor,
-	    firmware_version.patch, firmware_version.reserved);
+	printf1(TAG_GREEN,
+		"Current firmware version: %d.%d.%d.%d (%02x.%02x.%02x.%02x)\n",
+		firmware_version.major, firmware_version.minor,
+		firmware_version.patch, firmware_version.reserved,
+		firmware_version.major, firmware_version.minor,
+		firmware_version.patch, firmware_version.reserved);
 	crypto_ecc256_init();
 
 	int is_init = authenticator_read_state(&STATE);

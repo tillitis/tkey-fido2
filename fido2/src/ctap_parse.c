@@ -133,7 +133,7 @@ uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 		}
 	} else {
 		cred->type = PUB_KEY_CRED_UNKNOWN;
-		printf1(TAG_RED, "Unknown type: %s\r\n", type);
+		printf1(TAG_RED, "Unknown type: %s\n", type);
 	}
 
 	return 0;
@@ -150,13 +150,13 @@ uint8_t ctap_parse_fixed_length_byte_string(CborValue *map, uint8_t *dst,
 		check_ret(ret);
 		if (sz != len) {
 			printf2(TAG_ERR,
-				"error byte string is different length (%d vs "
-				"%d)\r\n",
+				"Error, byte string is different length (%d vs "
+				"%d)\n",
 				len, sz);
 			return CTAP1_ERR_INVALID_LENGTH;
 		}
 	} else {
-		printf2(TAG_ERR, "error, CborByteStringType expected\r\n");
+		printf2(TAG_ERR, "Error, CborByteStringType expected\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 	return 0;
@@ -213,17 +213,17 @@ uint8_t ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
 		if (strncmp(key, "rk", 2) == 0) {
 			ret = cbor_value_get_boolean(&map, &b);
 			check_ret(ret);
-			printf1(TAG_GA, "rk: %d\r\n", b);
+			printf1(TAG_GA, "rk: %d\n", b);
 			*rk = b;
 		} else if (strncmp(key, "uv", 2) == 0) {
 			ret = cbor_value_get_boolean(&map, &b);
 			check_ret(ret);
-			printf1(TAG_GA, "uv: %d\r\n", b);
+			printf1(TAG_GA, "uv: %d\n", b);
 			*uv = b;
 		} else if (strncmp(key, "up", 2) == 0) {
 			ret = cbor_value_get_boolean(&map, &b);
 			check_ret(ret);
-			printf1(TAG_GA, "up: %d\r\n", b);
+			printf1(TAG_GA, "up: %d\n", b);
 			*up = b;
 		} else {
 			printf2(TAG_PARSE, "ignoring option specified %s\n",

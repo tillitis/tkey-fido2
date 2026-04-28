@@ -157,7 +157,7 @@ uint32_t ctap_atomic_count(uint32_t amount)
 	uint32_t lastc = 0;
 	int ret = fs_read(&f, &lastc, sizeof(lastc));
 
-	printf2(TAG_COUNT, "read count (ret: %d) %lu\r\n", ret, lastc);
+	printf2(TAG_COUNT, "read count (ret: %d) %lu\n", ret, lastc);
 
 	if (ret < 0) {
 		lastc = 0;
@@ -175,7 +175,7 @@ uint32_t ctap_atomic_count(uint32_t amount)
 	fs_write_at(&f, &lastc, sizeof(lastc), 0);
 	fs_close_file(&f);
 
-	printf2(TAG_COUNT, "returning count: %lu\r\n", lastc);
+	printf2(TAG_COUNT, "returning count: %lu\n", lastc);
 	return lastc;
 }
 
@@ -220,7 +220,7 @@ int ctap_generate_rng(uint8_t *dst, size_t num)
 
 void ctap_reset_rk(void)
 {
-	printf1(TAG_GREEN, "resetting RK \r\n");
+	printf1(TAG_GREEN, "Resetting RK\n");
 	fs_dir_del("rk");
 }
 
@@ -249,7 +249,7 @@ int ctap_store_rk(const CTAP_residentKey *rk)
 		return ret;
 	}
 
-	printf1(TAG_GREEN, "ctap_store_rk: (%s)\r\n", path);
+	printf1(TAG_GREEN, "ctap_store_rk: (%s)\n", path);
 	dump_hex1(TAG_GREEN, rk->id.rp_id_lookup, CREDENTIAL_TAG_SIZE);
 	// Append rk to the end
 	ret = fs_write(&f, rk, sizeof(CTAP_residentKey));
@@ -334,7 +334,7 @@ int ctap_delete_rk(CredentialId *id)
 
 	ret = fs_open_file(&f, path, LFS_O_RDWR);
 	if (ret < 0) {
-		printf1(TAG_GREEN, "delete rk: No file to open: %d \r\n", ret);
+		printf1(TAG_GREEN, "delete rk: No file to open: %d \n", ret);
 		return -1;
 	}
 
@@ -357,8 +357,7 @@ int ctap_delete_rk(CredentialId *id)
 
 		// The tag is unique
 		if (memcmp(id->tag, &rk.id.tag, sizeof(id->tag)) == 0) {
-			printf1(TAG_GREEN, "delete rk: found match (%d)\r\n",
-				i);
+			printf1(TAG_GREEN, "delete rk: found match (%d)\n", i);
 
 			// re-write file without this key to avoid gaps
 			CTAP_residentKey temp_rks[10];
@@ -378,10 +377,9 @@ int ctap_delete_rk(CredentialId *id)
 						 (i + 1 + processed) *
 						     sizeof(CTAP_residentKey));
 				if (ret <= 0) {
-					printf1(
-					    TAG_GREEN,
-					    "delete rk: read error (%d)\r\n",
-					    ret);
+					printf1(TAG_GREEN,
+						"delete rk: read error (%d)\n",
+						ret);
 					fs_close_file(&f);
 					return -1;
 				}
@@ -391,10 +389,9 @@ int ctap_delete_rk(CredentialId *id)
 						  (i + processed) *
 						      sizeof(CTAP_residentKey));
 				if (ret <= 0) {
-					printf1(
-					    TAG_GREEN,
-					    "delete rk: write error (%d)\r\n",
-					    ret);
+					printf1(TAG_GREEN,
+						"delete rk: write error (%d)\n",
+						ret);
 					fs_close_file(&f);
 					return -1;
 				}
@@ -431,13 +428,13 @@ int ctap_open_rk_file(const uint8_t *rpid_hash)
 	ret = fs_file_size(&_f_rk);
 	// Calculate number of credentials stored
 	ret = ret / sizeof(CTAP_residentKey);
-	printf1(TAG_GREEN, "ctap_open_rk_file: %d (%s)\r\n", ret, path);
+	printf1(TAG_GREEN, "ctap_open_rk_file: %d (%s)\n", ret, path);
 	return ret;
 }
 
 int ctap_close_rk_file(void)
 {
-	printf1(TAG_GREEN, "ctap_close_rk_file\r\n");
+	printf1(TAG_GREEN, "ctap_close_rk_file\n");
 	return fs_close_file(&_f_rk);
 }
 
@@ -446,7 +443,7 @@ void ctap_load_next_rk(CTAP_residentKey *dst_rk)
 	// should return error, and size maybe
 	fs_read(&_f_rk, dst_rk, sizeof(CTAP_residentKey));
 
-	printf1(TAG_GREEN, "Load next RK\r\n");
+	printf1(TAG_GREEN, "Load next RK\n");
 }
 
 void ctap_load_rk(int index, CTAP_residentKey *dst_rk)
@@ -454,5 +451,5 @@ void ctap_load_rk(int index, CTAP_residentKey *dst_rk)
 	fs_read_at(&_f_rk, dst_rk, sizeof(CTAP_residentKey),
 		   index * sizeof(CTAP_residentKey));
 
-	printf1(TAG_GREEN, "Load RK: %d\r\n", index);
+	printf1(TAG_GREEN, "Load RK: %d\n", index);
 }

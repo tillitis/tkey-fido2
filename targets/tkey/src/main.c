@@ -82,7 +82,7 @@ int main()
 			struct reset rst = {0};
 			rst.type = b - '0' + START_DEFAULT;
 			sys_reset(&rst, 0);
-			printf2(TAG_ERR, "Device not reset\r\n");
+			printf2(TAG_ERR, "Device not reset\n");
 			while (1)
 				;
 		}
@@ -90,7 +90,7 @@ int main()
 		if (available != HID_PACKET_SIZE) {
 			// Discard data
 			printf2(TAG_ERR,
-				"Got incomplete HID frame, discard\r\n");
+				"Got incomplete HID frame, discard.\n");
 			read(IO_FIDO, data, sizeof(data), available);
 			continue;
 		}

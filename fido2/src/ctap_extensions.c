@@ -29,7 +29,7 @@ int ctap_extensions_encode_output(CTAP_extensions *ext,
 	uint8_t saltEnc[64];
 
 	if (ext->hmac_secret_present == EXT_HMAC_SECRET_PARSED) {
-		printf1(TAG_CTAP, "Processing hmac-secret..\r\n");
+		printf1(TAG_CTAP, "Processing hmac-secret..\n");
 		memmove(saltEnc, ext->hmac_secret.saltEnc, sizeof(saltEnc));
 
 		crypto_ecc256_shared_secret(
@@ -44,9 +44,9 @@ int ctap_extensions_encode_output(CTAP_extensions *ext,
 		crypto_sha256_hmac_final(shared_secret, 32, hmac);
 
 		if (memcmp(ext->hmac_secret.saltAuth, hmac, 16) == 0) {
-			printf1(TAG_CTAP, "saltAuth is valid\r\n");
+			printf1(TAG_CTAP, "saltAuth is valid\n");
 		} else {
-			printf1(TAG_CTAP, "saltAuth is invalid\r\n");
+			printf1(TAG_CTAP, "saltAuth is invalid\n");
 			return CTAP2_ERR_EXTENSION_FIRST;
 		}
 
@@ -214,7 +214,7 @@ uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 					ext->hmac_secret_present =
 					    EXT_HMAC_SECRET_REQUESTED;
 				printf1(TAG_CTAP,
-					"set hmac_secret_present to %d\r\n", b);
+					"Set hmac_secret_present to %d\n", b);
 			} else if (cbor_value_get_type(&map) == CborMapType) {
 				ret = ctap_extensions_parse_hmac_secret(
 				    &map, &ext->hmac_secret);
@@ -222,11 +222,11 @@ uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 				ext->hmac_secret_present =
 				    EXT_HMAC_SECRET_PARSED;
 				printf1(TAG_CTAP,
-					"parsed hmac_secret request\r\n");
+					"parsed hmac_secret request\n");
 			} else {
 				printf1(TAG_RED,
-					"warning: hmac_secret request ignored "
-					"for being wrong type\r\n");
+					"Warning: hmac_secret request ignored "
+					"for being wrong type\n");
 			}
 		} else if (strncmp(key, "credProtect", 11) == 0) {
 			if (cbor_value_get_type(&map) == CborIntegerType) {
@@ -238,14 +238,14 @@ uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 					ext->cred_protect = (uint8_t)value;
 				} else {
 					printf1(TAG_RED,
-						"warning: invalid credProtect "
-						"value %d\r\n",
+						"Warning: invalid credProtect "
+						"value %d\n",
 						value);
 				}
 			} else {
 				printf1(TAG_RED,
 					"warning: credProtect request ignored "
-					"for being wrong type\r\n");
+					"for being wrong type\n");
 			}
 		}
 
@@ -323,10 +323,10 @@ static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
 	}
 
 	if (parsed_count != 3) {
-		printf2(
-		    TAG_ERR,
-		    "ctap_parse_hmac_secret missing parameter.  Got %d.\r\n",
-		    parsed_count);
+		printf2(TAG_ERR,
+			"Error, ctap_extensions_parse_hmac_secret() missing "
+			"parameter. Got %d.\n",
+			parsed_count);
 		return CTAP2_ERR_MISSING_PARAMETER;
 	}
 

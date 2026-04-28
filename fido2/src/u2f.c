@@ -227,7 +227,7 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
 	uint8_t *sig = (uint8_t *)req;
 
 	if (control == U2F_AUTHENTICATE_CHECK) {
-		printf1(TAG_U2F, "CHECK-ONLY\r\n");
+		printf1(TAG_U2F, "CHECK-ONLY\n");
 		if (u2f_authenticate_credential(&req->kh, req->khl, req->app)) {
 			return U2F_SW_CONDITIONS_NOT_SATISFIED;
 		} else {
@@ -331,7 +331,7 @@ static int16_t u2f_register(struct u2f_register_request *req)
 	if (ret < 0) {
 		if (attest_size > sizeof(cert)) {
 			printf2(TAG_ERR,
-				"Certificate is too large for buffer\r\n");
+				"Certificate is too large for buffer\n");
 		}
 
 		return U2F_SW_INSUFFICIENT_MEMORY;

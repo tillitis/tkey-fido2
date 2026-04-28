@@ -81,7 +81,7 @@ int16_t bridge_u2f_to_extensions(uint8_t *_chal, uint8_t *_appid, uint8_t klen,
 int16_t extend_fido2(CredentialId *credid, uint8_t *output)
 {
 	if (is_extension_request((uint8_t *)credid, sizeof(CredentialId))) {
-		printf1(TAG_EXT, "IS EXT REQ\r\n");
+		printf1(TAG_EXT, "IS EXT REQ\n");
 		// output[0] = bridge_u2f_to_solo(output+1, (uint8_t*)credid,
 		// sizeof(CredentialId));
 		return 1;

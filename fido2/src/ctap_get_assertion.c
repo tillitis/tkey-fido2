@@ -78,14 +78,14 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 		map_size += 1;
 	}
 
-	printf1(TAG_GREEN, "2 USER ID SIZE: %d\r\n",
+	printf1(TAG_GREEN, "2 USER ID SIZE: %d\n",
 		GA.creds[0].credential.user.id_size);
 
 	if (GA.creds[validCredCount - 1].credential.user.id_size) {
 		map_size += 1;
 	}
 	if (GA.extensions.hmac_secret_present == EXT_HMAC_SECRET_PARSED) {
-		printf1(TAG_GA, "hmac-secret is present\r\n");
+		printf1(TAG_GA, "hmac-secret is present\n");
 	}
 
 	ret = cbor_encoder_create_map(encoder, &map, map_size);
@@ -94,7 +94,7 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 	// if only one account for this RP, null out the user details
 	if (validCredCount < 2 || !getAssertionState.user_verified) {
 		printf1(TAG_GREEN, "Only one account, nulling out user details "
-				   "on response\r\n");
+				   "on response\n");
 		memset(&GA.creds[0].credential.user.name, 0, USER_NAME_LIMIT);
 	}
 
@@ -230,7 +230,7 @@ uint8_t ctap_get_assertion_cbor_encode_assertion_response(
 	}
 
 	if (cred->credential.user.id_size) {
-		printf1(TAG_GREEN, "adding user details to output\r\n");
+		printf1(TAG_GREEN, "adding user details to output\n");
 
 		int ret = cbor_encode_int(map, GA_Resp_user);
 		check_ret(ret);
@@ -311,7 +311,7 @@ static int build_filtered_credential_list(CTAP_getAssertion *GA,
 
 		int nr_rk = ctap_open_rk_file(rp_id_lookup);
 		if (nr_rk < 0) {
-			printf1(TAG_GREEN, "No file to open: %d \r\n", nr_rk);
+			printf1(TAG_GREEN, "No file to open: %d\n", nr_rk);
 			nr_rk = 0;
 		}
 
@@ -348,8 +348,8 @@ static int build_filtered_credential_list(CTAP_getAssertion *GA,
 			    &rk.id, getAssertionState.user_verified, 0, &is_rk);
 
 			if (protection_status != 0) {
-				printf1(TAG_GREEN, "skipping protected rk "
-						   "credential.\r\n");
+				printf1(TAG_GREEN,
+					"Skipping protected rk credential.\n");
 				continue;
 			}
 
@@ -357,7 +357,7 @@ static int build_filtered_credential_list(CTAP_getAssertion *GA,
 				printf2(TAG_ERR,
 					"not enough ram allocated for "
 					"matching RK's (%d).  "
-					"Skipping.\r\n",
+					"Skipping.\n",
 					count);
 				break;
 			}
@@ -366,7 +366,7 @@ static int build_filtered_credential_list(CTAP_getAssertion *GA,
 			if (!ctap_verify_mac(rk.rk_tag, &rk.user,
 					     RK_HMAC_SIZE)) {
 				printf1(TAG_GREEN,
-					"rk failed mac verification\r\n");
+					"rk failed mac verification\n");
 				continue;
 			}
 

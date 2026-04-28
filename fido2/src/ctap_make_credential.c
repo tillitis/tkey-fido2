@@ -111,7 +111,7 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 
 			ret = ctap2_user_presence_test();
 			check_retr(ret);
-			printf1(TAG_MC, "Cred excluded %d\r\n", i);
+			printf1(TAG_MC, "Cred excluded %d\n", i);
 			return CTAP2_ERR_CREDENTIAL_EXCLUDED;
 		}
 
