@@ -209,6 +209,11 @@ uint8_t ctap_client_pin_is_set()
 
 void ctap_client_pin_reset_attempts()
 {
+	if (STATE.remaining_tries == PIN_LOCKOUT_ATTEMPTS) {
+		// no need to write to flash
+		return;
+	}
+
 	STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
 	PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
 	ctap_flush_state();
