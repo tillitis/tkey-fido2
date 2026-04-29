@@ -301,7 +301,7 @@ void ctap_flush_state()
 	authenticator_write_state(&STATE);
 }
 
-unsigned int ctap_get_credential_id_size(int type)
+size_t ctap_get_credential_id_size(int type)
 {
 	if (type == PUB_KEY_CRED_CTAP1)
 		return U2F_KEY_HANDLE_SIZE;

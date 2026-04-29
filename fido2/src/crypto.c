@@ -286,7 +286,8 @@ void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig)
 	}
 }
 
-void crypto_ecc256_load_key(uint8_t *data, int len, uint8_t *data2, int len2)
+void crypto_ecc256_load_key(uint8_t *data, size_t len, uint8_t *data2,
+			    size_t len2)
 {
 	static uint8_t privkey[32];
 	crypto_derive_credential_key(data, len, data2, len2, privkey);
@@ -361,8 +362,8 @@ void crypto_hkdf_expand_sha256(const uint8_t prk[32], const uint8_t *info,
 	secure_wipe(t, sizeof(t));
 }
 
-void crypto_derive_credential_key(uint8_t *data, int len, uint8_t *data2,
-				  int len2, uint8_t *privkey)
+void crypto_derive_credential_key(uint8_t *data, size_t len, uint8_t *data2,
+				  size_t len2, uint8_t *privkey)
 {
 	// privkey = HMAC(key_cred_priv, data || data2)
 	crypto_sha256_hmac_init(key_cred_priv, 32);
@@ -466,7 +467,7 @@ void fido2_crypto_ed25519_derive_public_key(uint8_t *data, int len, uint8_t *x)
 	crypto_ed25519_key_pair(sk, x, seed);
 }
 
-void fido2_crypto_ed25519_load_key(uint8_t *data, int len)
+void fido2_crypto_ed25519_load_key(uint8_t *data, size_t len)
 {
 	uint8_t seed[crypto_sign_ed25519_SEEDBYTES];
 	uint8_t pk[crypto_sign_ed25519_PUBLICKEYBYTES];

@@ -199,7 +199,7 @@ uint8_t ctap_get_assertion_cbor_encode_assertion_response(
 		check_ret(ret);
 	}
 
-	unsigned int cred_size = ctap_get_credential_id_size(cred->type);
+	size_t cred_size = ctap_get_credential_id_size(cred->type);
 	int32_t cose_alg = ctap_restore_metadata_cose_alg(&cred->credential.id);
 	if (cose_alg == COSE_ALG_EDDSA) {
 		fido2_crypto_ed25519_load_key((uint8_t *)&cred->credential.id,

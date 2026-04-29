@@ -390,7 +390,7 @@ void ctap_derive_rp_id_info(const uint8_t *rp_id, size_t size,
 int ctap_encode_der_sig(uint8_t const *const in_sigbuf,
 			uint8_t *const out_sigder);
 void ctap_flush_state();
-unsigned int ctap_get_credential_id_size(int type);
+size_t ctap_get_credential_id_size(int type);
 void ctap_increment_rk_store();
 void ctap_init();
 int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
