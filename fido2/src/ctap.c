@@ -36,8 +36,6 @@ struct _getAssertionState getAssertionState;
 
 extern uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];
 
-static void compute_mac(const void *data, size_t data_len, uint8_t *mac,
-			size_t mac_len);
 static void derive_user_id_lookup(const uint8_t *id, size_t size,
 				  uint8_t *user_id_lookup);
 static int is_cred_id_matching_rk(const CredentialId *credId,
@@ -240,7 +238,7 @@ void ctap_derive_rp_id_info(const uint8_t *rp_id, size_t size,
 	crypto_sha256_update(rp_id, size);
 	crypto_sha256_final(rp_id_hash);
 
-	compute_mac(rp_id_hash, 32, rp_id_lookup, CREDENTIAL_TAG_SIZE);
+	ctap_compute_mac(rp_id_hash, 32, rp_id_lookup, CREDENTIAL_TAG_SIZE);
 }
 
 /**
@@ -481,8 +479,8 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 
 			// Make hmac over the reset of the rk, that we can later
 			// verify
-			compute_mac(&rk.user, RK_HMAC_SIZE, rk.rk_tag,
-				    CREDENTIAL_TAG_SIZE);
+			ctap_compute_mac(&rk.user, RK_HMAC_SIZE, rk.rk_tag,
+					 CREDENTIAL_TAG_SIZE);
 
 			int ret = ctap_overwrite_rk(&rk);
 			if (ret < 0) {
@@ -743,7 +741,7 @@ void ctap_state_init()
 int ctap_verify_mac(const uint8_t *mac, const void *data, size_t data_len)
 {
 	uint8_t local_mac[16];
-	compute_mac(data, data_len, local_mac, CREDENTIAL_TAG_SIZE);
+	ctap_compute_mac(data, data_len, local_mac, CREDENTIAL_TAG_SIZE);
 
 	return memcmp(local_mac, mac, CREDENTIAL_TAG_SIZE) == 0;
 }
@@ -833,8 +831,8 @@ void ctap_xcrypt_buf(const uint8_t *iv, const void *in, void *out,
 
 // Computes the MAC over data, using the the already generated key for computing
 // MACs
-static void compute_mac(const void *data, size_t data_len, uint8_t *mac,
-			size_t mac_len)
+void ctap_compute_mac(const void *data, size_t data_len, uint8_t *mac,
+		      size_t mac_len)
 {
 	const uint8_t *p = (const uint8_t *)data;
 	const uint8_t *mac_key = crypto_get_key_mac();
@@ -852,7 +850,7 @@ static void compute_mac(const void *data, size_t data_len, uint8_t *mac,
 static void derive_user_id_lookup(const uint8_t *id, size_t size,
 				  uint8_t *user_id_lookup)
 {
-	compute_mac(id, size, user_id_lookup, CREDENTIAL_TAG_SIZE);
+	ctap_compute_mac(id, size, user_id_lookup, CREDENTIAL_TAG_SIZE);
 }
 
 // Returns 1 if it is a match

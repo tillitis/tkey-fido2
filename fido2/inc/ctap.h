@@ -378,6 +378,9 @@ uint8_t ctap_check_credential_metadata(CredentialId *credential,
 				       uint8_t is_verified,
 				       uint8_t is_from_credid_list,
 				       uint8_t *is_rk);
+
+void ctap_compute_mac(const void *data, size_t data_len, uint8_t *mac,
+		      size_t mac_len);
 int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 				  CTAP_credentialDescriptor *desc);
 void ctap_decrement_rk_store();
