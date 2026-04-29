@@ -192,6 +192,7 @@
 #define CM_SubCmd_enumerateCredentialsBegin             0x04
 #define CM_SubCmd_enumerateCredentialsGetNextCredential 0x05
 #define CM_SubCmd_deleteCredential                      0x06
+#define CM_SubCmd_updateUserInformation                 0x07
 
 // SubCommandParams
 #define CM_SubCmdParam_rpIDHash     0x01 // Data type: Byte String
