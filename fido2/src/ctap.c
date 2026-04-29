@@ -484,7 +484,6 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 			if (ret < 0) {
 				return CTAP2_ERR_KEY_STORE_FULL;
 			}
-			ctap_increment_rk_store();
 		}
 
 		printf1(TAG_GREEN, "MADE credId:\n");

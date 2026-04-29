@@ -230,6 +230,8 @@ uint32_t ctap_rk_size(void)
 	return 200;
 }
 
+// Returns the path to the file, based on hash.
+// Supports a hash that is only one byte long.
 static void rpid_hash_to_file(char *out, size_t out_len, const uint8_t *hash)
 {
 	uint8_t file_name = hash[0] >> 4; // 0x0–0xf
@@ -253,45 +255,48 @@ int ctap_store_rk(const CTAP_residentKey *rk)
 	dump_hex1(TAG_GREEN, rk->id.rp_id_lookup, CREDENTIAL_TAG_SIZE);
 	// Append rk to the end
 	ret = fs_write(&f, rk, sizeof(CTAP_residentKey));
-	fs_close_file(&f);
+	if (ret <= 0) {
+		printf2(TAG_ERR, "write error (%d)\n", ret);
+		fs_close_file(&f);
+		return -1;
+	}
 
-	return ret;
+	fs_close_file(&f);
+	ctap_increment_rk_store();
+
+	return 0;
 }
 
 // Overwrites RK if another one with the same rk_id_lookup and user_id_lookup
 // exists. Otherwise appends it. Returns zero on success, negative on error.
 int ctap_overwrite_rk(const CTAP_residentKey *rk)
 {
-	char path[16]; // "rk/x.dat"
-	fs_file_t f = {0};
 	int ret;
 
-	rpid_hash_to_file(path, sizeof(path), rk->id.rp_id_lookup);
-
-	printf1(TAG_GREEN, "ctap_overwrite_rk: (%s)\n", path);
+	printf1(TAG_GREEN, "ctap_overwrite_rk\n");
 	dump_hex1(TAG_GREEN, rk->id.rp_id_lookup, CREDENTIAL_TAG_SIZE);
 
-	ret = fs_open_file(&f, path, LFS_O_RDWR | LFS_O_CREAT);
-	if (ret < 0) {
-		return ret;
-	}
+	ret = ctap_open_rk_file(rk->id.rp_id_lookup);
 
-	int count = fs_file_size(&f);
-	if (count < 0) {
+	if (ret < 0) {
+		ctap_close_rk_file();
 		return -1;
 	}
 
-	// Check for duplicate resident keys
-	// Calculate number of credentials stored
-	count = count / sizeof(CTAP_residentKey);
-
+	uint16_t count = ret;
 	CTAP_residentKey read_rk;
 	size_t offset = 0;
 
 	for (uint16_t i = 0; i < count; i++) {
 
 		// read next rk
-		fs_read(&f, &read_rk, sizeof(CTAP_residentKey));
+		ret = fs_read(&_f_rk, &read_rk, sizeof(CTAP_residentKey));
+		if (ret <= 0) {
+			printf2(TAG_ERR, "overwrite rk: read error (%d)\n",
+				ret);
+			ctap_close_rk_file();
+			return -1;
+		}
 
 		if (memcmp(read_rk.id.rp_id_lookup, rk->id.rp_id_lookup,
 			   CREDENTIAL_TAG_SIZE)) {
@@ -309,46 +314,56 @@ int ctap_overwrite_rk(const CTAP_residentKey *rk)
 		offset = i * sizeof(CTAP_residentKey);
 		printf1(TAG_GREEN, "ctap_overwrite_rk: overwritten (%d)\n", i);
 
-		ret = fs_write_at(&f, rk, sizeof(CTAP_residentKey), offset);
-		fs_close_file(&f);
-		return ret;
+		ret = fs_write_at(&_f_rk, rk, sizeof(CTAP_residentKey), offset);
+		if (ret <= 0) {
+			printf2(TAG_ERR, "write error (%d)\n", ret);
+			ctap_close_rk_file();
+			return -1;
+		}
+		ctap_close_rk_file();
+		return 0;
 	}
 
 	// Only reachead if no match was found, or count = 0
 	// Append rk to the end
 	printf1(TAG_GREEN, "ctap_overwrite_rk: appended\n");
 	offset = count * sizeof(CTAP_residentKey);
-	ret = fs_write_at(&f, rk, sizeof(CTAP_residentKey), offset);
-	fs_close_file(&f);
-	return ret;
+	ret = fs_write_at(&_f_rk, rk, sizeof(CTAP_residentKey), offset);
+	if (ret <= 0) {
+		printf2(TAG_ERR, "write error (%d)\n", ret);
+		ctap_close_rk_file();
+		return -1;
+	}
+
+	ctap_close_rk_file();
+	ctap_increment_rk_store();
+	return 0;
 }
 
 int ctap_delete_rk(CredentialId *id)
 {
 	CTAP_residentKey rk;
-	char path[16]; // "rk/x.dat"
-	fs_file_t f = {0};
 	int ret;
 
-	rpid_hash_to_file(path, sizeof(path), id->rp_id_lookup);
+	ret = ctap_open_rk_file(id->rp_id_lookup);
 
-	ret = fs_open_file(&f, path, LFS_O_RDWR);
-	if (ret < 0) {
-		printf1(TAG_GREEN, "delete rk: No file to open: %d \n", ret);
+	if (ret <= 0) {
+		printf1(TAG_GREEN, "delete rk: No file to open: %d\n", ret);
+		ctap_close_rk_file();
 		return -1;
 	}
 
-	int count = fs_file_size(&f);
-	if (count <= 0) {
-		return -1;
-	}
-	// Calculate number of credentials stored
-	count = count / sizeof(CTAP_residentKey);
-
+	uint16_t count = ret;
 	for (uint16_t i = 0; i < count; i++) {
 
 		// read next rk
-		fs_read(&f, &rk, sizeof(CTAP_residentKey));
+		ret = fs_read(&_f_rk, &rk, sizeof(CTAP_residentKey));
+		if (ret <= 0) {
+			printf2(TAG_ERR, "read error (%d)\n", ret);
+			ctap_close_rk_file();
+			return -1;
+		}
+
 		if (memcmp(id->rp_id_lookup, rk.id.rp_id_lookup,
 			   CREDENTIAL_TAG_SIZE)) {
 			// Not the right RPID
@@ -356,62 +371,68 @@ int ctap_delete_rk(CredentialId *id)
 		}
 
 		// The tag is unique
-		if (memcmp(id->tag, &rk.id.tag, sizeof(id->tag)) == 0) {
-			printf1(TAG_GREEN, "delete rk: found match (%d)\n", i);
+		if (memcmp(id->tag, &rk.id.tag, sizeof(id->tag)) != 0) {
+			continue;
+		}
 
-			// re-write file without this key to avoid gaps
-			CTAP_residentKey temp_rks[10];
-			int remaining =
-			    count - (i + 1); // keys after the one to delete
-			int processed = 0;
+		printf1(TAG_GREEN, "delete rk: found match (%d)\n", i);
 
-			while (remaining > 0) {
-				int to_read = remaining;
-				if (to_read > 10)
-					to_read = 10;
+		// re-write file without this key to avoid gaps
+		CTAP_residentKey temp_rks[10];
+		int remaining = count - (i + 1); // keys after the one to delete
+		int processed = 0;
 
-				// Read from position i+1+processed
-				ret = fs_read_at(&f, temp_rks,
-						 to_read *
-						     sizeof(CTAP_residentKey),
-						 (i + 1 + processed) *
-						     sizeof(CTAP_residentKey));
-				if (ret <= 0) {
-					printf1(TAG_GREEN,
-						"delete rk: read error (%d)\n",
-						ret);
-					fs_close_file(&f);
-					return -1;
-				}
+		while (remaining > 0) {
+			int to_read = remaining;
+			if (to_read > 10)
+				to_read = 10;
 
-				// Write back at position i + processed
-				ret = fs_write_at(&f, temp_rks, ret,
-						  (i + processed) *
-						      sizeof(CTAP_residentKey));
-				if (ret <= 0) {
-					printf1(TAG_GREEN,
-						"delete rk: write error (%d)\n",
-						ret);
-					fs_close_file(&f);
-					return -1;
-				}
-
-				processed += to_read;
-				remaining -= to_read;
+			// Read from position i+1+processed
+			ret = fs_read_at(&_f_rk, temp_rks,
+					 to_read * sizeof(CTAP_residentKey),
+					 (i + 1 + processed) *
+					     sizeof(CTAP_residentKey));
+			if (ret <= 0) {
+				printf2(TAG_ERR, "read error (%d)\n", ret);
+				ctap_close_rk_file();
+				return -1;
 			}
 
-			// Truncate the file at the new size
-			fs_truncate_file(&f, (count - 1) *
-						 sizeof(CTAP_residentKey));
-			fs_close_file(&f);
-			break;
+			// Write back at position i + processed
+			ret = fs_write_at(&_f_rk, temp_rks, ret,
+					  (i + processed) *
+					      sizeof(CTAP_residentKey));
+			if (ret <= 0) {
+				printf2(TAG_GREEN,
+					"delete rk: write error (%d)\n", ret);
+				ctap_close_rk_file();
+				return -1;
+			}
+
+			processed += to_read;
+			remaining -= to_read;
 		}
+
+		// Truncate the file at the new size
+		ret = fs_truncate_file(&_f_rk,
+				       (count - 1) * sizeof(CTAP_residentKey));
+		if (ret < 0) {
+			printf2(TAG_ERR, "truncate file error (%d)\n", ret);
+			ctap_close_rk_file();
+			return -1;
+		}
+
+		ctap_close_rk_file();
+		ctap_decrement_rk_store();
+		return 0;
 	}
-	return 0;
+	ctap_close_rk_file();
+	return -1;
 }
 
 // Opens the file where the RP should exist. Returns number of keys stored in
 // the file. Returns negative on error.
+// Supports that rpid_hash is only one byte long.
 int ctap_open_rk_file(const uint8_t *rpid_hash)
 {
 
@@ -420,7 +441,7 @@ int ctap_open_rk_file(const uint8_t *rpid_hash)
 
 	rpid_hash_to_file(path, sizeof(path), rpid_hash);
 
-	ret = fs_open_file(&_f_rk, path, LFS_O_RDONLY);
+	ret = fs_open_file(&_f_rk, path, LFS_O_RDWR | LFS_O_CREAT);
 	if (ret < 0) {
 		return -1;
 	}
@@ -434,7 +455,7 @@ int ctap_open_rk_file(const uint8_t *rpid_hash)
 
 int ctap_close_rk_file(void)
 {
-	printf1(TAG_GREEN, "ctap_close_rk_file\n");
+	printf1(TAG_GREEN, "ctap_close_rk_file\r\n");
 	return fs_close_file(&_f_rk);
 }
 
