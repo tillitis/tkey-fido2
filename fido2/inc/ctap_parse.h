@@ -31,5 +31,6 @@ uint8_t
 ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 					CTAP_credentialDescriptor *cred);
 uint8_t ctap_parse_rp_id(struct rpId *rp, CborValue *val);
+uint8_t ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val);
 
 #endif

@@ -251,3 +251,115 @@ uint8_t ctap_parse_rp_id(struct rpId *rp, CborValue *val)
 	rp->size = sz;
 	return 0;
 }
+
+uint8_t ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
+{
+	size_t sz, map_length;
+	uint8_t key[24];
+	int ret;
+	unsigned int i;
+	CborValue map;
+
+	if (cbor_value_get_type(val) != CborMapType) {
+		printf2(TAG_ERR, "error, wrong type\n");
+		return CTAP2_ERR_INVALID_CBOR;
+	}
+
+	ret = cbor_value_enter_container(val, &map);
+	check_ret(ret);
+
+	ret = cbor_value_get_map_length(val, &map_length);
+	check_ret(ret);
+
+	for (i = 0; i < map_length; i++) {
+		if (cbor_value_get_type(&map) != CborTextStringType) {
+			printf2(TAG_ERR,
+				"Error, expecting text string type for user "
+				"map key, got %s\n",
+				cbor_value_get_type_string(&map));
+			return CTAP2_ERR_INVALID_CBOR;
+		}
+
+		sz = sizeof(key);
+		ret = cbor_value_copy_text_string(&map, (char *)key, &sz, NULL);
+
+		if (ret == CborErrorOutOfMemory) {
+			printf2(TAG_ERR, "Error, rp map key is too large\n");
+			return CTAP2_ERR_LIMIT_EXCEEDED;
+		}
+
+		check_ret(ret);
+		key[sizeof(key) - 1] = 0;
+
+		ret = cbor_value_advance(&map);
+		check_ret(ret);
+
+		if (strcmp((const char *)key, "id") == 0) {
+
+			if (cbor_value_get_type(&map) != CborByteStringType) {
+				printf2(TAG_ERR, "Error, expecting byte string "
+						 "type for rp map value\n");
+				return CTAP2_ERR_INVALID_CBOR;
+			}
+
+			sz = USER_ID_MAX_SIZE;
+			ret = cbor_value_copy_byte_string(&map, user->id, &sz,
+							  NULL);
+			if (ret == CborErrorOutOfMemory) {
+				printf2(TAG_ERR,
+					"Error, USER_ID is too large\n");
+				return CTAP2_ERR_LIMIT_EXCEEDED;
+			}
+			user->id_size = sz;
+			check_ret(ret);
+		} else if (strcmp((const char *)key, "name") == 0) {
+			if (cbor_value_get_type(&map) != CborTextStringType) {
+				printf2(TAG_ERR, "Error, expecting text string "
+						 "type for user.name value\n");
+				return CTAP2_ERR_INVALID_CBOR;
+			}
+			sz = USER_NAME_LIMIT;
+			ret = cbor_value_copy_text_string(
+			    &map, (char *)user->name, &sz, NULL);
+			if (ret != CborErrorOutOfMemory) { // Just truncate the
+							   // name it's okay
+				check_ret(ret);
+			}
+			user->name[USER_NAME_LIMIT - 1] = 0;
+		} else if (strcmp((const char *)key, "displayName") == 0) {
+			if (cbor_value_get_type(&map) != CborTextStringType) {
+				printf2(TAG_ERR,
+					"Error, expecting text string type for "
+					"user.displayName value\n");
+				return CTAP2_ERR_INVALID_CBOR;
+			}
+			sz = DISPLAY_NAME_LIMIT;
+			ret = cbor_value_copy_text_string(
+			    &map, (char *)user->displayName, &sz, NULL);
+			if (ret != CborErrorOutOfMemory) { // Just truncate the
+							   // name it's okay
+				check_ret(ret);
+			}
+			user->displayName[DISPLAY_NAME_LIMIT - 1] = 0;
+		} else if (strcmp((const char *)key, "icon") == 0) {
+			// Icon is deprecated, don't store it.
+			// Still need to parse it and return error if it is
+			// malformed.
+
+			if (cbor_value_get_type(&map) != CborTextStringType) {
+				printf2(TAG_ERR, "Error, expecting text string "
+						 "type for user.icon value\n");
+				return CTAP2_ERR_INVALID_CBOR;
+			}
+
+		} else {
+			printf1(TAG_PARSE, "ignoring key %s for user map\n",
+				key);
+		}
+
+		ret = cbor_value_advance(&map);
+		check_ret(ret);
+	}
+
+	return 0;
+}

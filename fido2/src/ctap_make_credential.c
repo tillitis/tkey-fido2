@@ -22,7 +22,6 @@ static uint8_t parse_pubkey_credential_params(CborValue *val,
 					      uint8_t *cred_type,
 					      int32_t *alg_type);
 static uint8_t parse_relying_party_entity(struct rpId *rp, CborValue *val);
-static uint8_t parse_user_entity(CTAP_makeCredential *MC, CborValue *val);
 
 uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 {
@@ -412,7 +411,10 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 		case MC_Cmd_user:
 			printf1(TAG_MC, "MC_Cmd_user\n");
 
-			ret = parse_user_entity(MC, &map);
+			ret = ctap_parse_user_entity(&MC->credInfo.user, &map);
+			if (ret == 0) {
+				MC->paramsParsed |= PARAM_user;
+			}
 
 			printf1(TAG_MC, "  ID:\n");
 			dump_hex1(TAG_MC, MC->credInfo.user.id,
@@ -636,122 +638,6 @@ static uint8_t parse_relying_party_entity(struct rpId *rp, CborValue *val)
 		printf2(TAG_ERR, "Error, no RPID provided\n");
 		return CTAP2_ERR_MISSING_PARAMETER;
 	}
-
-	return 0;
-}
-
-static uint8_t parse_user_entity(CTAP_makeCredential *MC, CborValue *val)
-{
-	size_t sz, map_length;
-	uint8_t key[24];
-	int ret;
-	unsigned int i;
-	CborValue map;
-
-	if (cbor_value_get_type(val) != CborMapType) {
-		printf2(TAG_ERR, "error, wrong type\n");
-		return CTAP2_ERR_INVALID_CBOR;
-	}
-
-	ret = cbor_value_enter_container(val, &map);
-	check_ret(ret);
-
-	ret = cbor_value_get_map_length(val, &map_length);
-	check_ret(ret);
-
-	for (i = 0; i < map_length; i++) {
-		if (cbor_value_get_type(&map) != CborTextStringType) {
-			printf2(TAG_ERR,
-				"Error, expecting text string type for user "
-				"map key, got %s\n",
-				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR;
-		}
-
-		sz = sizeof(key);
-		ret = cbor_value_copy_text_string(&map, (char *)key, &sz, NULL);
-
-		if (ret == CborErrorOutOfMemory) {
-			printf2(TAG_ERR, "Error, rp map key is too large\n");
-			return CTAP2_ERR_LIMIT_EXCEEDED;
-		}
-
-		check_ret(ret);
-		key[sizeof(key) - 1] = 0;
-
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
-
-		if (strcmp((const char *)key, "id") == 0) {
-
-			if (cbor_value_get_type(&map) != CborByteStringType) {
-				printf2(TAG_ERR, "Error, expecting byte string "
-						 "type for rp map value\n");
-				return CTAP2_ERR_INVALID_CBOR;
-			}
-
-			sz = USER_ID_MAX_SIZE;
-			ret = cbor_value_copy_byte_string(
-			    &map, MC->credInfo.user.id, &sz, NULL);
-			if (ret == CborErrorOutOfMemory) {
-				printf2(TAG_ERR,
-					"Error, USER_ID is too large\n");
-				return CTAP2_ERR_LIMIT_EXCEEDED;
-			}
-			MC->credInfo.user.id_size = sz;
-			check_ret(ret);
-		} else if (strcmp((const char *)key, "name") == 0) {
-			if (cbor_value_get_type(&map) != CborTextStringType) {
-				printf2(TAG_ERR, "Error, expecting text string "
-						 "type for user.name value\n");
-				return CTAP2_ERR_INVALID_CBOR;
-			}
-			sz = USER_NAME_LIMIT;
-			ret = cbor_value_copy_text_string(
-			    &map, (char *)MC->credInfo.user.name, &sz, NULL);
-			if (ret != CborErrorOutOfMemory) { // Just truncate the
-							   // name it's okay
-				check_ret(ret);
-			}
-			MC->credInfo.user.name[USER_NAME_LIMIT - 1] = 0;
-		} else if (strcmp((const char *)key, "displayName") == 0) {
-			if (cbor_value_get_type(&map) != CborTextStringType) {
-				printf2(TAG_ERR,
-					"Error, expecting text string type for "
-					"user.displayName value\n");
-				return CTAP2_ERR_INVALID_CBOR;
-			}
-			sz = DISPLAY_NAME_LIMIT;
-			ret = cbor_value_copy_text_string(
-			    &map, (char *)MC->credInfo.user.displayName, &sz,
-			    NULL);
-			if (ret != CborErrorOutOfMemory) { // Just truncate the
-							   // name it's okay
-				check_ret(ret);
-			}
-			MC->credInfo.user.displayName[DISPLAY_NAME_LIMIT - 1] =
-			    0;
-		} else if (strcmp((const char *)key, "icon") == 0) {
-			// Icon is deprecated, don't store it.
-			// Still need to parse it and return error if it is
-			// malformed.
-
-			if (cbor_value_get_type(&map) != CborTextStringType) {
-				printf2(TAG_ERR, "Error, expecting text string "
-						 "type for user.icon value\n");
-				return CTAP2_ERR_INVALID_CBOR;
-			}
-
-		} else {
-			printf1(TAG_PARSE, "ignoring key %s for user map\n",
-				key);
-		}
-
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
-	}
-
-	MC->paramsParsed |= PARAM_user;
 
 	return 0;
 }
