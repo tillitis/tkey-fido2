@@ -192,7 +192,7 @@ static uint8_t cbor_encode_credential_metadata(CborEncoder *encoder)
 	check_ret(ret);
 	ret = cbor_encode_int(&map, 2);
 	check_ret(ret);
-	int remaining_rks = ctap_rk_size() - STATE.rk_stored;
+	int remaining_rks = ctap_max_number_of_rks() - STATE.rk_stored;
 	ret = cbor_encode_int(&map, remaining_rks);
 	check_ret(ret);
 	ret = cbor_encoder_close_container(encoder, &map);
@@ -495,7 +495,7 @@ static int scan_for_next_relying_party(int index)
 		occurs_previously = 0;
 
 		index++;
-		if ((unsigned int)index >= ctap_rk_size()) {
+		if ((unsigned int)index >= ctap_max_number_of_rks()) {
 			return -1;
 		}
 
@@ -543,7 +543,7 @@ static int scan_for_next_resident_key(int index, uint8_t *initialRpIdHash)
 
 	do {
 		index++;
-		if ((unsigned int)index >= ctap_rk_size()) {
+		if ((unsigned int)index >= ctap_max_number_of_rks()) {
 			return -1;
 		}
 		// TODO: Needs to be updated to new load_rk api

@@ -449,6 +449,10 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 
 		// resident key
 		if (credInfo->rk) {
+			// Check for space
+			if (STATE.rk_stored >= ctap_max_number_of_rks()) {
+				return CTAP2_ERR_KEY_STORE_FULL;
+			}
 			// Fill credential
 			memmove(&rk.id, &authData->attest.id,
 				sizeof(CredentialId));
@@ -467,7 +471,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 
 			// Fill RK nonce
 			ctap_generate_rng(rk.rk_nonce, CREDENTIAL_NONCE_SIZE);
-			printf1(TAG_MC, "rk.rk_nonce");
+			printf1(TAG_MC, "rk.rk_nonce\n");
 			dump_hex1(TAG_MC, rk.rk_nonce, CREDENTIAL_NONCE_SIZE);
 
 			// Encrypting sensitive data (userEntity and rpEntity)
@@ -482,7 +486,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 
 			int ret = ctap_overwrite_rk(&rk);
 			if (ret < 0) {
-				return CTAP2_ERR_KEY_STORE_FULL;
+				return CTAP1_ERR_OTHER;
 			}
 		}
 

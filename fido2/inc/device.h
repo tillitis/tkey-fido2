@@ -141,9 +141,8 @@ void ctap_reset_rk();
  * @return max number of resident keys that can be stored, including already
  * stored RK's.
  *
- * *Optional*, if not implemented, returns 50.
  */
-uint32_t ctap_rk_size();
+uint32_t ctap_max_number_of_rks();
 
 /** Store a resident key. Will be appended to the file detemened by the first
  * nibble in the rpid hash. Storage should be in non-volatile memory.

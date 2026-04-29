@@ -224,9 +224,8 @@ void ctap_reset_rk(void)
 	fs_dir_del("rk");
 }
 
-uint32_t ctap_rk_size(void)
+uint32_t ctap_max_number_of_rks(void)
 {
-	// return RK_NUM_PAGES * (PAGE_SIZE / sizeof(CTAP_residentKey));
 	return 200;
 }
 
