@@ -149,7 +149,8 @@ TARGET_OBJDUMPFLAGS := \
 TARGET_DEFINES := \
                   -DAES256=1 \
                   -DENABLE_U2F \
-                  -DuECC_PLATFORM=0
+                  -DuECC_PLATFORM=0 \
+                  -DLFS_NO_MALLOC
 
 # Check invalid combinations
 ifneq ($(QEMU)$(DEBUG),)
@@ -159,9 +160,6 @@ $(error QEMU and DEBUG cannot be enabled at the same time)
 endif
 endif
 endif
-
-# Common defines
-TARGET_DEFINES += -DLFS_NO_MALLOC
 
 # QEMU Debugging
 ifdef QEMU
