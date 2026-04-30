@@ -357,23 +357,22 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 		switch (key) {
 		case CP_Cmd_pinUvAuthProtocol:
 			printf1(TAG_CP, "CP_Cmd_pinUvAuthProtocol\n");
-			if (cbor_value_get_type(&map) == CborIntegerType) {
-				cbor_value_get_int_checked(&map,
-							   &CP->pinProtocol);
-				check_ret(ret);
-			} else {
+			if (cbor_value_get_type(&map) != CborIntegerType) {
 				return CTAP2_ERR_INVALID_CBOR;
 			}
+
+			cbor_value_get_int_checked(&map, &CP->pinProtocol);
+			check_ret(ret);
+
 			break;
 		case CP_Cmd_subCommand:
 			printf1(TAG_CP, "CP_Cmd_subCommand\n");
-			if (cbor_value_get_type(&map) == CborIntegerType) {
-				cbor_value_get_int_checked(&map,
-							   &CP->subCommand);
-				check_ret(ret);
-			} else {
+			if (cbor_value_get_type(&map) != CborIntegerType) {
 				return CTAP2_ERR_INVALID_CBOR;
 			}
+
+			cbor_value_get_int_checked(&map, &CP->subCommand);
+			check_ret(ret);
 
 			break;
 		case CP_Cmd_keyAgreement:
@@ -381,6 +380,7 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			ret = cose_key_parse(&map, &CP->keyAgreement);
 			check_retr(ret);
 			CP->keyAgreementPresent = 1;
+
 			break;
 		case CP_Cmd_pinUvAuthParam:
 			printf1(TAG_CP, "CP_Cmd_pinUvAuthParam\n");
@@ -389,26 +389,26 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			    &map, CP->pinAuth, 16);
 			check_retr(ret);
 			CP->pinAuthPresent = 1;
+
 			break;
 		case CP_Cmd_newPinEnc:
 			printf1(TAG_CP, "CP_Cmd_newPinEnc\n");
-			if (cbor_value_get_type(&map) == CborByteStringType) {
-				ret = cbor_value_calculate_string_length(&map,
-									 &sz);
-				check_ret(ret);
-				if (sz > NEW_PIN_ENC_MAX_SIZE ||
-				    sz < NEW_PIN_ENC_MIN_SIZE) {
-					return CTAP2_ERR_PIN_POLICY_VIOLATION;
-				}
-
-				CP->newPinEncSize = sz;
-				sz = NEW_PIN_ENC_MAX_SIZE;
-				ret = cbor_value_copy_byte_string(
-				    &map, CP->newPinEnc, &sz, NULL);
-				check_ret(ret);
-			} else {
+			if (cbor_value_get_type(&map) != CborByteStringType) {
 				return CTAP2_ERR_INVALID_CBOR;
 			}
+
+			ret = cbor_value_calculate_string_length(&map, &sz);
+			check_ret(ret);
+			if (sz > NEW_PIN_ENC_MAX_SIZE ||
+			    sz < NEW_PIN_ENC_MIN_SIZE) {
+				return CTAP2_ERR_PIN_POLICY_VIOLATION;
+			}
+
+			CP->newPinEncSize = sz;
+			sz = NEW_PIN_ENC_MAX_SIZE;
+			ret = cbor_value_copy_byte_string(&map, CP->newPinEnc,
+							  &sz, NULL);
+			check_ret(ret);
 
 			break;
 		case CP_Cmd_pinHashEnc:
@@ -420,35 +420,13 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			CP->pinHashEncPresent = 1;
 
 			break;
-		// TODO - Remove?
-		/*
-		case CP_getKeyAgreement:
-			printf1(TAG_CP, "CP_getKeyAgreement\n");
-			if (cbor_value_get_type(&map) != CborBooleanType) {
-				printf2(TAG_ERR,
-					"Error, expecting cbor boolean\n");
-				return CTAP2_ERR_INVALID_CBOR;
-			}
-			ret =
-			    cbor_value_get_boolean(&map, &CP->getKeyAgreement);
-			check_ret(ret);
-			break;
-		case CP_getRetries:
-			printf1(TAG_CP, "CP_getRetries\n");
-			if (cbor_value_get_type(&map) != CborBooleanType) {
-				printf2(TAG_ERR,
-					"Error, expecting cbor boolean\n");
-				return CTAP2_ERR_INVALID_CBOR;
-			}
-			ret = cbor_value_get_boolean(&map, &CP->getRetries);
-			check_ret(ret);
-			break;
-		*/
 		case CP_Cmd_permissions:
 			printf1(TAG_CP, "CP_Cmd_permissions\n");
+
 			break;
 		case CP_Cmd_rpId:
 			printf1(TAG_CP, "CP_Cmd_rpId\n");
+
 			break;
 		default:
 			printf1(TAG_CP, "Unknown key %d\n", key);
