@@ -74,9 +74,11 @@ int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
 	switch (algtype) {
 	case COSE_ALG_ES256:
 		crypto_ecc256_derive_public_key(hmac_input, len, x, y);
+
 		break;
 	case COSE_ALG_EDDSA:
 		fido2_crypto_ed25519_derive_public_key(hmac_input, len, x);
+
 		break;
 	default:
 		printf2(TAG_ERR, "Error, COSE alg %d not supported\n", algtype);
@@ -126,26 +128,27 @@ uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 		switch (key) {
 		case COSE_KEY_LABEL_KTY:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_KTY\n");
-			if (cbor_value_get_type(&map) == CborIntegerType) {
-				ret = cbor_value_get_int_checked(&map,
-								 &cose->kty);
-				check_ret(ret);
-			} else {
+			if (cbor_value_get_type(&map) != CborIntegerType) {
 				return CTAP2_ERR_INVALID_CBOR;
 			}
+
+			ret = cbor_value_get_int_checked(&map, &cose->kty);
+			check_ret(ret);
+
 			break;
 		case COSE_KEY_LABEL_ALG:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_ALG\n");
+
 			break;
 		case COSE_KEY_LABEL_CRV:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_CRV\n");
-			if (cbor_value_get_type(&map) == CborIntegerType) {
-				ret = cbor_value_get_int_checked(&map,
-								 &cose->crv);
-				check_ret(ret);
-			} else {
+			if (cbor_value_get_type(&map) != CborIntegerType) {
 				return CTAP2_ERR_INVALID_CBOR;
 			}
+
+			ret = cbor_value_get_int_checked(&map, &cose->crv);
+			check_ret(ret);
+
 			break;
 		case COSE_KEY_LABEL_X:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_X\n");
