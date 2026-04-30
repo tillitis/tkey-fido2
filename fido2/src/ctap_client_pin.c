@@ -219,6 +219,19 @@ void ctap_client_pin_reset_attempts()
 	ctap_flush_state();
 }
 
+void ctap_client_pin_reset_key_agreement()
+{
+	ctap_generate_rng(KEY_AGREEMENT_PRIV, sizeof(KEY_AGREEMENT_PRIV));
+}
+
+void ctap_client_pin_reset_pin_token()
+{
+	if (ctap_generate_rng(PIN_TOKEN, PIN_TOKEN_SIZE) != 1) {
+		printf2(TAG_ERR, "Error, rng failed\n");
+		exit(1);
+	}
+}
+
 uint8_t ctap_client_pin_verify_auth(uint8_t *pinAuth, uint8_t *clientDataHash)
 {
 	return ctap_client_pin_verify_auth_ex(pinAuth, clientDataHash,
@@ -279,7 +292,7 @@ static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
 		printf2(TAG_ERR, "device-pubkey:\n");
 		dump_hex1(TAG_ERR, KEY_AGREEMENT_PUB, 64);
 		// Generate new keyAgreement pair
-		ctap_reset_key_agreement();
+		ctap_client_pin_reset_key_agreement();
 		ctap_client_pin_decrement_attempts();
 		if (ctap_client_pin_is_boot_locked()) {
 			return CTAP2_ERR_PIN_AUTH_BLOCKED;
@@ -572,7 +585,7 @@ uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
 		crypto_sha256_final(pinHashEncSalted);
 
 		if (memcmp(pinHashEncSalted, STATE.PIN_CODE_HASH, 16) != 0) {
-			ctap_reset_key_agreement();
+			ctap_client_pin_reset_key_agreement();
 			ctap_client_pin_decrement_attempts();
 			if (ctap_client_pin_is_boot_locked()) {
 				return CTAP2_ERR_PIN_AUTH_BLOCKED;

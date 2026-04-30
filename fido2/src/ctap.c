@@ -356,7 +356,7 @@ void ctap_init()
 		exit(1);
 	}
 
-	ctap_reset_key_agreement();
+	ctap_client_pin_reset_key_agreement();
 }
 
 int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,

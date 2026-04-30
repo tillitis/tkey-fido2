@@ -5,7 +5,6 @@
 #define _CTAP_RESET_H_
 
 void ctap_reset();
-void ctap_reset_key_agreement();
 void ctap_reset_state();
 
 #endif
