@@ -359,27 +359,28 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 
 	if (is_init_pkt(pkt)) {
 		if (ctaphid_packet_len(pkt) != 8) {
-			printf2(TAG_ERR,
-				"Error,invalid length field for init packet\n");
+			printf2(
+			    TAG_ERR,
+			    "Error, invalid length field for init packet\n");
 			*cmd = CTAP1_ERR_INVALID_LENGTH;
 			return HID_ERROR;
 		}
 		if (pkt->cid == 0) {
-			printf2(TAG_ERR, "Error, invalid cid 0\n");
+			printf2(TAG_ERR, "Error, invalid CID 0\n");
 			*cmd = CTAP1_ERR_INVALID_CHANNEL;
 			return HID_ERROR;
 		}
 
 		ctaphid_init();
 		if (is_broadcast(pkt)) {
-			// Check if any existing cids are busy first ?
-			printf1(TAG_HID, "adding a new cid\n");
+			// Check if any existing CIDs are busy first ?
+			printf1(TAG_HID, "Adding a new CID\n");
 			oldcid = CTAPHID_BROADCAST_CID;
 			newcid = get_new_cid();
 			ret = add_cid(newcid);
 			// handle init here
 		} else {
-			printf1(TAG_HID, "synchronizing to cid\n");
+			printf1(TAG_HID, "Synchronizing to CID\n");
 			oldcid = pkt->cid;
 			newcid = pkt->cid;
 			if (cid_exists(newcid))
@@ -389,7 +390,7 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 		}
 		if (ret == -1) {
 			printf2(TAG_ERR, "Error, not enough memory for new "
-					 "CID.  return BUSY.\n");
+					 "CID. Return BUSY\n");
 			*cmd = CTAP1_ERR_CHANNEL_BUSY;
 			return HID_ERROR;
 		}
@@ -428,7 +429,7 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 						return HID_ERROR;
 					} else {
 						printf2(TAG_ERR,
-							"ignoring random cont "
+							"Ignoring random cont "
 							"packet from %04x\n",
 							pkt->cid);
 						return HID_IGNORE;
@@ -446,7 +447,7 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 				if (buffer_status() == EMPTY ||
 				    pkt->cid != buffer_cid()) {
 					printf2(TAG_ERR,
-						"ignoring random cont packet "
+						"Ignoring random cont packet "
 						"from %04x\n",
 						pkt->cid);
 					return HID_IGNORE;
@@ -460,11 +461,11 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 			}
 			ret = cid_refresh(pkt->cid);
 			if (ret != 0) {
-				printf2(TAG_ERR, "Error, refresh cid failed\n");
+				printf2(TAG_ERR, "Error, refresh CID failed\n");
 				exit(1);
 			}
 		} else if (is_cont_pkt(pkt)) {
-			printf2(TAG_ERR, "ignoring unwarranted cont packet\n");
+			printf2(TAG_ERR, "Ignoring unwarranted cont packet\n");
 
 			// Ignore
 			return HID_IGNORE;
@@ -564,7 +565,7 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 		if (len == 0) {
 			printf2(
 			    TAG_ERR,
-			    "Error,invalid 0 length field for cbor packet\n");
+			    "Error, invalid 0 length field for CBOR packet\n");
 			ctaphid_send_error(cid, CTAP1_ERR_INVALID_LENGTH);
 			return 0;
 		}
@@ -593,7 +594,7 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 
 		printf1(TAG_HID, "CTAPHID_MSG\n");
 		if (len == 0) {
-			printf2(TAG_ERR, "Error,invalid 0 length field for "
+			printf2(TAG_ERR, "Error, invalid 0 length field for "
 					 "MSG/U2F packet\n");
 			ctaphid_send_error(cid, CTAP1_ERR_INVALID_LENGTH);
 			return 0;
