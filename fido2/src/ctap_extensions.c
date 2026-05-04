@@ -172,7 +172,7 @@ uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 	bool b;
 
 	if (cbor_value_get_type(val) != CborMapType) {
-		printf2(TAG_ERR, "error, wrong type\n");
+		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 
@@ -267,7 +267,7 @@ static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
 	CborValue map;
 
 	if (cbor_value_get_type(val) != CborMapType) {
-		printf2(TAG_ERR, "error, wrong type\n");
+		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 

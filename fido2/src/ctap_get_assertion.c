@@ -31,7 +31,8 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 	int ret = parse_get_assertion_request(&GA, request, length);
 
 	if (ret != 0) {
-		printf2(TAG_ERR, "error, parse_get_assertion failed\n");
+		printf2(TAG_ERR,
+			"Error, parse_get_assertion_request() failed\n");
 		return ret;
 	}
 
@@ -421,8 +422,7 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			       &parser, &it);
 	check_ret(ret);
 
-	CborType type = cbor_value_get_type(&it);
-	if (type != CborMapType) {
+	if (cbor_value_get_type(&it) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
@@ -436,8 +436,7 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 	printf1(TAG_GA, "GA map has %d elements\n", map_length);
 
 	for (i = 0; i < map_length; i++) {
-		type = cbor_value_get_type(&map);
-		if (type != CborIntegerType) {
+		if (cbor_value_get_type(&map) != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
 			return CTAP2_ERR_INVALID_CBOR;
 		}
@@ -528,7 +527,7 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			break;
 		}
 		if (ret != 0) {
-			printf2(TAG_ERR, "error, parsing failed\n");
+			printf2(TAG_ERR, "Error, parsing failed\n");
 			return ret;
 		}
 

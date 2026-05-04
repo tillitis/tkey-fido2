@@ -641,7 +641,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 
 	default:
 		status = CTAP1_ERR_INVALID_COMMAND;
-		printf2(TAG_ERR, "error, invalid cmd: 0x%02x\n", cmd);
+		printf2(TAG_ERR, "Error, invalid cmd: 0x%02x\n", cmd);
 	}
 
 done:
@@ -728,7 +728,7 @@ void ctap_state_init()
 	ctap_reset_rk();
 
 	if (ctap_generate_rng(STATE.PIN_SALT, sizeof(STATE.PIN_SALT)) != 1) {
-		printf2(TAG_ERR, "Error, rng failed\n");
+		printf2(TAG_ERR, "Error, ctap_generate_rng() failed\n");
 		exit(1);
 	}
 

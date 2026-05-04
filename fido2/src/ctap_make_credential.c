@@ -37,7 +37,7 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 	ret = parse_make_credential(&MC, encoder, request, length);
 
 	if (ret != 0) {
-		printf2(TAG_ERR, "error, parse_make_credential failed\n");
+		printf2(TAG_ERR, "Error, parse_make_credential() failed\n");
 		return ret;
 	}
 	if (MC.pinAuthEmpty) {
@@ -48,13 +48,13 @@ uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
 			   : CTAP2_ERR_PIN_NOT_SET;
 	}
 	if ((MC.paramsParsed & MC_requiredMask) != MC_requiredMask) {
-		printf2(TAG_ERR, "error, required parameter(s) for "
+		printf2(TAG_ERR, "Error, required parameter(s) for "
 				 "makeCredential are missing\n");
 		return CTAP2_ERR_MISSING_PARAMETER;
 	}
 
 	if (ctap_client_pin_is_set() == 1 && MC.pinAuthPresent == 0) {
-		printf2(TAG_ERR, "pinAuth is required\n");
+		printf2(TAG_ERR, "Error, pinAuth is required\n");
 		return CTAP2_ERR_PUAT_REQUIRED;
 	} else {
 		if (ctap_client_pin_is_set() || (MC.pinAuthPresent)) {
@@ -260,7 +260,7 @@ static uint8_t find_supported_pubkey_credential_param(CTAP_makeCredential *MC,
 	CborValue arr;
 
 	if (cbor_value_get_type(val) != CborArrayType) {
-		printf2(TAG_ERR, "error, expecting array type\n");
+		printf2(TAG_ERR, "Error, expecting cbor array\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 
@@ -324,7 +324,7 @@ static uint8_t parse_exclude_list(CborValue *val)
 	size_t size;
 	CTAP_credentialDescriptor cred;
 	if (cbor_value_get_type(val) != CborArrayType) {
-		printf2(TAG_ERR, "error, exclude list is not a map\n");
+		printf2(TAG_ERR, "Error, exclude list is not a map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 	ret = cbor_value_get_array_length(val, &size);
@@ -357,8 +357,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			       &parser, &it);
 	check_retr(ret);
 
-	CborType type = cbor_value_get_type(&it);
-	if (type != CborMapType) {
+	if (cbor_value_get_type(&it) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_CBOR_UNEXPECTED_TYPE;
 	}
@@ -372,8 +371,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 	printf1(TAG_MC, "map has %d elements\n", map_length);
 
 	for (i = 0; i < map_length; i++) {
-		type = cbor_value_get_type(&map);
-		if (type != CborIntegerType) {
+		if (cbor_value_get_type(&map) != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
 			return CTAP2_ERR_CBOR_UNEXPECTED_TYPE;
 		}
@@ -450,8 +448,8 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			break;
 		case MC_Cmd_extensions:
 			printf1(TAG_MC, "MC_Cmd_extensions\n");
-			type = cbor_value_get_type(&map);
-			if (type != CborMapType) {
+			if (cbor_value_get_type(&map) != CborMapType) {
+				printf2(TAG_ERR, "Error, expecting cbor map\n");
 				return CTAP2_ERR_INVALID_CBOR;
 			}
 			ret =
@@ -525,7 +523,7 @@ static uint8_t parse_pubkey_credential_params(CborValue *val,
 	size_t sz = sizeof(type_str);
 
 	if (cbor_value_get_type(val) != CborMapType) {
-		printf2(TAG_ERR, "error, expecting map type, got %s\n",
+		printf2(TAG_ERR, "Error, expecting cbor map, got %s\n",
 			cbor_value_get_type_string(val));
 		return CTAP2_ERR_INVALID_CBOR;
 	}
@@ -573,7 +571,7 @@ static uint8_t parse_relying_party_entity(struct rpId *rp, CborValue *val)
 	CborValue map;
 
 	if (cbor_value_get_type(val) != CborMapType) {
-		printf2(TAG_ERR, "error, wrong type\n");
+		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 

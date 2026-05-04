@@ -150,7 +150,7 @@ void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size)
 	int ret = attestation_read_key(&key_attest);
 
 	if (ret < 0) {
-		printf2(TAG_GREEN, "Device_attestation_read_key failed\n");
+		printf2(TAG_GREEN, "attestation_read_key() failed\n");
 		return;
 	}
 
@@ -277,7 +277,7 @@ void crypto_ecc256_load_attestation_key(void)
 void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig)
 {
 	if (uECC_sign(_signing_key, data, len, sig, _es256_curve) == 0) {
-		printf2(TAG_ERR, "error, uECC failed\n");
+		printf2(TAG_ERR, "Error, uECC_sign() failed\n");
 		exit(1);
 	}
 
@@ -401,7 +401,7 @@ void crypto_load_external_key(uint8_t *key, int len)
 void crypto_ecc256_make_key_pair(uint8_t *pubkey, uint8_t *privkey)
 {
 	if (uECC_make_key(pubkey, privkey, _es256_curve) != 1) {
-		printf2(TAG_ERR, "Error, uECC_make_key failed\n");
+		printf2(TAG_ERR, "Error, uECC_make_key() failed\n");
 		exit(1);
 	}
 }
@@ -411,7 +411,7 @@ void crypto_ecc256_shared_secret(const uint8_t *pubkey, const uint8_t *privkey,
 {
 	if (uECC_shared_secret(pubkey, privkey, shared_secret, _es256_curve) !=
 	    1) {
-		printf2(TAG_ERR, "Error, uECC_shared_secret failed\n");
+		printf2(TAG_ERR, "Error, uECC_shared_secret() failed\n");
 		exit(1);
 	}
 }

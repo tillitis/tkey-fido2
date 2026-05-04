@@ -80,7 +80,7 @@ uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 	cred->type = 0;
 
 	if (cbor_value_get_type(arr) != CborMapType) {
-		printf2(TAG_ERR, "Error, CborMapType expected in credential\n");
+		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 
@@ -173,7 +173,7 @@ uint8_t ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
 	CborValue map;
 
 	if (cbor_value_get_type(val) != CborMapType) {
-		printf2(TAG_ERR, "error, wrong type\n");
+		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 
@@ -261,7 +261,7 @@ uint8_t ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 	CborValue map;
 
 	if (cbor_value_get_type(val) != CborMapType) {
-		printf2(TAG_ERR, "error, wrong type\n");
+		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 

@@ -72,7 +72,9 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 	int ret = parse_credential_management_request(&CM, request, length);
 	if (ret != 0) {
-		printf2(TAG_ERR, "error, ctap_parse_cred_mgmt failed\n");
+		printf2(
+		    TAG_ERR,
+		    "Error, parse_credential_management_request() failed\n");
 		return ret;
 	}
 	ret = verify_pin_auth_for_credential_management(&CM);
@@ -188,7 +190,9 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 		break;
 	default:
-		printf2(TAG_ERR, "error, invalid credMgmt cmd: 0x%02x\n",
+		printf2(TAG_ERR,
+			"Error, invalid CTAP_CREDENTIAL_MANAGEMENT subCommand: "
+			"0x%02x\n",
 			CM.subCommand);
 		return CTAP1_ERR_INVALID_COMMAND;
 	}
@@ -465,14 +469,14 @@ static uint8_t parse_credential_management_request(CTAP_credMgmt *CM,
 		switch (key) {
 		case CM_Cmd_subCommand:
 			printf1(TAG_PARSE, "CM_Cmd_subCommand\n");
-			if (cbor_value_get_type(&map) == CborIntegerType) {
-				ret = cbor_value_get_int_checked(
-				    &map, &CM->subCommand);
-				check_ret(ret);
-				CM->hashed.subCommand = CM->subCommand;
-			} else {
+			if (cbor_value_get_type(&map) != CborIntegerType) {
+				printf2(TAG_ERR,
+					"Error, expecting int for map key\n");
 				return CTAP2_ERR_INVALID_CBOR;
 			}
+			ret = cbor_value_get_int_checked(&map, &CM->subCommand);
+			check_ret(ret);
+			CM->hashed.subCommand = CM->subCommand;
 			break;
 		case CM_Cmd_subCommandParams:
 			printf1(TAG_PARSE, "CM_Cmd_subCommandParams\n");
@@ -482,13 +486,14 @@ static uint8_t parse_credential_management_request(CTAP_credMgmt *CM,
 			break;
 		case CM_Cmd_pinUvAuthProtocol:
 			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthProtocol\n");
-			if (cbor_value_get_type(&map) == CborIntegerType) {
-				ret = cbor_value_get_int_checked(
-				    &map, &CM->pinProtocol);
-				check_ret(ret);
-			} else {
+			if (cbor_value_get_type(&map) != CborIntegerType) {
+				printf2(TAG_ERR,
+					"Error, expecting int for map key\n");
 				return CTAP2_ERR_INVALID_CBOR;
 			}
+			ret =
+			    cbor_value_get_int_checked(&map, &CM->pinProtocol);
+			check_ret(ret);
 			break;
 		case CM_Cmd_pinUvAuthParam:
 			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthParam\n");
@@ -516,7 +521,7 @@ static uint8_t parse_credential_management_subcommandparams(CborValue *val,
 	size_t sz = 32;
 
 	if (cbor_value_get_type(val) != CborMapType) {
-		printf2(TAG_ERR, "error, wrong type\n");
+		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
 

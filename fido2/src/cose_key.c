@@ -99,8 +99,7 @@ uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 	cose->kty = 0;
 	cose->crv = 0;
 
-	CborType type = cbor_value_get_type(it);
-	if (type != CborMapType) {
+	if (cbor_value_get_type(it) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
 		return CTAP2_ERR_INVALID_CBOR;
 	}
@@ -129,6 +128,8 @@ uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 		case COSE_KEY_LABEL_KTY:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_KTY\n");
 			if (cbor_value_get_type(&map) != CborIntegerType) {
+				printf2(TAG_ERR,
+					"Error, expecting int for map key\n");
 				return CTAP2_ERR_INVALID_CBOR;
 			}
 
@@ -143,6 +144,8 @@ uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 		case COSE_KEY_LABEL_CRV:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_CRV\n");
 			if (cbor_value_get_type(&map) != CborIntegerType) {
+				printf2(TAG_ERR,
+					"Error, expecting int for map key\n");
 				return CTAP2_ERR_INVALID_CBOR;
 			}
 
