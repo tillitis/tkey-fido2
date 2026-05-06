@@ -90,7 +90,7 @@
 #define ENSURE(test)      assert(test)
 
 
-#define RECURSION_LIMIT               14
+#define RECURSION_LIMIT               20
 
 #define ARG_OCT_DIGITS_MAX            22    // %llo 64-bit octal
 #define ARG_DEC_DIGITS_MAX            20    // %lld 64-bit signed decimal including
