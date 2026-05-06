@@ -143,10 +143,13 @@ uint8_t ctap_get_info(CborEncoder *encoder)
 		ret = cbor_encode_uint(&map, GI_Resp_pinUvAuthProtocols);
 		check_ret(ret);
 		{
-			ret = cbor_encoder_create_array(&map, &pins, 1);
+			ret = cbor_encoder_create_array(&map, &pins, 2);
 			check_ret(ret);
 			{
 				ret = cbor_encode_int(&pins, 1);
+				check_ret(ret);
+
+				ret = cbor_encode_int(&pins, 2);
 				check_ret(ret);
 			}
 			ret = cbor_encoder_close_container(&map, &pins);

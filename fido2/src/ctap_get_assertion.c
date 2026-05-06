@@ -460,6 +460,7 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			printf1(TAG_GA, "\n");
 			dump_hex1(TAG_GA, GA->clientDataHash, 32);
 			break;
+
 		case GA_Cmd_rpId:
 			printf1(TAG_GA, "GA_Cmd_rpId\n");
 
@@ -467,13 +468,14 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 
 			printf1(TAG_GA, "  ID: %s\n", GA->rp.id);
 			break;
+
 		case GA_Cmd_allowList:
 			printf1(TAG_GA, "GA_Cmd_allowList\n");
 			ret = parse_allow_list_credentials(GA, &map);
 			check_ret(ret);
 			GA->allowListPresent = 1;
-
 			break;
+
 		case GA_Cmd_extensions:
 			printf1(TAG_GA, "GA_Cmd_extensions\n");
 			ret =
@@ -487,7 +489,8 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			    ctap_parse_options(&map, &GA->rk, &GA->uv, &GA->up);
 			check_retr(ret);
 			break;
-		case GA_Cmd_pinUvAuthParam: {
+
+		case GA_Cmd_pinUvAuthParam:
 			printf1(TAG_GA, "GA_Cmd_pinUvAuthParam\n");
 
 			size_t pinSize;
@@ -507,7 +510,7 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			}
 
 			ret = ctap_parse_fixed_length_byte_string(
-			    &map, GA->pinAuth, 16);
+			    &map, GA->pinAuth, PIN_UV_AUTH_PARAM_MAX_SIZE);
 			if (CTAP1_ERR_INVALID_LENGTH != ret) // damn microsoft
 			{
 				check_retr(ret);
@@ -520,7 +523,7 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			GA->pinAuthPresent = 1;
 
 			break;
-		}
+
 		case GA_Cmd_pinUvAuthProtocol:
 			printf1(TAG_GA, "GA_Cmd_pinUvAuthProtocol\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {
@@ -533,6 +536,7 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 
 			break;
 		}
+
 		if (ret != 0) {
 			printf2(TAG_ERR, "Error, parsing failed\n");
 			return ret;

@@ -497,7 +497,7 @@ static uint8_t parse_credential_management_request(CTAP_credMgmt *CM,
 		case CM_Cmd_pinUvAuthParam:
 			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthParam\n");
 			ret = ctap_parse_fixed_length_byte_string(
-			    &map, CM->pinAuth, 16);
+			    &map, CM->pinAuth, PIN_UV_AUTH_PARAM_MAX_SIZE);
 			check_retr(ret);
 			CM->pinAuthPresent = 1;
 			break;

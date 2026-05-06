@@ -395,6 +395,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 
 			dump_hex1(TAG_MC, MC->clientDataHash, 32);
 			break;
+
 		case MC_Cmd_rp:
 			printf1(TAG_MC, "MC_Cmd_rp\n");
 
@@ -406,6 +407,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			printf1(TAG_MC, "  ID: %s\n", MC->rp.id);
 			printf1(TAG_MC, "  name: %s\n", MC->rp.name);
 			break;
+
 		case MC_Cmd_user:
 			printf1(TAG_MC, "MC_Cmd_user\n");
 
@@ -420,6 +422,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			printf1(TAG_MC, "  name: %s\n", MC->credInfo.user.name);
 
 			break;
+
 		case MC_Cmd_pubKeyCredParams:
 			printf1(TAG_MC, "MC_Cmd_pubKeyCredParams\n");
 
@@ -431,6 +434,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 				MC->credInfo.COSEAlgorithmIdentifier);
 
 			break;
+
 		case MC_Cmd_excludeList:
 			printf1(TAG_MC, "MC_Cmd_excludeList\n");
 			ret = parse_exclude_list(&map);
@@ -446,6 +450,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 
 			printf1(TAG_MC, "excludeList done\n");
 			break;
+
 		case MC_Cmd_extensions:
 			printf1(TAG_MC, "MC_Cmd_extensions\n");
 			if (cbor_value_get_type(&map) != CborMapType) {
@@ -463,7 +468,8 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 						 &MC->uv, &MC->up);
 			check_retr(ret);
 			break;
-		case MC_Cmd_pinUvAuthParam: {
+
+		case MC_Cmd_pinUvAuthParam:
 			printf1(TAG_MC, "MC_Cmd_pinUvAuthParam\n");
 
 			size_t pinSize;
@@ -476,7 +482,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			}
 
 			ret = ctap_parse_fixed_length_byte_string(
-			    &map, MC->pinAuth, 16);
+			    &map, MC->pinAuth, PIN_UV_AUTH_PARAM_MAX_SIZE);
 			if (CTAP1_ERR_INVALID_LENGTH != ret) // damn microsoft
 			{
 				check_retr(ret);
@@ -485,7 +491,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			}
 			MC->pinAuthPresent = 1;
 			break;
-		}
+
 		case MC_Cmd_pinUvAuthProtocol:
 			printf1(TAG_MC, "MC_Cmd_pinUvAuthProtocol\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {

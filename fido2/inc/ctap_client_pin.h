@@ -56,8 +56,22 @@
 #define PIN_LOCKOUT_ATTEMPTS 8 // Number of attempts total
 #define PIN_BOOT_ATTEMPTS    3 // Number of attempts per boot
 
-#define PIN_TOKEN_SIZE 16
+/*
+ * Protocol 1: 16-byte token (AES-CBC-128 of shared secret SHA-256 prefix).
+ * Protocol 2: 32-byte token (AES-256-CBC, HKDF-derived keys).
+ * We allocate for the larger and track the active protocol at runtime.
+ */
+#define PIN_TOKEN_SIZE          32
 
+/*
+ * Protocol 2 uses a 32-byte pinUvAuthParam (HMAC-SHA-256 truncated to 32).
+ * We store the maximum here; the active protocol determines how many bytes
+ * are actually read and compared.
+ */
+#define PIN_UV_AUTH_PARAM_MAX_SIZE  32
+
+/* Maximum RP ID length we will accept in a permissions request */
+#define CP_MAX_RPID_LEN             128
 // clang-format on
 
 typedef struct {
@@ -65,12 +79,18 @@ typedef struct {
 	int subCommand;
 	COSE_key keyAgreement;
 	uint8_t keyAgreementPresent;
-	uint8_t pinAuth[16];
+	// pinUvAuthParam: 16 bytes for protocol 1, 32 bytes for protocol 2
+	uint8_t pinAuth[PIN_UV_AUTH_PARAM_MAX_SIZE];
 	uint8_t pinAuthPresent;
 	uint8_t newPinEnc[NEW_PIN_ENC_MAX_SIZE];
 	int newPinEncSize;
-	uint8_t pinHashEnc[16];
+	uint8_t pinHashEnc[32]; // 16 bytes proto-1, 32 bytes proto-2
 	uint8_t pinHashEncPresent;
+	// Permissions sub-commands
+	uint8_t permissions;
+	uint8_t permissionsPresent;
+	char rpId[CP_MAX_RPID_LEN + 1];
+	uint8_t rpIdPresent;
 	_Bool getKeyAgreement;
 	_Bool getRetries;
 } CTAP_clientPin;

@@ -8,6 +8,7 @@
 
 #include "cbor.h"
 #include "ctap.h"
+#include "ctap_client_pin.h"
 #include "ctap_extensions.h"
 
 // clang-format off
@@ -45,7 +46,7 @@ typedef struct {
 	uint8_t uv;
 	uint8_t up;
 
-	uint8_t pinAuth[16];
+	uint8_t pinAuth[PIN_UV_AUTH_PARAM_MAX_SIZE];
 	uint8_t pinAuthPresent;
 	// pinAuthEmpty is true iff an empty bytestring was provided as pinAuth.
 	// This is exclusive with |pinAuthPresent|. It exists because an empty
