@@ -3,7 +3,6 @@
 #include "cbor.h"
 #include "cose_key.h"
 #include "crypto.h"
-#include "ctap.h"
 #include "ctap_client_pin.h"
 #include "ctap_errors.h"
 #include "ctap_parse.h"

@@ -7,7 +7,6 @@
 #include <string.h>
 
 #include "attestation.h"
-#include "ctap.h"
 #include "ctaphid.h"
 #include "device.h"
 #include "extensions.h"

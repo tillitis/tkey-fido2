@@ -10,6 +10,28 @@
 #include "ctap.h"
 #include "ctap_extensions.h"
 
+// clang-format off
+/* GET_ASSERTION (0x02) */
+
+// Commands
+#define GA_Cmd_rpId              0x01 // Data type: String
+#define GA_Cmd_clientDataHash    0x02 // Data type: Byte String
+#define GA_Cmd_allowList         0x03 // Data type: Array of PublicKeyCredentialDescriptor
+#define GA_Cmd_extensions        0x04 // Data type: CBOR map of extension identifier authenticator extension input values
+#define GA_Cmd_options           0x05 // Data type: Map of authenticator options
+#define GA_Cmd_pinUvAuthParam    0x06 // Data type: Byte String
+#define GA_Cmd_pinUvAuthProtocol 0x07 // Data type: Unsigned Integer
+
+// Response structures
+#define GA_Resp_credential          0x01 // Data type: PublicKeyCredentialDescriptor
+#define GA_Resp_authData            0x02 // Data type: Byte String
+#define GA_Resp_signature           0x03 // Data type: Byte String
+#define GA_Resp_user                0x04 // Data type: PublicKeyCredentialUserEntity
+#define GA_Resp_numberOfCredentials 0x05 // Data type: Integer
+#define GA_Resp_userSelected        0x06 // Data type: Boolean
+#define GA_Resp_largeBlobKey        0x07 // Data type: Byte string
+// clang-format on
+
 typedef struct {
 	uint32_t paramsParsed;
 	uint8_t clientDataHash[CLIENT_DATA_HASH_SIZE];

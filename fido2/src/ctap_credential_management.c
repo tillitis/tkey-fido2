@@ -4,7 +4,6 @@
 
 #include <stdint.h>
 
-#include "ctap.h"
 #include "ctap_client_pin.h"
 #include "ctap_credential_management.h"
 #include "ctap_errors.h"

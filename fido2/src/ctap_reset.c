@@ -1,7 +1,6 @@
 #include <stdlib.h>
 
 #include "crypto.h"
-#include "ctap.h"
 #include "ctap_client_pin.h"
 #include "ctap_reset.h"
 #include "device.h"

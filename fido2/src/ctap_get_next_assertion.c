@@ -1,6 +1,5 @@
 #include <stdint.h>
 
-#include "ctap.h"
 #include "ctap_errors.h"
 #include "ctap_get_assertion.h"
 #include "ctap_get_next_assertion.h"

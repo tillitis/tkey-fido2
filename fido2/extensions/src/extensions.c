@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "extensions.h"
-#include "ctap.h"
 #include "device.h"
 #include "u2f.h"
 #include <stdint.h>

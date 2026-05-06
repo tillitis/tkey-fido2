@@ -1,8 +1,8 @@
 #include <stdint.h>
 
-#include "ctap.h"
 #include "ctap_client_pin.h"
 #include "ctap_errors.h"
+#include "ctap_get_info.h"
 #include "ctap_parse.h"
 #include "device.h"
 #include <attestation.h>

@@ -7,8 +7,30 @@
 #include <stdint.h>
 
 #include "cbor.h"
-#include "ctap.h"
 #include "ctap_extensions.h"
+
+// clang-format off
+/* MAKE_CREDENTIAL (0x01) */
+
+// Commands
+#define MC_Cmd_clientDataHash        0x01 // Data type: Byte String
+#define MC_Cmd_rp                    0x02 // Data type: PublicKeyCredentialRpEntity
+#define MC_Cmd_user                  0x03 // Data type: PublicKeyCredentialUserEntity
+#define MC_Cmd_pubKeyCredParams      0x04 // Data type: Array of PublicKeyCredentialParameters
+#define MC_Cmd_excludeList           0x05 // Data type: Array of PublicKeyCredentialDescriptor
+#define MC_Cmd_extensions            0x06 // Data type: CBOR map of extension identifier authenticator extension input values
+#define MC_Cmd_options               0x07 // Data type: Map of authenticator options
+#define MC_Cmd_pinUvAuthParam        0x08 // Data type: Byte String
+#define MC_Cmd_pinUvAuthProtocol     0x09 // Data type: Unsigned Integer
+#define MC_Cmd_enterpriseAttestation 0x0A // Data type: Unsigned Integer
+
+// Response structures
+#define MC_Resp_fmt                 0x01 // Data type: String
+#define MC_Resp_authData            0x02 // Data type: Byte String
+#define MC_Resp_attStmt             0x03 // Data type: CBOR Map, the structure of which depends on the attestation statement format identifier
+#define MC_Resp_epAtt               0x04 // Data type: Boolean
+#define MC_Resp_largeBlobKey        0x05 // Data type: Byte string
+// clang-format on
 
 typedef struct {
 	uint32_t paramsParsed;

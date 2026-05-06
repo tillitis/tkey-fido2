@@ -5,7 +5,6 @@
 
 #include "cbor.h"
 #include "cose_key.h"
-#include "ctap.h"
 #include "ctap_errors.h"
 #include "ctap_parse.h"
 #include "log.h"

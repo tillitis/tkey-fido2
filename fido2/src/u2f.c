@@ -5,7 +5,6 @@
 #include "apdu.h"
 #include "attestation.h"
 #include "crypto.h"
-#include "ctap.h"
 #include "ctaphid.h"
 #include "device.h"
 #include "log.h"

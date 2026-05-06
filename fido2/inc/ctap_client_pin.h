@@ -11,6 +11,36 @@
 #include "cose_key.h"
 
 // clang-format off
+/* CLIENT_PIN (0x06) */
+
+// Commands
+/* Map keys in the clientPin command */
+#define CP_Cmd_pinUvAuthProtocol 0x01 // Data type: Unsigned Integer
+#define CP_Cmd_subCommand        0x02 // Data type: Unsigned Integer
+#define CP_Cmd_keyAgreement      0x03 // Data type: COSE_Key
+#define CP_Cmd_pinUvAuthParam    0x04 // Data type: Byte String
+#define CP_Cmd_newPinEnc         0x05 // Data type: Byte String
+#define CP_Cmd_pinHashEnc        0x06 // Data type: Byte String
+#define CP_Cmd_permissions       0x09 // Data type: Unsigned Integer
+#define CP_Cmd_rpId              0x0A // Data type: String
+
+// SubCommands
+#define CP_SubCmd_getPINRetries                            0x01
+#define CP_SubCmd_getKeyAgreement                          0x02
+#define CP_SubCmd_setPIN                                   0x03
+#define CP_SubCmd_changePIN                                0x04
+#define CP_SubCmd_getPinToken                              0x05 // Superseded by getPinUvAuthTokenUsingUvWithPermissions or getPinUvAuthTokenUsingPinWithPermissions, thus for backwards compatibility only.
+#define CP_SubCmd_getPinUvAuthTokenUsingUvWithPermissions  0x06
+#define CP_SubCmd_getUVRetries                             0x07
+#define CP_SubCmd_getPinUvAuthTokenUsingPinWithPermissions 0x09
+
+// Response structures
+#define CP_Resp_keyAgreement    0x01 // Data type: COSE_Key
+#define CP_Resp_pinUvAuthToken  0x02 // Data type: Byte String
+#define CP_Resp_pinRetries      0x03 // Data type: Unsigned Integer
+#define CP_Resp_powerCycleState 0x04 // Data type: Boolean
+#define CP_Resp_uvRetries       0x05 // Data type: Unsigned Integer
+
 #define CP_pinUvAuthToken_permissions_mc    0x01 // MakeCredential,              RP ID: Required
 #define CP_pinUvAuthToken_permissions_ga    0x02 // GetAssertion,                RP ID: Required
 #define CP_pinUvAuthToken_permissions_cm    0x04 // Credential Management,       RP ID: Optional

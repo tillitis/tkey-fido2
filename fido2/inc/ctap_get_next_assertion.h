@@ -7,7 +7,6 @@
 #include <stdint.h>
 
 #include "cbor.h"
-#include "ctap.h"
 
 uint8_t ctap_get_next_assertion(CborEncoder *encoder);
 

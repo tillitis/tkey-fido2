@@ -11,7 +11,6 @@
 #include "storage.h"
 
 #include "assert.h"
-#include "ctap.h"
 #include "ctaphid.h"
 #include "device.h"
 #include "fifo.h"
