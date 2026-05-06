@@ -74,7 +74,7 @@ uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 {
 	int ret;
 	size_t buflen;
-	char type[12];
+	char keytype[12];
 	CborValue val;
 	cred->type = 0;
 
@@ -118,21 +118,21 @@ uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 		return CTAP2_ERR_MISSING_PARAMETER;
 	}
 
-	buflen = sizeof(type);
-	ret = cbor_value_copy_text_string(&val, type, &buflen, NULL);
+	buflen = sizeof(keytype);
+	ret = cbor_value_copy_text_string(&val, keytype, &buflen, NULL);
 	if (ret == CborErrorOutOfMemory) {
 		cred->type = PUB_KEY_CRED_UNKNOWN;
 	} else {
 		check_ret(ret);
 	}
 
-	if (strncmp(type, "public-key", 11) == 0) {
+	if (strncmp(keytype, "public-key", 11) == 0) {
 		if (0 == cred->type) {
 			cred->type = PUB_KEY_CRED_PUB_KEY;
 		}
 	} else {
 		cred->type = PUB_KEY_CRED_UNKNOWN;
-		printf1(TAG_RED, "Unknown type: %s\n", type);
+		printf1(TAG_RED, "Unknown type: %s\n", keytype);
 	}
 
 	return 0;
