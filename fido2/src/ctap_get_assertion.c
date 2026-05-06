@@ -491,10 +491,17 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			printf1(TAG_GA, "GA_Cmd_pinUvAuthParam\n");
 
 			size_t pinSize;
-			if (cbor_value_get_type(&map) == CborByteStringType &&
-			    cbor_value_get_string_length(&map, &pinSize) ==
-				CborNoError &&
-			    pinSize == 0) {
+			if (cbor_value_get_type(&map) != CborByteStringType) {
+				printf2(TAG_ERR, "Error, expecting byte string "
+						 "for map key\n");
+				return CTAP2_ERR_INVALID_CBOR;
+			}
+			if (cbor_value_get_string_length(&map, &pinSize) !=
+			    CborNoError) {
+				printf2(TAG_ERR, "Error, invalid map data\n");
+				return CTAP2_ERR_INVALID_CBOR;
+			}
+			if (pinSize == 0) {
 				GA->pinAuthEmpty = 1;
 				break;
 			}
