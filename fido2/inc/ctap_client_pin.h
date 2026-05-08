@@ -99,13 +99,10 @@ typedef struct {
 } CTAP_clientPin;
 
 uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length);
-uint8_t ctap_client_pin_decrement_attempts();
-int8_t ctap_client_pin_is_boot_locked();
-int8_t ctap_client_pin_is_locked();
-uint8_t ctap_client_pin_is_set();
-void ctap_client_pin_reset_attempts();
-void ctap_client_pin_reset_pin_token();
-void ctap_client_pin_reset_key_agreement();
+int ctap_client_pin_initialize(void);
+int8_t ctap_client_pin_is_boot_locked(void);
+int8_t ctap_client_pin_is_locked(void);
+uint8_t ctap_client_pin_is_set(void);
 uint8_t ctap_client_pin_verify_auth(uint8_t *pinAuth, uint8_t *clientDataHash);
 uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 				       size_t len);

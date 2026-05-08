@@ -32,52 +32,25 @@ static int active_pin_protocol = 0;
 
 extern AuthenticatorState STATE;
 
-static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
-				   uint8_t *platform_pubkey,
-				   uint8_t *pinHashEnc, int pinProtocol);
+static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
+				      uint8_t *platform_pubkey,
+				      uint8_t *pinHashEnc, int pinProtocol);
+static uint8_t decrement_pin_attempts(void);
 static uint8_t leftover_pin_attempts(void);
 static void lock_device_permanently(void);
 static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 					int length);
+static int reset_pinUvAuthToken(void);
+static void reset_pin_attempts(void);
 static int trailing_zeros(uint8_t *buf, int indx);
 static void update_pin(uint8_t *pin, int len);
 static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
 				      uint8_t *platform_pubkey,
 				      uint8_t *pinAuth, uint8_t *pinHashEnc,
 				      int pinProtocol);
-
-/* -------------------------------------------------------------------------
- * Protocol-abstraction helpers
- *
- * CTAP 2.1 §6.5.6 defines two PIN/UV auth protocols:
- *
- *   Protocol 1  – legacy
- *     • ECDH shared secret  = SHA-256(rawSecret)          [32 bytes]
- *     • encrypt(K, data)    = AES-256-CBC(K[0..31], iv=0, data)
- *     • decrypt(K, data)    = AES-256-CBC-Dec(K[0..31], iv=0, data)
- *     • authenticate(K, M)  = HMAC-SHA-256(K[0..31], M)[0..15]
- *     • pinUvAuthParam size = 16 bytes
- *     • pinHashEnc size     = 16 bytes
- *
- *   Protocol 2  – CTAP 2.1
- *     • ECDH shared secret  = HKDF-SHA-256(salt=32×0x00,
- *                                           ikm=SHA-256(rawSecret),
- *                                           info="CTAP2 AES key")  → Ke[32]
- *                           + HKDF-SHA-256(salt=32×0x00,
- *                                           ikm=SHA-256(rawSecret),
- *                                           info="CTAP2 HMAC key") → Km[32]
- *     • encrypt(Ke, data)   = AES-256-CBC(Ke, iv=random-16, data)
- *                             prepend iv → ciphertext = iv || AES(data)
- *     • decrypt(Ke, cipher) = AES-256-CBC-Dec(Ke, cipher[0..15],
- *                                               cipher[16..])
- *     • authenticate(Km, M) = HMAC-SHA-256(Km, M)       [32 bytes]
- *     • pinUvAuthParam size = 32 bytes
- *     • pinHashEnc size     = 32 bytes (iv[16] || AES(left16(sha256(pin))))
- *
- * The helpers below isolate this difference so the rest of the code
- * stays protocol-agnostic.
- * ---------------------------------------------------------------------- */
-
+static int verify(const uint8_t *key, const uint8_t *message,
+		  uint8_t message_len, const uint8_t *signature,
+		  uint8_t pin_protocol);
 static int decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
 		       uint8_t *shared_secret_enc_key,
 		       uint8_t *shared_secret_mac_key);
@@ -140,24 +113,6 @@ static int ecdh(uint8_t *platform_pubkey, uint8_t pin_protocol,
 static inline int auth_param_size(int proto)
 {
 	return (proto == 2) ? 32 : 16;
-}
-
-/*
- * Compute the MAC over |data| of |len| bytes using |mac_key|.
- * Protocol 1 → HMAC-SHA-256 truncated to 16 bytes.
- * Protocol 2 → HMAC-SHA-256, full 32 bytes.
- * Output written to |out| (caller must supply at least auth_param_size bytes).
- */
-static void compute_pin_auth(const uint8_t *mac_key, /* 32 bytes */
-			     const uint8_t *data, size_t len, int proto,
-			     uint8_t *out)
-{
-	uint8_t full_hmac[32];
-	crypto_sha256_hmac_init(mac_key, 32);
-	crypto_sha256_update(data, len);
-	crypto_sha256_hmac_final(mac_key, 32, full_hmac);
-	memcpy(out, full_hmac, auth_param_size(proto));
-	memset(full_hmac, 0, sizeof(full_hmac));
 }
 
 /*
@@ -379,9 +334,9 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		ret = cbor_encode_int(&map, CP_Resp_pinUvAuthToken);
 		check_ret(ret);
 
-		ret = add_pin_if_verified(pinTokenEnc,
-					  (uint8_t *)&CP.keyAgreement.pubkey,
-					  CP.pinHashEnc, CP.pinProtocol);
+		ret = add_enc_pinUvAuthToken(pinTokenEnc,
+					     (uint8_t *)&CP.keyAgreement.pubkey,
+					     CP.pinHashEnc, CP.pinProtocol);
 		check_retr(ret);
 
 		pinTokenEncLen = (CP.pinProtocol == 2)
@@ -415,6 +370,9 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		 * §6.5.5.7.2: mc and ga REQUIRE an rpId. be, lbw, acfg MUST NOT
 		 * have an rpId.
 		 */
+
+		// TODO: Are they really forbidden..? Spec says ignored.
+
 		{
 			uint8_t rp_required =
 			    CP.permissions & (CP_pinUvAuthToken_permissions_mc |
@@ -440,9 +398,9 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		ret = cbor_encode_int(&map, CP_Resp_pinUvAuthToken);
 		check_ret(ret);
 
-		ret = add_pin_if_verified(pinTokenEnc,
-					  (uint8_t *)&CP.keyAgreement.pubkey,
-					  CP.pinHashEnc, CP.pinProtocol);
+		ret = add_enc_pinUvAuthToken(pinTokenEnc,
+					     (uint8_t *)&CP.keyAgreement.pubkey,
+					     CP.pinHashEnc, CP.pinProtocol);
 		check_retr(ret);
 
 		pinTokenEncLen = (CP.pinProtocol == 2)
@@ -507,7 +465,7 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	return 0;
 }
 
-uint8_t ctap_client_pin_decrement_attempts(void)
+static uint8_t decrement_pin_attempts(void)
 {
 	if (PIN_BOOT_ATTEMPTS_LEFT > 0) {
 		PIN_BOOT_ATTEMPTS_LEFT--;
@@ -542,15 +500,12 @@ uint8_t ctap_client_pin_is_set(void)
 	return STATE.is_pin_set == 1;
 }
 
-void ctap_client_pin_reset_attempts(void)
+static void reset_pin_attempts(void)
 {
-	if ((STATE.remaining_tries == PIN_LOCKOUT_ATTEMPTS) &&
-	    (PIN_BOOT_ATTEMPTS_LEFT == PIN_BOOT_ATTEMPTS)) {
+	if (STATE.remaining_tries == PIN_LOCKOUT_ATTEMPTS) {
 		return; /* already at maximum, skip the flash write */
 	}
-
 	STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
-	PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
 	ctap_flush_state();
 }
 
@@ -559,6 +514,7 @@ void ctap_client_pin_reset_attempts(void)
  * */
 static void regenerate_key_agreement(void)
 {
+	// TODO: Should there be a HKDF or something here?
 	ctap_generate_rng(KEY_AGREEMENT_PRIV, sizeof(KEY_AGREEMENT_PRIV));
 }
 
@@ -568,26 +524,22 @@ uint8_t ctap_client_pin_verify_auth(uint8_t *pinAuth, uint8_t *clientDataHash)
 					      CLIENT_DATA_HASH_SIZE);
 }
 
+// verify(pinUvAuthToken, clientDataHash pinUvAuthParam).
 uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 				       size_t len)
 {
-	uint8_t expected[32]; /* large enough for both protocols */
-	int ap_size = auth_param_size(active_pin_protocol);
 
-	compute_pin_auth(pinUvAuthToken, buf, len, active_pin_protocol,
-			 expected);
-
-	if (memcmp(pinAuth, expected, ap_size) != 0) {
-		printf2(TAG_ERR, "Error, pin auth failed\n");
-		dump_hex1(TAG_ERR, pinAuth, ap_size);
-		dump_hex1(TAG_ERR, expected, ap_size);
+	// TODO: Do we know from an external request the pin protocol?
+	int ret =
+	    verify(pinUvAuthToken, buf, len, pinAuth, active_pin_protocol);
+	if (ret < 0) {
 		return CTAP2_ERR_PIN_AUTH_INVALID;
 	}
-
 	return 0;
 }
 
 /*
+ * Returns the encrypted pinUvAuthToken if
  * Verify the PIN hash sent by the platform and, on success, encrypt
  * pinUvAuthToken with the shared session key, writing the result to
  * |pinTokenEnc|.
@@ -595,9 +547,9 @@ uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
  * On failure, decrements the attempt counter and regenerates the
  * key-agreement key pair (preventing replay attacks).
  */
-static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
-				   uint8_t *platform_pubkey,
-				   uint8_t *pinHashEnc, int pinProtocol)
+static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
+				      uint8_t *platform_pubkey,
+				      uint8_t *pinHashEnc, int pinProtocol)
 {
 	uint8_t enc_key[32];
 	uint8_t mac_key[32];
@@ -641,7 +593,8 @@ static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
 
 		// Generate new keyAgreement pair
 		regenerate_key_agreement();
-		ctap_client_pin_decrement_attempts();
+		reset_pinUvAuthToken();
+		decrement_pin_attempts();
 
 		if (ctap_client_pin_is_boot_locked()) {
 			return CTAP2_ERR_PIN_AUTH_BLOCKED;
@@ -649,17 +602,18 @@ static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
 		return CTAP2_ERR_PIN_INVALID;
 	}
 
-	memset(pinHashSalted, 0, sizeof(pinHashSalted));
+	secure_wipe(pinHashSalted, sizeof(pinHashSalted));
 
-	ctap_client_pin_reset_attempts();
+	reset_pin_attempts();
 
-	/* Encrypt pinUvAuthToken for delivery to the platform */
+	/* Encrypt a new pinUvAuthToken for delivery to the platform */
+	reset_pinUvAuthToken();
 	ret = encrypt_pinUvAuthToken(pinTokenEnc, &token_enc_len, enc_key,
 				     pinProtocol);
 	(void)token_enc_len; /* caller derives length from protocol */
 
-	memset(enc_key, 0, sizeof(enc_key));
-	memset(mac_key, 0, sizeof(mac_key));
+	secure_wipe(enc_key, sizeof(enc_key));
+	secure_wipe(mac_key, sizeof(mac_key));
 
 	if (ret != 0) {
 		return CTAP1_ERR_OTHER;
@@ -936,7 +890,7 @@ static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
 	}
 
 	decapsulate(platform_pubkey, pinProtocol, enc_key, mac_key);
-
+    // TODO: use verify
 	/* Verify pinAuth = authenticate(mac_key, newPinEnc [|| pinHashEnc]) */
 	int hash_enc_size = (pinProtocol == 2) ? 32 : 16;
 
@@ -998,7 +952,7 @@ static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
 			return CTAP2_ERR_PIN_AUTH_BLOCKED;
 		}
 
-		/* Decrypt pinHashEnc; for proto 2 this includes a leading IV */
+		/* Decrypt pinHashEnc */
 		decrypt(pinHashEnc, hash_enc_size, enc_key, pinProtocol);
 
 		uint8_t pinHashSalted[32];
@@ -1012,7 +966,7 @@ static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
 			memset(mac_key, 0, sizeof(mac_key));
 			memset(pinHashSalted, 0, sizeof(pinHashSalted));
 			regenerate_key_agreement();
-			ctap_client_pin_decrement_attempts();
+			decrement_pin_attempts();
 			if (ctap_client_pin_is_boot_locked()) {
 				return CTAP2_ERR_PIN_AUTH_BLOCKED;
 			}
@@ -1020,7 +974,7 @@ static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
 		}
 
 		memset(pinHashSalted, 0, sizeof(pinHashSalted));
-		ctap_client_pin_reset_attempts();
+		reset_pin_attempts();
 	}
 
 	memset(enc_key, 0, sizeof(enc_key));
@@ -1061,11 +1015,25 @@ static int decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
 		    shared_secret_mac_key);
 }
 
-
-int verify(uint8_t *key, uint8_t *message, uint8_t *signature)
+/* verify(key, message, signature) → success | error  */
+static int verify(const uint8_t *key, const uint8_t *message,
+		  uint8_t message_len, const uint8_t *signature,
+		  uint8_t pin_protocol)
 {
+
+	uint8_t expected[32]; /* large enough for both protocols */
+	crypto_sha256_hmac_init(key, 32);
+	crypto_sha256_update(message, message_len);
+	crypto_sha256_hmac_final(key, 32, expected);
+
+	int ap_size = auth_param_size(active_pin_protocol);
+
+	if (!secure_memeq(signature, expected, ap_size)) {
+		printf2(TAG_ERR, "Error, pin auth failed\n");
+		dump_hex1(TAG_ERR, signature, ap_size);
+		dump_hex1(TAG_ERR, expected, ap_size);
+		return -1;
+	}
 
 	return 0;
 }
-
-/* internal functions */
