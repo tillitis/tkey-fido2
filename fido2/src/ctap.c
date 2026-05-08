@@ -193,7 +193,6 @@ int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 
 	switch (desc->type) {
 	case PUB_KEY_CRED_PUB_KEY:
-
 		// Verify mac and RP
 		// Deliberately use the rp_id_lookup from the request, not the
 		// credential, to make sure this request comes from the right
@@ -201,7 +200,6 @@ int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 		ctap_make_auth_tag(rp_id_lookup, desc->credential.id.nonce,
 				   desc->credential.id.protected_metadata,
 				   desc->credential.id.count, tag);
-
 		return (secure_memeq(desc->credential.id.tag, tag,
 				     CREDENTIAL_TAG_SIZE) == 1);
 		break;
@@ -566,8 +564,8 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 		dump_hex1(TAG_DUMP, buf, resp->length);
-
 		break;
+
 	case CTAP_GET_ASSERTION:
 		printf1(TAG_CTAP, "CTAP_GET_ASSERTION\n");
 		timestamp();
@@ -579,6 +577,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 		printf1(TAG_DUMP, "cbor [%d]:\n", resp->length);
 		dump_hex1(TAG_DUMP, buf, resp->length);
 		break;
+
 	case CTAP_GET_INFO:
 		printf1(TAG_CTAP, "CTAP_GET_INFO\n");
 		status = ctap_get_info(&encoder);
@@ -586,8 +585,8 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
 		dump_hex1(TAG_DUMP, buf, resp->length);
-
 		break;
+
 	case CTAP_CLIENT_PIN:
 		printf1(TAG_CTAP, "CTAP_CLIENT_PIN\n");
 		status = ctap_client_pin(&encoder, pkt_raw, length);
@@ -595,6 +594,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 		dump_hex1(TAG_DUMP, buf, resp->length);
 		break;
+
 	case CTAP_RESET:
 		printf1(TAG_CTAP, "CTAP_RESET\n");
 		status = ctap2_user_presence_test();
@@ -602,6 +602,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 			ctap_reset();
 		}
 		break;
+
 	case CTAP_GET_NEXT_ASSERTION:
 		printf1(TAG_CTAP, "CTAP_NEXT_ASSERTION\n");
 		if (getAssertionState.lastcmd == CTAP_GET_ASSERTION) {
@@ -621,6 +622,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 			status = CTAP2_ERR_NOT_ALLOWED;
 		}
 		break;
+
 	case CTAP_CREDENTIAL_MANAGEMENT:
 	case CTAP_CREDENTIAL_MANAGEMENT_PRE:
 		printf1(TAG_CTAP, "CTAP_CREDENTIAL_MANAGEMENT\n");

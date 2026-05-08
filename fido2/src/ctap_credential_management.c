@@ -83,13 +83,14 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 	// CTAP2_ERR_MISSING_PARAMETER
 
 	switch (CM.subCommand) {
+
 	case CM_SubCmd_getCredsMetadata:
 		printf1(TAG_CM, "CM_SubCmd_getCredsMetadata\n");
 		// TODO: verify number of keys stored by counting
 		ret = cbor_encode_credential_metadata(encoder);
 		check_ret(ret);
-
 		break;
+
 	case CM_SubCmd_enumerateRPsBegin:
 		printf1(TAG_CM, "CM_SubCmd_enumerateRPsBegin\n");
 		init_state(CM_SubCmd_enumerateRPsBegin);
@@ -102,8 +103,8 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 		}
 		ret = cbor_encode_enumerate_rp(encoder, ret);
 		check_ret(ret);
-
 		break;
+
 	case CM_SubCmd_enumerateRPsGetNextRP:
 		printf1(TAG_CM, "CM_SubCmd_enumerateRPsGetNextRP\n");
 
@@ -122,8 +123,8 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 		ret = cbor_encode_enumerate_rp(encoder, 0);
 		check_ret(ret);
-
 		break;
+
 	case CM_SubCmd_enumerateCredentialsBegin:
 		printf1(TAG_CM, "CM_SubCmd_enumerateCredentialsBegin\n");
 		init_state(CM_SubCmd_enumerateCredentialsBegin);
@@ -142,8 +143,8 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 		ret = cbor_encode_enumerate_credential(encoder, count);
 		check_ret(ret);
-
 		break;
+
 	case CM_SubCmd_enumerateCredentialsGetNextCredential:
 		printf1(TAG_CM,
 			"CM_SubCmd_enumerateCredentialsGetNextCredential\n");
@@ -163,8 +164,8 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 		ret = cbor_encode_enumerate_credential(encoder, 0);
 		check_ret(ret);
-
 		break;
+
 	case CM_SubCmd_deleteCredential:
 		printf1(TAG_CM, "CM_SubCmd_deleteCredential\n");
 
@@ -175,8 +176,8 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 			return CTAP2_ERR_NO_CREDENTIALS;
 		}
 		printf1(TAG_CM, "Deleted rk %d\n", ret);
-
 		break;
+
 	case CM_SubCmd_updateUserInformation:
 		printf1(TAG_CM, "cm_subcmd_updateuserinformation\n");
 
@@ -186,8 +187,8 @@ uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 		printf1(TAG_CM, "update_credential_user_info: %d\n", ret);
 		return ret;
-
 		break;
+
 	default:
 		printf2(TAG_ERR,
 			"Error, invalid CTAP_CREDENTIAL_MANAGEMENT subCommand: "
@@ -477,12 +478,14 @@ static uint8_t parse_credential_management_request(CTAP_credMgmt *CM,
 			check_ret(ret);
 			CM->hashed.subCommand = CM->subCommand;
 			break;
+
 		case CM_Cmd_subCommandParams:
 			printf1(TAG_PARSE, "CM_Cmd_subCommandParams\n");
 			ret = parse_credential_management_subcommandparams(&map,
 									   CM);
 			check_ret(ret);
 			break;
+
 		case CM_Cmd_pinUvAuthProtocol:
 			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthProtocol\n");
 			if (cbor_value_get_type(&map) != CborIntegerType) {
@@ -494,6 +497,7 @@ static uint8_t parse_credential_management_request(CTAP_credMgmt *CM,
 			    cbor_value_get_int_checked(&map, &CM->pinProtocol);
 			check_ret(ret);
 			break;
+
 		case CM_Cmd_pinUvAuthParam:
 			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthParam\n");
 			ret = ctap_parse_fixed_length_byte_string(

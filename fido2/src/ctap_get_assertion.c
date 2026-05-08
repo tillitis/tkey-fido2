@@ -521,7 +521,6 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 
 			check_retr(ret);
 			GA->pinAuthPresent = 1;
-
 			break;
 
 		case GA_Cmd_pinUvAuthProtocol:
@@ -533,7 +532,6 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			} else {
 				return CTAP2_ERR_INVALID_CBOR;
 			}
-
 			break;
 		}
 

@@ -291,11 +291,13 @@ static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
 		check_ret(ret);
 
 		switch (key) {
+
 		case EXT_HMAC_SECRET_COSE_KEY:
 			ret = cose_key_parse(&map, &hs->keyAgreement);
 			check_retr(ret);
 			parsed_count++;
 			break;
+
 		case EXT_HMAC_SECRET_SALT_ENC:
 			salt_len = 64;
 			ret = cbor_value_copy_byte_string(&map, hs->saltEnc,
@@ -308,6 +310,7 @@ static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
 			hs->saltLen = salt_len;
 			parsed_count++;
 			break;
+
 		case EXT_HMAC_SECRET_SALT_AUTH:
 			salt_len = 32;
 			ret = cbor_value_copy_byte_string(&map, hs->saltAuth,

@@ -420,7 +420,6 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			dump_hex1(TAG_MC, MC->credInfo.user.id,
 				  MC->credInfo.user.id_size);
 			printf1(TAG_MC, "  name: %s\n", MC->credInfo.user.name);
-
 			break;
 
 		case MC_Cmd_pubKeyCredParams:
@@ -432,7 +431,6 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 				MC->credInfo.publicKeyCredentialType);
 			printf1(TAG_MC, "  alg_type: %d\n",
 				MC->credInfo.COSEAlgorithmIdentifier);
-
 			break;
 
 		case MC_Cmd_excludeList:
@@ -502,7 +500,6 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			} else {
 				return CTAP2_ERR_INVALID_CBOR;
 			}
-
 			break;
 
 		default:

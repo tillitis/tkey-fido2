@@ -392,7 +392,6 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 
 		/* getPinToken grants no specific permissions (full token) */
 		active_pin_protocol = CP.pinProtocol;
-
 		break;
 
 	case CP_SubCmd_getPinUvAuthTokenUsingPinWithPermissions:
@@ -793,7 +792,6 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 							  &sz, NULL);
 			check_ret(ret);
 			CP->pinAuthPresent = 1;
-
 			break;
 
 		case CP_Cmd_newPinEnc:
@@ -816,7 +814,6 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			ret = cbor_value_copy_byte_string(&map, CP->newPinEnc,
 							  &sz, NULL);
 			check_ret(ret);
-
 			break;
 
 		case CP_Cmd_pinHashEnc:
@@ -834,7 +831,6 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 							  &sz, NULL);
 			check_ret(ret);
 			CP->pinHashEncPresent = 1;
-
 			break;
 
 		case CP_Cmd_permissions:
