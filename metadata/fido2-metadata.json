@@ -63,7 +63,7 @@
         "clientPin": false
       },
       "maxMsgSize": 1200,
-      "pinUvAuthProtocols": [1],
+      "pinUvAuthProtocols": [1, 2],
       "maxCredentialCountInList": 20,
       "maxCredentialIdLength": 128,
       "transports": ["usb"],
