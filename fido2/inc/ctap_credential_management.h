@@ -9,6 +9,7 @@
 
 #include "cbor.h"
 #include "ctap.h"
+#include "ctap_client_pin.h"
 
 // clang-format off
 /* CREDENTIAL_MANAGEMENT (0x0A) */

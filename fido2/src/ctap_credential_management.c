@@ -795,19 +795,7 @@ static uint8_t verify_pin_auth_for_credential_management(CTAP_credMgmt *CM)
 		return 0;
 	}
 
-	int8_t ret =
-	    ctap_client_pin_verify_auth_ex(CM->pinAuth, (uint8_t *)&CM->hashed,
-					   CM->subCommandParamsCborSize + 1);
-
-	if (ret == CTAP2_ERR_PIN_AUTH_INVALID) {
-		ctap_client_pin_decrement_attempts();
-		if (ctap_client_pin_is_boot_locked()) {
-			return CTAP2_ERR_PIN_AUTH_BLOCKED;
-		}
-		return CTAP2_ERR_PIN_AUTH_INVALID;
-	} else {
-		ctap_client_pin_reset_attempts();
-	}
-
-	return ret;
+	return ctap_client_pin_verify_auth_ex(CM->pinAuth,
+					      (uint8_t *)&CM->hashed,
+					      CM->subCommandParamsCborSize + 1);
 }
