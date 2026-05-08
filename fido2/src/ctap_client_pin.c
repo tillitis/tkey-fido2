@@ -10,6 +10,7 @@
 #include "device.h"
 #include "log.h"
 #include "storage.h"
+#include "tkey/lib.h"
 
 uint8_t KEY_AGREEMENT_PRIV[32];
 uint8_t KEY_AGREEMENT_PUB[64];
@@ -76,67 +77,38 @@ static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
 #define HKDF_INFO_HMAC "CTAP2 HMAC key"
 
 /*
- * HKDF-SHA-256 (RFC 5869) using the available HMAC primitives.
- *   Extract: PRK  = HMAC-SHA-256(salt, ikm)
- *   Expand:  OKM  = HMAC-SHA-256(PRK,  info || 0x01)   [single block, len≤32]
- */
-static void hkdf_sha256(const uint8_t *ikm, size_t ikm_len, const uint8_t *salt,
-			size_t salt_len, const uint8_t *info, size_t info_len,
-			uint8_t *out, size_t out_len)
-{
-	/* out_len must be ≤ 32 for this single-block implementation */
-	uint8_t prk[32];
-	uint8_t okm[32];
-	uint8_t counter = 0x01;
-
-	/* Extract */
-	crypto_sha256_hmac_init((uint8_t *)salt, salt_len);
-	crypto_sha256_update(ikm, ikm_len);
-	crypto_sha256_hmac_final((uint8_t *)salt, salt_len, prk);
-
-	/* Expand (T(1) = HMAC-SHA-256(PRK, info || 0x01)) */
-	crypto_sha256_hmac_init(prk, sizeof(prk));
-	crypto_sha256_update(info, info_len);
-	crypto_sha256_update(&counter, 1);
-	crypto_sha256_hmac_final(prk, sizeof(prk), okm);
-
-	memcpy(out, okm, out_len);
-	memset(prk, 0, sizeof(prk));
-	memset(okm, 0, sizeof(okm));
-}
-
-/*
- * Derive session keys from the raw ECDH output.
+ * Key derivation functions for PIN/UV Auth Protocol one and two
+ * Derives session keys from the raw ECDH output.
  *
- * proto==1: out_enc_key = SHA-256(raw); out_mac_key = same buffer (unused
- *           distinction – the spec reuses the single key for both).
- * proto==2: out_enc_key = HKDF(ikm=SHA-256(raw), info=AES_INFO)
- *           out_mac_key = HKDF(ikm=SHA-256(raw), info=HMAC_INFO)
+ * protocol 1: shared_secret_enc_key and shared_secret_mac_key = SHA-256(raw)
+ * protocol 2: shared_secret_enc_key = HKDF(ikm=SHA-256(raw), info=AES_INFO)
+ *             shared_secret_mac_key = HKDF(ikm=SHA-256(raw), info=HMAC_INFO)
  *
  * All output buffers are 32 bytes.
  */
-static void derive_session_keys(const uint8_t *shared_secret,	 /* 32 bytes */
-				int proto, uint8_t *out_enc_key, /* 32 bytes */
-				uint8_t *out_mac_key /* 32 bytes */)
+static void kdf(const uint8_t *ikm, int pin_protocol,
+		uint8_t *shared_secret_enc_key, uint8_t *shared_secret_mac_key)
 {
-	/* Step 1: SHA-256(rawSecret) → intermediate key material */
 
-	if (proto == 1) {
-		uint8_t ikm[32];
+	if (pin_protocol == 1) {
+		/* Protocol 1: SHA-256(rawSecret) */
 		crypto_sha256_init();
-		crypto_sha256_update(shared_secret, 32);
-		crypto_sha256_final(ikm);
-		memcpy(out_enc_key, ikm, 32);
-		memcpy(out_mac_key, ikm, 32); /* same key for proto 1 */
+		crypto_sha256_update(ikm, 32);
+		crypto_sha256_final(shared_secret_enc_key);
+		memcpy(shared_secret_mac_key, shared_secret_enc_key,
+		       32); /* same key for proto 1 */
 	} else {
 		/* Protocol 2: two HKDF-SHA-256 derivations, salt = 32×0x00 */
-		static const uint8_t zero_salt[32] = {0};
-		hkdf_sha256(shared_secret, 32, zero_salt, sizeof(zero_salt),
-			    (const uint8_t *)HKDF_INFO_AES,
-			    sizeof(HKDF_INFO_AES) - 1, out_enc_key, 32);
-		hkdf_sha256(shared_secret, 32, zero_salt, sizeof(zero_salt),
-			    (const uint8_t *)HKDF_INFO_HMAC,
-			    sizeof(HKDF_INFO_HMAC) - 1, out_mac_key, 32);
+		uint8_t prk[32];
+		crypto_hkdf_extract_sha256(NULL, 0, ikm, 32, prk);
+		crypto_hkdf_expand_sha256(prk, (const uint8_t *)HKDF_INFO_AES,
+					  sizeof(HKDF_INFO_AES) - 1,
+					  shared_secret_enc_key, 32);
+
+		crypto_hkdf_expand_sha256(prk, (const uint8_t *)HKDF_INFO_HMAC,
+					  sizeof(HKDF_INFO_HMAC) - 1,
+					  shared_secret_mac_key, 32);
+		secure_wipe(prk, 32);
 	}
 }
 
@@ -610,7 +582,7 @@ static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
 				    raw_secret);
 
 	/* Derive protocol-specific session keys */
-	derive_session_keys(raw_secret, pinProtocol, enc_key, mac_key);
+	kdf(raw_secret, pinProtocol, enc_key, mac_key);
 	memset(raw_secret, 0, sizeof(raw_secret));
 
 	/*
@@ -947,7 +919,7 @@ static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
 	/* Derive session keys from ECDH */
 	crypto_ecc256_shared_secret(platform_pubkey, KEY_AGREEMENT_PRIV,
 				    shared_secret);
-	derive_session_keys(shared_secret, pinProtocol, enc_key, mac_key);
+	kdf(shared_secret, pinProtocol, enc_key, mac_key);
 	memset(shared_secret, 0, sizeof(shared_secret));
 
 	/* Verify pinAuth = authenticate(mac_key, newPinEnc [|| pinHashEnc]) */
