@@ -1,4 +1,6 @@
-#include <stdlib.h>
+// SPDX-FileCopyrightText: 2019 SoloKeys Developers
+// SPDX-FileCopyrightText: 2026 Tillitis AB <tillitis.se>
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "crypto.h"
 #include "ctap_client_pin.h"
