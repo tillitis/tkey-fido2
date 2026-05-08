@@ -35,8 +35,6 @@ AuthenticatorState STATE;
 
 struct _getAssertionState getAssertionState;
 
-extern uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];
-
 static void derive_user_id_lookup(const uint8_t *id, size_t size,
 				  uint8_t *user_id_lookup);
 static int is_cred_id_matching_rk(const CredentialId *credId,
@@ -350,12 +348,7 @@ void ctap_init()
 		printf1(TAG_ERR, "DEVICE LOCKED!\n");
 	}
 
-	if (ctap_generate_rng(PIN_TOKEN, PIN_TOKEN_SIZE) != 1) {
-		printf2(TAG_ERR, "Error, rng failed\n");
-		exit(1);
-	}
-
-	ctap_client_pin_reset_key_agreement();
+    ctap_client_pin_initialize();
 }
 
 int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,

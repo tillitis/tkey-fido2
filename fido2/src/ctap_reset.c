@@ -17,9 +17,7 @@ void ctap_reset()
 	authenticator_write_state(&STATE);
 
 	ctap_reset_state();
-
-	ctap_client_pin_reset_pin_token();
-	ctap_client_pin_reset_key_agreement();
+	ctap_client_pin_initialize();
 
 	crypto_derive_device_keys(STATE.key_salt, KEY_SALT_BYTES);
 }
