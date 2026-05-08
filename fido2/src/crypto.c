@@ -427,7 +427,7 @@ void crypto_aes256_ctr_xcrypt_buffer(const uint8_t *key, const uint8_t *iv,
 }
 
 struct AES_ctx aes_ctx;
-void crypto_aes256_init(uint8_t *key, uint8_t *nonce)
+void crypto_aes256_init(const uint8_t *key, const uint8_t *nonce)
 {
 	AES_init_ctx(&aes_ctx, key);
 
@@ -439,7 +439,7 @@ void crypto_aes256_init(uint8_t *key, uint8_t *nonce)
 }
 
 // prevent round key recomputation
-void crypto_aes256_reset_iv(uint8_t *nonce)
+void crypto_aes256_reset_iv(const uint8_t *nonce)
 {
 	if (nonce == NULL) {
 		memset(aes_ctx.Iv, 0, 16);

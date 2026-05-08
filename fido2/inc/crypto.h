@@ -70,8 +70,8 @@ void crypto_ecc256_shared_secret(const uint8_t *pubkey, const uint8_t *privkey,
 void crypto_aes256_ctr_xcrypt_buffer(const uint8_t *key, const uint8_t *iv,
 				     uint8_t *buffer, uint32_t length);
 
-void crypto_aes256_init(uint8_t *key, uint8_t *nonce);
-void crypto_aes256_reset_iv(uint8_t *nonce);
+void crypto_aes256_init(const uint8_t *key, const uint8_t *nonce);
+void crypto_aes256_reset_iv(const uint8_t *nonce);
 
 // buf length must be multiple of 16 bytes
 void crypto_aes256_decrypt(uint8_t *buf, int length);
