@@ -62,7 +62,9 @@
  * Protocol 2: 32-byte token (AES-256-CBC, HKDF-derived keys).
  * We allocate for the larger and track the active protocol at runtime.
  */
-#define PIN_TOKEN_SIZE          32
+#define PINUVAUTHTOKEN_SIZE          32
+#define CP_IV_SIZE                   16
+
 
 /*
  * Protocol 2 uses a 32-byte pinUvAuthParam (HMAC-SHA-256 truncated to 32).

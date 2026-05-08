@@ -18,7 +18,8 @@
 
 uint8_t KEY_AGREEMENT_PRIV[32];
 uint8_t KEY_AGREEMENT_PUB[64];
-uint8_t PIN_TOKEN[PIN_TOKEN_SIZE]; /* 32 bytes; proto-1 uses first 16 */
+static uint8_t
+    pinUvAuthToken[PINUVAUTHTOKEN_SIZE]; /* 32 bytes; proto-1 uses first 16 */
 int8_t PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
 
 /*
@@ -158,43 +159,43 @@ static void aes_decrypt_buf(uint8_t *buf, int len, uint8_t *enc_key, int proto)
 		crypto_aes256_decrypt(buf, len);
 	} else {
 		/* Extract explicit IV */
-		uint8_t iv[16];
-		memcpy(iv, buf, 16);
-		int ciphertext_len = len - 16;
+		uint8_t iv[CP_IV_SIZE];
+		memcpy(iv, buf, CP_IV_SIZE);
+		int ciphertext_len = len - CP_IV_SIZE;
 		/* Decrypt in-place at buf+16 */
 		crypto_aes256_init(enc_key, iv);
-		crypto_aes256_decrypt(buf + 16, ciphertext_len);
+		crypto_aes256_decrypt(buf + CP_IV_SIZE, ciphertext_len);
 		/* Shift plaintext to front */
-		memmove(buf, buf + 16, ciphertext_len);
+		memmove(buf, buf + CP_IV_SIZE, ciphertext_len);
 		memset(buf + ciphertext_len, 0,
-		       16); /* zero trailing IV region */
+		       CP_IV_SIZE); /* zero trailing IV region */
 	}
 }
 
 /*
- * Encrypt PIN_TOKEN into |out| (PIN_TOKEN_SIZE bytes for proto 1,
- * 16-byte-iv + PIN_TOKEN_SIZE bytes for proto 2).
- * Caller must ensure |out| is large enough: PIN_TOKEN_SIZE + 16.
+ * Encrypt pinUvAuthToken into |out| (PINUVAUTHTOKEN_SIZE bytes for proto 1,
+ * 16-byte-iv + PINUVAUTHTOKEN_SIZE bytes for proto 2).
+ * Caller must ensure |out| is large enough: PINUVAUTHTOKEN_SIZE + 16.
  */
 static int aes_encrypt_pin_token(uint8_t *out, uint8_t *enc_key, int proto,
 				 int *out_len)
 {
 	if (proto == 1) {
 		crypto_aes256_init(enc_key, NULL);
-		memcpy(out, PIN_TOKEN, PIN_TOKEN_SIZE);
-		crypto_aes256_encrypt(out, PIN_TOKEN_SIZE);
-		*out_len = PIN_TOKEN_SIZE;
+		memcpy(out, pinUvAuthToken, PINUVAUTHTOKEN_SIZE);
+		crypto_aes256_encrypt(out, PINUVAUTHTOKEN_SIZE);
+		*out_len = PINUVAUTHTOKEN_SIZE;
 	} else {
 		/* Generate random IV */
-		uint8_t iv[16];
-		if (ctap_generate_rng(iv, sizeof(iv)) != 1) {
+		uint8_t iv[CP_IV_SIZE];
+		if (ctap_generate_rng(iv, CP_IV_SIZE) != 1) {
 			return -1;
 		}
-		memcpy(out, iv, 16);
-		memcpy(out + 16, PIN_TOKEN, PIN_TOKEN_SIZE);
+		memcpy(out, iv, CP_IV_SIZE);
+		memcpy(out + CP_IV_SIZE, pinUvAuthToken, PINUVAUTHTOKEN_SIZE);
 		crypto_aes256_init(enc_key, iv);
-		crypto_aes256_encrypt(out + 16, PIN_TOKEN_SIZE);
-		*out_len = 16 + PIN_TOKEN_SIZE;
+		crypto_aes256_encrypt(out + CP_IV_SIZE, PINUVAUTHTOKEN_SIZE);
+		*out_len = CP_IV_SIZE + PINUVAUTHTOKEN_SIZE;
 	}
 	return 0;
 }
@@ -209,9 +210,9 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	CborEncoder map;
 	/*
 	 * Worst-case encrypted token output: 16-byte IV + 32-byte token.
-	 * Add a few bytes of margin.
 	 */
-	uint8_t pinTokenEnc[16 + PIN_TOKEN_SIZE + 4];
+
+	uint8_t pinTokenEnc[CP_IV_SIZE + PINUVAUTHTOKEN_SIZE];
 	int pinTokenEncLen = 0;
 	int ret;
 
@@ -359,8 +360,9 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 					  CP.pinHashEnc, CP.pinProtocol);
 		check_retr(ret);
 
-		pinTokenEncLen = (CP.pinProtocol == 2) ? (16 + PIN_TOKEN_SIZE)
-						       : PIN_TOKEN_SIZE;
+		pinTokenEncLen = (CP.pinProtocol == 2)
+				     ? (CP_IV_SIZE + PINUVAUTHTOKEN_SIZE)
+				     : PINUVAUTHTOKEN_SIZE;
 
 		ret =
 		    cbor_encode_byte_string(&map, pinTokenEnc, pinTokenEncLen);
@@ -419,8 +421,9 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 					  CP.pinHashEnc, CP.pinProtocol);
 		check_retr(ret);
 
-		pinTokenEncLen = (CP.pinProtocol == 2) ? (16 + PIN_TOKEN_SIZE)
-						       : PIN_TOKEN_SIZE;
+		pinTokenEncLen = (CP.pinProtocol == 2)
+				     ? (CP_IV_SIZE + PINUVAUTHTOKEN_SIZE)
+				     : PINUVAUTHTOKEN_SIZE;
 
 		ret =
 		    cbor_encode_byte_string(&map, pinTokenEnc, pinTokenEncLen);
@@ -552,7 +555,8 @@ uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 	uint8_t expected[32]; /* large enough for both protocols */
 	int ap_size = auth_param_size(active_pin_protocol);
 
-	compute_pin_auth(PIN_TOKEN, buf, len, active_pin_protocol, expected);
+	compute_pin_auth(pinUvAuthToken, buf, len, active_pin_protocol,
+			 expected);
 
 	if (memcmp(pinAuth, expected, ap_size) != 0) {
 		printf2(TAG_ERR, "Error, pin auth failed\n");
@@ -566,7 +570,8 @@ uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 
 /*
  * Verify the PIN hash sent by the platform and, on success, encrypt
- * PIN_TOKEN with the shared session key, writing the result to |pinTokenEnc|.
+ * pinUvAuthToken with the shared session key, writing the result to
+ * |pinTokenEnc|.
  *
  * On failure, decrements the attempt counter and regenerates the
  * key-agreement key pair (preventing replay attacks).
@@ -592,7 +597,7 @@ static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
 	/*
 	 * Decrypt the platform-provided PIN hash:
 	 *   proto 1: pinHashEnc = AES-256-CBC(enc_key, iv=0,
-	 * left16(SHA-256(PIN))) proto 2: pinHashEnc = iv[16] ||
+	 * left16(SHA-256(PIN))) proto 2: pinHashEnc = iv[CP_IV_SIZE] ||
 	 * AES-256-CBC(enc_key, iv, left16(SHA-256(PIN))) After decryption the
 	 * buffer holds the raw left-16 bytes.
 	 */
@@ -638,7 +643,7 @@ static uint8_t add_pin_if_verified(uint8_t *pinTokenEnc,
 
 	ctap_client_pin_reset_attempts();
 
-	/* Encrypt PIN_TOKEN for delivery to the platform */
+	/* Encrypt pinUvAuthToken for delivery to the platform */
 	ret = aes_encrypt_pin_token(pinTokenEnc, enc_key, pinProtocol,
 				    &token_enc_len);
 	(void)token_enc_len; /* caller derives length from protocol */
@@ -663,7 +668,7 @@ static uint8_t leftover_pin_attempts(void)
 
 static void lock_device_permanently(void)
 {
-	memset(PIN_TOKEN, 0, sizeof(PIN_TOKEN));
+	memset(pinUvAuthToken, 0, PINUVAUTHTOKEN_SIZE);
 	memset(STATE.PIN_CODE_HASH, 0, sizeof(STATE.PIN_CODE_HASH));
 
 	printf1(TAG_CP, "Device permanently locked!\n");
