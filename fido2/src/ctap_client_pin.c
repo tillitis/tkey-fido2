@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include <stdint.h>
+#include <string.h>
 
 #include "cbor.h"
 #include "cose_key.h"
@@ -47,9 +48,9 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 					int length);
 static int reset_pinUvAuthToken(void);
 static void reset_pin_attempts(void);
-static int trailing_zeros(uint8_t *buf, int indx);
+static size_t trailing_zeros(uint8_t *buf, size_t indx);
 static void update_pin(uint8_t *pin, int len);
-static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
+static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int len,
 				      uint8_t *platform_pubkey,
 				      uint8_t *pinAuth, uint8_t *pinHashEnc,
 				      int pinProtocol);
@@ -185,7 +186,6 @@ static int encrypt_pinUvAuthToken(uint8_t *out, int *out_len,
 /* -------------------------------------------------------------------------
  * Public entry point
  * ---------------------------------------------------------------------- */
-
 uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 {
 	CTAP_clientPin CP;
@@ -510,6 +510,7 @@ static void reset_pin_attempts(void)
 	if (STATE.remaining_tries == PIN_LOCKOUT_ATTEMPTS) {
 		return; /* already at maximum, skip the flash write */
 	}
+	PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
 	STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
 	ctap_flush_state();
 }
@@ -553,14 +554,26 @@ uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 	return 0;
 }
 
+// Verifies the pinHashEnc from the platform,  pinHashEnc =
+// LEFT(SHA-256(curPin), 16)).
+// Returns 1 for successful verification, otherwise zero
+int verify_against_stored_pin(uint8_t *pinHashEnc)
+{
+	uint8_t pinHashSalted[32];
+	crypto_sha256_init();
+	crypto_sha256_update(pinHashEnc, 16);
+	crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
+	crypto_sha256_final(pinHashSalted);
+
+	return memcmp(pinHashSalted, STATE.PIN_CODE_HASH, 16) == 0;
+}
+
 /*
- * Returns the encrypted pinUvAuthToken if
- * Verify the PIN hash sent by the platform and, on success, encrypt
- * pinUvAuthToken with the shared session key, writing the result to
- * |pinTokenEnc|.
+ * Returns the encrypted pinUvAuthToken if pin verifies.
+ * On success writing the result to pinTokenEnc.
  *
- * On failure, decrements the attempt counter and regenerates the
- * key-agreement key pair (preventing replay attacks).
+ * Note: If authenticator is locked or boot locked should already be checked
+ * before calling this internal function.
  */
 static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 				      uint8_t *platform_pubkey,
@@ -573,25 +586,11 @@ static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 
 	decapsulate(platform_pubkey, pinProtocol, enc_key, mac_key);
 
-	/*
-	 * Decrypt the platform-provided PIN hash:
-	 *   proto 1: pinHashEnc = AES-256-CBC(enc_key, iv=0,
-	 * left16(SHA-256(PIN))) proto 2: pinHashEnc = iv[CP_IV_SIZE] ||
-	 * AES-256-CBC(enc_key, iv, left16(SHA-256(PIN))) After decryption the
-	 * buffer holds the raw left-16 bytes.
-	 */
 	int hash_enc_size = (pinProtocol == 2) ? 32 : 16;
 	decrypt(pinHashEnc, hash_enc_size, enc_key, pinProtocol);
 	/* pinHashEnc[0..15] now holds left16(SHA-256(PIN)) */
 
-	/* Salt and compare against stored hash */
-	uint8_t pinHashSalted[32];
-	crypto_sha256_init();
-	crypto_sha256_update(pinHashEnc, 16);
-	crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
-	crypto_sha256_final(pinHashSalted);
-
-	if (memcmp(pinHashSalted, STATE.PIN_CODE_HASH, 16) != 0) {
+	if (!verify_against_stored_pin(pinHashEnc)) {
 		printf2(TAG_ERR, "Pin does not match!\n");
 		printf2(TAG_ERR, "platform-pin-hash:\n");
 		dump_hex1(TAG_ERR, pinHashEnc, 16);
@@ -604,20 +603,21 @@ static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 
 		memset(enc_key, 0, sizeof(enc_key));
 		memset(mac_key, 0, sizeof(mac_key));
-		memset(pinHashSalted, 0, sizeof(pinHashSalted));
 
 		// Generate new keyAgreement pair
 		regenerate_key_agreement();
 		reset_pinUvAuthToken();
 		decrement_pin_attempts();
 
+		if (ctap_client_pin_is_locked()) {
+			return CTAP2_ERR_PIN_BLOCKED;
+		}
+
 		if (ctap_client_pin_is_boot_locked()) {
 			return CTAP2_ERR_PIN_AUTH_BLOCKED;
 		}
 		return CTAP2_ERR_PIN_INVALID;
 	}
-
-	secure_wipe(pinHashSalted, sizeof(pinHashSalted));
 
 	reset_pin_attempts();
 
@@ -832,9 +832,9 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 }
 
 // Return how many trailing zeros in a buffer
-static int trailing_zeros(uint8_t *buf, int indx)
+static size_t trailing_zeros(uint8_t *buf, size_t indx)
 {
-	int c = 0;
+	size_t c = 0;
 	while (indx > 0 && buf[indx] == 0) {
 		indx--;
 		c++;
@@ -875,128 +875,109 @@ static void update_pin(uint8_t *pin, int len)
 }
 
 /*
- * Verify pinAuth over (newPinEnc [|| pinHashEnc]), decrypt the new PIN,
- * optionally verify the current PIN (changePIN), then call update_pin().
+ * Set or update PIN, if one already is set.
+ *
+ * Verifies pinAuth over (newPinEnc [|| pinHashEnc]), decrypt the new PIN,
+ * optionally verify the current PIN (changePIN), before storing new pin.
+ *
+ * Note: If authenticator is locked or boot locked should already be checked
+ * before calling this internal function.
  */
-static uint8_t update_pin_if_verified(uint8_t *pinEnc, int len,
+static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 				      uint8_t *platform_pubkey,
 				      uint8_t *pinAuth, uint8_t *pinHashEnc,
 				      int pinProtocol)
 {
-	uint8_t shared_secret[32];
 	uint8_t enc_key[32];
 	uint8_t mac_key[32];
-	uint8_t expected_auth[32];
-	int ret;
 
-	// Validate incoming data packet len
-	if (len < 64) {
-		return CTAP1_ERR_OTHER;
-	}
-
-	// Validate device's state
-	if (ctap_client_pin_is_set()) { // Check first, prevent SCA
-		if (ctap_client_pin_is_locked()) {
-			return CTAP2_ERR_PIN_BLOCKED;
-		}
-		if (ctap_client_pin_is_boot_locked()) {
-			return CTAP2_ERR_PIN_AUTH_BLOCKED;
-		}
+	// newPinEnc is suppsoed to be 64 bytes
+	if (newPinEnc_len < 64) {
+		return CTAP1_ERR_INVALID_PARAMETER;
 	}
 
 	decapsulate(platform_pubkey, pinProtocol, enc_key, mac_key);
-    // TODO: use verify
+
 	/* Verify pinAuth = authenticate(mac_key, newPinEnc [|| pinHashEnc]) */
 	int hash_enc_size = (pinProtocol == 2) ? 32 : 16;
 
-	crypto_sha256_hmac_init(mac_key, 32);
-	crypto_sha256_update(pinEnc, len);
-	if (pinHashEnc != NULL) {
-		crypto_sha256_update(pinHashEnc, hash_enc_size);
-	}
-	crypto_sha256_hmac_final(mac_key, 32, expected_auth);
+	uint8_t tmp_verify_buf[newPinEnc_len + hash_enc_size];
+	uint8_t tmp_verify_buf_len = newPinEnc_len;
 
-	int ap_size = auth_param_size(pinProtocol);
-	if (memcmp(expected_auth, pinAuth, ap_size) != 0) {
-		printf2(TAG_ERR, "pinAuth failed for update pin\n");
-		dump_hex1(TAG_ERR, expected_auth, ap_size);
-		dump_hex1(TAG_ERR, pinAuth, ap_size);
-		memset(enc_key, 0, sizeof(enc_key));
-		memset(mac_key, 0, sizeof(mac_key));
+	memcpy(tmp_verify_buf, newPinEnc, newPinEnc_len);
+
+	// If we are changing pin
+	if (pinHashEnc != NULL) {
+		memcpy(tmp_verify_buf + newPinEnc_len, pinHashEnc,
+		       hash_enc_size);
+		tmp_verify_buf_len += hash_enc_size;
+	}
+
+	if (verify(mac_key, tmp_verify_buf, tmp_verify_buf_len, pinAuth,
+		   pinProtocol) < 0) {
 		return CTAP2_ERR_PIN_AUTH_INVALID;
 	}
-	memset(expected_auth, 0, sizeof(expected_auth));
 
 	// Decrypt new PIN with shared secret
-	int dec_len = len;
+	int dec_len = newPinEnc_len;
 
 	while ((dec_len & 0xf) !=
 	       0) { // Round up to nearest AES block size multiple
 		dec_len++;
 	}
 
-	decrypt(pinEnc, dec_len, enc_key, pinProtocol);
+	decrypt(newPinEnc, dec_len, enc_key, pinProtocol);
 
 	/* Determine actual PIN length by stripping trailing zeros */
-	ret = trailing_zeros(pinEnc, NEW_PIN_ENC_MIN_SIZE - 1);
-	ret = NEW_PIN_ENC_MIN_SIZE - ret;
+	size_t nbr_trailing_zeros =
+	    trailing_zeros(newPinEnc, NEW_PIN_ENC_MIN_SIZE - 1);
+	size_t newPin_len = NEW_PIN_ENC_MIN_SIZE - nbr_trailing_zeros;
 
-	if (ret < NEW_PIN_MIN_SIZE || ret >= NEW_PIN_MAX_SIZE) {
+	if (newPin_len < NEW_PIN_MIN_SIZE || newPin_len >= NEW_PIN_MAX_SIZE) {
 		printf2(TAG_ERR,
-			"New PIN is too short or too long [%d bytes]\n", ret);
-		memset(enc_key, 0, sizeof(enc_key));
-		memset(mac_key, 0, sizeof(mac_key));
+			"New PIN is too short or too long [%d bytes]\n",
+			newPin_len);
+		secure_wipe(enc_key, sizeof(enc_key));
+		secure_wipe(mac_key, sizeof(mac_key));
 		return CTAP2_ERR_PIN_POLICY_VIOLATION;
 	} else {
-		printf1(TAG_CP, "New pin: %s [%d bytes]\n", pinEnc, ret);
-		dump_hex1(TAG_CP, pinEnc, ret);
+		printf1(TAG_CP, "New pin: %s [%d bytes]\n", newPinEnc,
+			newPin_len);
+		dump_hex1(TAG_CP, newPinEnc, newPin_len);
 	}
 
-	// Validate device's state, decrypt and compare pinHashEnc (user
-	// provided current PIN hash) with stored PIN_CODE_HASH
-
-	if (ctap_client_pin_is_set()) {
-		if (ctap_client_pin_is_locked()) {
-			memset(enc_key, 0, sizeof(enc_key));
-			memset(mac_key, 0, sizeof(mac_key));
-			return CTAP2_ERR_PIN_BLOCKED;
-		}
-		if (ctap_client_pin_is_boot_locked()) {
-			memset(enc_key, 0, sizeof(enc_key));
-			memset(mac_key, 0, sizeof(mac_key));
-			return CTAP2_ERR_PIN_AUTH_BLOCKED;
-		}
+	// If we are changing the current pin, decrypt and compare pinHashEnc
+	// (user provided current PIN hash) with stored PIN_CODE_HASH
+	if (ctap_client_pin_is_set() && pinHashEnc != NULL) {
 
 		/* Decrypt pinHashEnc */
 		decrypt(pinHashEnc, hash_enc_size, enc_key, pinProtocol);
 
-		uint8_t pinHashSalted[32];
-		crypto_sha256_init();
-		crypto_sha256_update(pinHashEnc, 16);
-		crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
-		crypto_sha256_final(pinHashSalted);
+		if (!verify_against_stored_pin(pinHashEnc)) {
+			secure_wipe(enc_key, sizeof(enc_key));
+			secure_wipe(mac_key, sizeof(mac_key));
 
-		if (memcmp(pinHashSalted, STATE.PIN_CODE_HASH, 16) != 0) {
-			memset(enc_key, 0, sizeof(enc_key));
-			memset(mac_key, 0, sizeof(mac_key));
-			memset(pinHashSalted, 0, sizeof(pinHashSalted));
 			regenerate_key_agreement();
 			decrement_pin_attempts();
+
+			if (ctap_client_pin_is_locked()) {
+				return CTAP2_ERR_PIN_BLOCKED;
+			}
 			if (ctap_client_pin_is_boot_locked()) {
 				return CTAP2_ERR_PIN_AUTH_BLOCKED;
 			}
 			return CTAP2_ERR_PIN_INVALID;
 		}
 
-		memset(pinHashSalted, 0, sizeof(pinHashSalted));
 		reset_pin_attempts();
+		reset_pinUvAuthToken();
 	}
 
-	memset(enc_key, 0, sizeof(enc_key));
-	memset(mac_key, 0, sizeof(mac_key));
+	secure_wipe(enc_key, sizeof(enc_key));
+	secure_wipe(mac_key, sizeof(mac_key));
 
 	// Set new PIN (update and store PIN_CODE_HASH)
-	update_pin(pinEnc, ret);
+	update_pin(newPinEnc, newPin_len);
 
 	return 0;
 }
