@@ -10,14 +10,19 @@
 #include "ctap_client_pin.h"
 #include "ctap_errors.h"
 #include "ctap_parse.h"
-#include "ctap_reset.h"
 #include "device.h"
 #include "log.h"
 #include "storage.h"
 #include "tkey/lib.h"
+#include "uECC.h"
 
-uint8_t KEY_AGREEMENT_PRIV[32];
-uint8_t KEY_AGREEMENT_PUB[64];
+typedef struct {
+	uint8_t priv_key[32];
+	uint8_t pub_key[64];
+} key_agreement_t;
+
+key_agreement_t key_agreement = {0x00};
+
 static uint8_t
     pinUvAuthToken[PINUVAUTHTOKEN_SIZE]; /* 32 bytes; proto-1 uses first 16 */
 int8_t PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
@@ -99,7 +104,7 @@ static int ecdh(uint8_t *platform_pubkey, uint8_t pin_protocol,
 		uint8_t *shared_secret_enc_key, uint8_t *shared_secret_mac_key)
 {
 	uint8_t shared_point[32];
-	crypto_ecc256_shared_secret(platform_pubkey, KEY_AGREEMENT_PRIV,
+	crypto_ecc256_shared_secret(platform_pubkey, key_agreement.priv_key,
 				    shared_point);
 	kdf(shared_point, pin_protocol, shared_secret_enc_key,
 	    shared_secret_mac_key);
@@ -266,14 +271,14 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		ret = cbor_encode_int(&map, CP_Resp_keyAgreement);
 		check_ret(ret);
 
-		crypto_ecc256_compute_public_key(KEY_AGREEMENT_PRIV,
-						 KEY_AGREEMENT_PUB);
+		crypto_ecc256_compute_public_key(key_agreement.priv_key,
+						 key_agreement.pub_key);
 
 		/* cose_key_add is equivialent with getPyblicKey() and CBOR
 		 * encoding the result */
-		ret = cose_key_add(&map, KEY_AGREEMENT_PUB,
-				   KEY_AGREEMENT_PUB + 32, PUB_KEY_CRED_PUB_KEY,
-				   COSE_ALG_ECDH_ES_HKDF_256);
+		ret = cose_key_add(
+		    &map, key_agreement.pub_key, key_agreement.pub_key + 32,
+		    PUB_KEY_CRED_PUB_KEY, COSE_ALG_ECDH_ES_HKDF_256);
 		check_retr(ret);
 		break;
 
@@ -511,11 +516,21 @@ static void reset_pin_attempts(void)
 
 /* regenerate(): Generate a fresh, random P-256 private key, x, and compute the
  * associated public point.
+ *
+ * Validates that the point is on the curve.
+ *
+ * The public key is computed when needed (getKeyAgreement), to prevent more
+ * time at start up.
  * */
 static void regenerate_key_agreement(void)
 {
-	// TODO: Should there be a HKDF or something here?
-	ctap_generate_rng(KEY_AGREEMENT_PRIV, sizeof(KEY_AGREEMENT_PRIV));
+	while (1) {
+		ctap_generate_rng(key_agreement.priv_key,
+				  sizeof(key_agreement.priv_key));
+		if (crypto_ecc256_is_valid_scalar(key_agreement.priv_key)) {
+			break;
+		}
+	}
 }
 
 uint8_t ctap_client_pin_verify_auth(uint8_t *pinAuth, uint8_t *clientDataHash)
@@ -585,7 +600,7 @@ static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 		printf2(TAG_ERR, "platform-pubkey:\n");
 		dump_hex1(TAG_ERR, platform_pubkey, 64);
 		printf2(TAG_ERR, "device-pubkey:\n");
-		dump_hex1(TAG_ERR, KEY_AGREEMENT_PUB, 64);
+		dump_hex1(TAG_ERR, key_agreement.pub_key, 64);
 
 		memset(enc_key, 0, sizeof(enc_key));
 		memset(mac_key, 0, sizeof(mac_key));
@@ -1002,8 +1017,7 @@ static int reset_pinUvAuthToken(void)
 int ctap_client_pin_initialize(void)
 {
 	regenerate_key_agreement();
-	reset_pinUvAuthToken();
-	return 0;
+	return reset_pinUvAuthToken();
 }
 
 /* decapsulate(peerCoseKey) → sharedSecret | error  */
