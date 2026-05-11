@@ -43,6 +43,7 @@ void fido2_crypto_sha512_update(const uint8_t *data, size_t len);
 void fido2_crypto_sha512_final(uint8_t *hash);
 
 void crypto_ecc256_init();
+int crypto_ecc256_is_valid_scalar(const uint8_t *buf);
 void crypto_ecc256_derive_public_key(uint8_t *data, int len, uint8_t *x,
 				     uint8_t *y);
 void crypto_ecc256_compute_public_key(uint8_t *privkey, uint8_t *pubkey);

@@ -35,7 +35,7 @@
 
 static SHA256_CTX sha256_ctx;
 static cf_sha512_context sha512_ctx;
-static const struct uECC_Curve_t *_es256_curve = NULL;
+static uECC_Curve _es256_curve = NULL;
 static const uint8_t *_signing_key = NULL;
 static int _key_len = 0;
 
@@ -260,6 +260,23 @@ void crypto_ecc256_init(void)
 {
 	uECC_set_rng((uECC_RNG_Function)ctap_generate_rng);
 	_es256_curve = uECC_secp256r1();
+}
+
+static const uint8_t SECP256R1_N[32] = {
+    0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xBC, 0xE6, 0xFA, 0xAD, 0xA7, 0x17,
+    0x9E, 0x84, 0xF3, 0xB9, 0xCA, 0xC2, 0xFC, 0x63, 0x25, 0x51};
+
+// Returns 1 if the 32-byte p256_scalar is valid, 1 <= scalar < n
+int crypto_ecc256_is_valid_scalar(const uint8_t *p256_scalar)
+{
+	for (size_t i = 0; i < 32; i++) {
+		if (p256_scalar[i] != 0) {
+			return memcmp(p256_scalar, SECP256R1_N, 32) < 0;
+		}
+	}
+
+	return 0;
 }
 
 void crypto_ecc256_load_attestation_key(void)
