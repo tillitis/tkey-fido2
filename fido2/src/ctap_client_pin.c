@@ -54,12 +54,6 @@ static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int len,
 				      uint8_t *platform_pubkey,
 				      uint8_t *pinAuth, uint8_t *pinHashEnc,
 				      int pinProtocol);
-static int verify(const uint8_t *key, const uint8_t *message,
-		  uint8_t message_len, const uint8_t *signature,
-		  uint8_t pin_protocol);
-static int decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
-		       uint8_t *shared_secret_enc_key,
-		       uint8_t *shared_secret_mac_key);
 
 #define HKDF_INFO_AES "CTAP2 AES key"
 #define HKDF_INFO_HMAC "CTAP2 HMAC key"
@@ -546,8 +540,8 @@ uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 {
 
 	// TODO: Do we know from an external request the pin protocol?
-	int ret =
-	    verify(pinUvAuthToken, buf, len, pinAuth, active_pin_protocol);
+	int ret = ctap_client_pin_verify(pinUvAuthToken, buf, len, pinAuth,
+					 active_pin_protocol);
 	if (ret < 0) {
 		return CTAP2_ERR_PIN_AUTH_INVALID;
 	}
@@ -584,7 +578,8 @@ static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 	int token_enc_len = 0;
 	int ret;
 
-	decapsulate(platform_pubkey, pinProtocol, enc_key, mac_key);
+	ctap_client_pin_decapsulate(platform_pubkey, pinProtocol, enc_key,
+				    mac_key);
 
 	int hash_enc_size = (pinProtocol == 2) ? 32 : 16;
 	decrypt(pinHashEnc, hash_enc_size, enc_key, pinProtocol);
@@ -896,7 +891,8 @@ static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 		return CTAP1_ERR_INVALID_PARAMETER;
 	}
 
-	decapsulate(platform_pubkey, pinProtocol, enc_key, mac_key);
+	ctap_client_pin_decapsulate(platform_pubkey, pinProtocol, enc_key,
+				    mac_key);
 
 	/* Verify pinAuth = authenticate(mac_key, newPinEnc [|| pinHashEnc]) */
 	int hash_enc_size = (pinProtocol == 2) ? 32 : 16;
@@ -913,8 +909,8 @@ static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 		tmp_verify_buf_len += hash_enc_size;
 	}
 
-	if (verify(mac_key, tmp_verify_buf, tmp_verify_buf_len, pinAuth,
-		   pinProtocol) < 0) {
+	if (ctap_client_pin_verify(mac_key, tmp_verify_buf, tmp_verify_buf_len,
+				   pinAuth, pinProtocol) < 0) {
 		return CTAP2_ERR_PIN_AUTH_INVALID;
 	}
 
@@ -1002,18 +998,18 @@ int ctap_client_pin_initialize(void)
 }
 
 /* decapsulate(peerCoseKey) → sharedSecret | error  */
-static int decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
-		       uint8_t *shared_secret_enc_key,
-		       uint8_t *shared_secret_mac_key)
+int ctap_client_pin_decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
+				uint8_t *shared_secret_enc_key,
+				uint8_t *shared_secret_mac_key)
 {
 	return ecdh(platform_pubkey, pin_protocol, shared_secret_enc_key,
 		    shared_secret_mac_key);
 }
 
 /* verify(key, message, signature) → success | error  */
-static int verify(const uint8_t *key, const uint8_t *message,
-		  uint8_t message_len, const uint8_t *signature,
-		  uint8_t pin_protocol)
+int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
+			   uint8_t message_len, const uint8_t *signature,
+			   uint8_t pin_protocol)
 {
 
 	uint8_t expected[32]; /* large enough for both protocols */

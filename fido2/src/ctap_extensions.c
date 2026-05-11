@@ -5,11 +5,11 @@
 #include <stdint.h>
 
 #include "crypto.h"
+#include "ctap_client_pin.h"
 #include "ctap_errors.h"
 #include "ctap_parse.h"
 #include "log.h"
 
-extern uint8_t KEY_AGREEMENT_PRIV[32];
 extern struct _getAssertionState getAssertionState;
 
 static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
@@ -27,7 +27,6 @@ int ctap_extensions_encode_output(CTAP_extensions *ext,
 	uint8_t cred_protect_is_valid = 0;
 	uint8_t hmac_secret_output[64];
 	uint8_t shared_secret[32];
-	uint8_t hmac[32];
 	uint8_t credRandom[32];
 	uint8_t saltEnc[64];
 
@@ -35,23 +34,18 @@ int ctap_extensions_encode_output(CTAP_extensions *ext,
 		printf1(TAG_CTAP, "Processing hmac-secret..\n");
 		memmove(saltEnc, ext->hmac_secret.saltEnc, sizeof(saltEnc));
 
-		crypto_ecc256_shared_secret(
-		    (uint8_t *)&ext->hmac_secret.keyAgreement.pubkey,
-		    KEY_AGREEMENT_PRIV, shared_secret);
-		crypto_sha256_init();
-		crypto_sha256_update(shared_secret, 32);
-		crypto_sha256_final(shared_secret);
+		// In pin protocol 1 there only exists one shared secret.
+		ctap_client_pin_decapsulate(
+		    (uint8_t *)&ext->hmac_secret.keyAgreement.pubkey, 1,
+		    shared_secret, shared_secret);
 
-		crypto_sha256_hmac_init(shared_secret, 32);
-		crypto_sha256_update(saltEnc, ext->hmac_secret.saltLen);
-		crypto_sha256_hmac_final(shared_secret, 32, hmac);
-
-		if (memcmp(ext->hmac_secret.saltAuth, hmac, 16) == 0) {
-			printf1(TAG_CTAP, "saltAuth is valid\n");
-		} else {
+		if (ctap_client_pin_verify(shared_secret, saltEnc,
+					   ext->hmac_secret.saltLen,
+					   ext->hmac_secret.saltAuth, 1) < 0) {
 			printf1(TAG_CTAP, "saltAuth is invalid\n");
-			return CTAP2_ERR_EXTENSION_FIRST;
+			return CTAP2_ERR_PIN_AUTH_INVALID;
 		}
+		printf1(TAG_CTAP, "saltAuth is valid\n");
 
 		const uint8_t *hmac_key = crypto_get_key_hmac();
 
