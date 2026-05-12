@@ -24,8 +24,7 @@ typedef struct {
 
 key_agreement_t key_agreement = {0x00};
 
-static uint8_t
-    pinUvAuthToken[PINUVAUTHTOKEN_SIZE]; /* 32 bytes; proto-1 uses first 16 */
+static uint8_t pinUvAuthToken[PINUVAUTHTOKEN_SIZE];
 int8_t PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
 
 /*
@@ -419,30 +418,13 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		active_pin_protocol = CP.pinProtocol;
 		break;
 
-	case CP_SubCmd_getPinUvAuthTokenUsingUvWithPermissions:
-		printf1(TAG_CP,
-			"CP_SubCmd_getPinUvAuthTokenUsingUvWithPermissions\n");
-		/*
-		 * Requires an on-device user-verification method (biometric,
-		 * etc.). Return CTAP2_ERR_INVALID_SUBCOMMAND if the
-		 * authenticator does not support built-in UV; return
-		 * CTAP2_ERR_UV_BLOCKED when UV is locked. Stub: indicate no
-		 * built-in UV is available.
-		 */
-		return CTAP2_ERR_INVALID_SUBCOMMAND;
-
-	case CP_SubCmd_getUVRetries:
-		printf1(TAG_CP, "CP_SubCmd_getUVRetries\n");
-		/*
-		 * Only meaningful when built-in UV is supported.
-		 * Return CTAP2_ERR_INVALID_SUBCOMMAND to signal no built-in UV.
-		 */
-		return CTAP2_ERR_INVALID_SUBCOMMAND;
-
+	// Subcommands not supported, so compress into the default state.
+	// case CP_SubCmd_getPinUvAuthTokenUsingUvWithPermissions:
+	// case CP_SubCmd_getUVRetries:
 	default:
 		printf2(TAG_ERR, "Error, invalid client pin subcommand %d\n",
 			CP.subCommand);
-		return CTAP1_ERR_OTHER;
+		return CTAP2_ERR_INVALID_SUBCOMMAND;
 	}
 
 	/*
