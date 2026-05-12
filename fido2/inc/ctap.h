@@ -115,9 +115,7 @@
 
 #define CREDENTIAL_RP_ID_SIZE 32
 
-#define PUB_KEY_CRED_PUB_KEY 0x01
 #define PUB_KEY_CRED_CTAP1   0x41
-#define PUB_KEY_CRED_CUSTOM  0x42
 #define PUB_KEY_CRED_UNKNOWN 0x3F
 
 #define CREDENTIAL_IS_SUPPORTED  1
@@ -172,7 +170,7 @@ typedef struct {
 	 CREDENTIAL_NONCE_SIZE)
 
 typedef struct {
-	uint8_t type;
+	PublicKeyCredentialType type;
 	struct Credential credential;
 } CTAP_credentialDescriptor;
 
@@ -208,8 +206,8 @@ struct rpId {
 
 typedef struct {
 	CTAP_userEntity user;
-	uint8_t publicKeyCredentialType;
-	int32_t COSEAlgorithmIdentifier;
+	PublicKeyCredentialType publicKeyCredentialType;
+	COSEAlgorithmIdentifier coseAlgorithmIdentifier;
 	uint8_t rk;
 } CTAP_credInfo;
 
@@ -235,7 +233,7 @@ int ctap2_user_presence_test();
 uint32_t ctap_auth_data_update_count(CTAP_authDataHeader *authData);
 uint8_t ctap_cbor_encode_credential_descriptor(CborEncoder *map,
 					       struct Credential *cred,
-					       int type);
+					       PublicKeyCredentialType type);
 uint8_t ctap_cbor_encode_user_entity(CborEncoder *map, CTAP_userEntity *user,
 				     int is_verified);
 uint8_t ctap_check_credential_metadata(CredentialId *credential,

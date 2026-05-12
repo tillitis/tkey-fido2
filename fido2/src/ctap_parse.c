@@ -100,14 +100,6 @@ uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 	if (buflen == U2F_KEY_HANDLE_SIZE) {
 		printf2(TAG_PARSE, "CTAP1 credential\n");
 		cred->type = PUB_KEY_CRED_CTAP1;
-	} else if (buflen != sizeof(CredentialId)) {
-		printf2(TAG_ERR, "Ignoring credential is incorrect length, "
-				 "treating as custom\n");
-		cred->type = PUB_KEY_CRED_CUSTOM;
-		buflen = 256;
-		ret = cbor_value_copy_byte_string(
-		    &val, getAssertionState.customCredId, &buflen, NULL);
-		getAssertionState.customCredIdSize = buflen;
 	}
 	check_ret(ret);
 

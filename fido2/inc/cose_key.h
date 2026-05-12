@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "cbor.h"
+#include "webauthn.h"
 
 // clang-format off
 // COSE Key Common Parameters, https://www.iana.org/assignments/cose/cose.xhtml#key-common-parameters
@@ -27,9 +28,11 @@
 #define COSE_KEY_CRV_ED25519 6 // Ed25519 for use w/ EdDSA only,      KTY=1 (OKP)
 
 // COSE Algorithms, https://www.iana.org/assignments/cose/cose.xhtml#algorithms
-#define COSE_ALG_ES256            -7  // ECDSA w/ SHA-256
-#define COSE_ALG_EDDSA            -8  // EdDSA
-#define COSE_ALG_ECDH_ES_HKDF_256 -25 // ECDH ES w/ HKDF - generate key directly
+typedef enum COSEAlgorithmIdentifier {
+	COSE_ALG_ES256            = -7,  /* ECDSA w/ SHA-256                        */
+	COSE_ALG_EDDSA            = -8,  /* EdDSA                                   */
+	COSE_ALG_ECDH_ES_HKDF_256 = -25, /* ECDH ES w/ HKDF - generate key directly */
+} COSEAlgorithmIdentifier;
 // clang-format on
 
 typedef struct {
@@ -43,9 +46,11 @@ typedef struct {
 } COSE_key;
 
 int cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
-		 uint8_t credtype, int32_t algtype);
+		 PublicKeyCredentialType credtype,
+		 COSEAlgorithmIdentifier algtype);
 int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
-		      uint8_t credtype, int32_t algtype);
+		      PublicKeyCredentialType credtype,
+		      COSEAlgorithmIdentifier algtype);
 uint8_t cose_key_parse(CborValue *it, COSE_key *cose);
 
 #endif

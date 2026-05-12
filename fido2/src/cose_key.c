@@ -11,7 +11,8 @@
 #include "log.h"
 
 int cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
-		 uint8_t credtype, int32_t algtype)
+		 PublicKeyCredentialType credtype,
+		 COSEAlgorithmIdentifier algtype)
 {
 	int ret;
 	CborEncoder map;
@@ -66,7 +67,8 @@ int cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
 }
 
 int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
-		      uint8_t credtype, int32_t algtype)
+		      PublicKeyCredentialType credtype,
+		      COSEAlgorithmIdentifier algtype)
 {
 	uint8_t x[32], y[32];
 
@@ -75,6 +77,7 @@ int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
 			"Error, pubkey credential type not supported\n");
 		return -1;
 	}
+
 	switch (algtype) {
 
 	case COSE_ALG_ES256:

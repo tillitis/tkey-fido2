@@ -17,14 +17,16 @@ static uint8_t cbor_encode_attestation_statement(CborEncoder *map,
 						 uint8_t *sigder, int len);
 static uint8_t find_supported_pubkey_credential_param(CTAP_makeCredential *MC,
 						      CborValue *val);
-static int is_pubkey_credential_param_supported(uint8_t cred, int32_t alg);
+static int
+is_pubkey_credential_param_supported(PublicKeyCredentialType credtype,
+				     COSEAlgorithmIdentifier algtype);
 static uint8_t parse_exclude_list(CborValue *val);
 static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 				     CborEncoder *encoder, uint8_t *request,
 				     int length);
 static uint8_t parse_pubkey_credential_params(CborValue *val,
-					      uint8_t *cred_type,
-					      int32_t *alg_type);
+					      PublicKeyCredentialType *credtype,
+					      COSEAlgorithmIdentifier *algtype);
 static uint8_t parse_relying_party_entity(struct rpId *rp, CborValue *val);
 
 uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request, int length)
@@ -257,8 +259,8 @@ static uint8_t find_supported_pubkey_credential_param(CTAP_makeCredential *MC,
 						      CborValue *val)
 {
 	size_t arr_length;
-	uint8_t cred_type;
-	int32_t alg_type;
+	PublicKeyCredentialType credtype;
+	COSEAlgorithmIdentifier algtype;
 	int ret;
 	unsigned int i;
 	CborValue arr;
@@ -275,8 +277,8 @@ static uint8_t find_supported_pubkey_credential_param(CTAP_makeCredential *MC,
 	check_ret(ret);
 
 	for (i = 0; i < arr_length; i++) {
-		if ((ret = parse_pubkey_credential_params(&arr, &cred_type,
-							  &alg_type)) != 0) {
+		if ((ret = parse_pubkey_credential_params(&arr, &credtype,
+							  &algtype)) != 0) {
 			return ret;
 		}
 		ret = cbor_value_advance(&arr);
@@ -287,14 +289,12 @@ static uint8_t find_supported_pubkey_credential_param(CTAP_makeCredential *MC,
 	check_ret(ret);
 
 	for (i = 0; i < arr_length; i++) {
-		if ((ret = parse_pubkey_credential_params(&arr, &cred_type,
-							  &alg_type)) == 0) {
-			if (is_pubkey_credential_param_supported(cred_type,
-								 alg_type) ==
-			    CREDENTIAL_IS_SUPPORTED) {
-				MC->credInfo.publicKeyCredentialType =
-				    cred_type;
-				MC->credInfo.COSEAlgorithmIdentifier = alg_type;
+		if ((ret = parse_pubkey_credential_params(&arr, &credtype,
+							  &algtype)) == 0) {
+			if (is_pubkey_credential_param_supported(
+				credtype, algtype) == CREDENTIAL_IS_SUPPORTED) {
+				MC->credInfo.publicKeyCredentialType = credtype;
+				MC->credInfo.coseAlgorithmIdentifier = algtype;
 				MC->paramsParsed |= PARAM_pubKeyCredParams;
 				return 0;
 			}
@@ -309,10 +309,12 @@ static uint8_t find_supported_pubkey_credential_param(CTAP_makeCredential *MC,
 }
 
 // Check if public key credential+algorithm type is supported
-static int is_pubkey_credential_param_supported(uint8_t cred, int32_t alg)
+static int
+is_pubkey_credential_param_supported(PublicKeyCredentialType credtype,
+				     COSEAlgorithmIdentifier algtype)
 {
-	if (cred == PUB_KEY_CRED_PUB_KEY) {
-		if (alg == COSE_ALG_ES256 || alg == COSE_ALG_EDDSA) {
+	if (credtype == PUB_KEY_CRED_PUB_KEY) {
+		if (algtype == COSE_ALG_ES256 || algtype == COSE_ALG_EDDSA) {
 			return CREDENTIAL_IS_SUPPORTED;
 		}
 	}
@@ -434,7 +436,7 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 			printf1(TAG_MC, "  cred_type: 0x%02x\n",
 				MC->credInfo.publicKeyCredentialType);
 			printf1(TAG_MC, "  alg_type: %d\n",
-				MC->credInfo.COSEAlgorithmIdentifier);
+				MC->credInfo.coseAlgorithmIdentifier);
 			break;
 
 		case MC_Cmd_excludeList:
@@ -520,8 +522,8 @@ static uint8_t parse_make_credential(CTAP_makeCredential *MC,
 }
 
 static uint8_t parse_pubkey_credential_params(CborValue *val,
-					      uint8_t *cred_type,
-					      int32_t *alg_type)
+					      PublicKeyCredentialType *credtype,
+					      COSEAlgorithmIdentifier *algtype)
 {
 	CborValue cred;
 	CborValue alg;
@@ -558,12 +560,12 @@ static uint8_t parse_pubkey_credential_params(CborValue *val,
 	type_str[sizeof(type_str) - 1] = 0;
 
 	if (strcmp((const char *)type_str, "public-key") == 0) {
-		*cred_type = PUB_KEY_CRED_PUB_KEY;
+		*credtype = PUB_KEY_CRED_PUB_KEY;
 	} else {
-		*cred_type = PUB_KEY_CRED_UNKNOWN;
+		*credtype = PUB_KEY_CRED_UNKNOWN;
 	}
 
-	ret = cbor_value_get_int_checked(&alg, (int *)alg_type);
+	ret = cbor_value_get_int_checked(&alg, (int *)algtype);
 	check_ret(ret);
 
 	return 0;

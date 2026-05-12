@@ -74,7 +74,7 @@ uint32_t ctap_auth_data_update_count(CTAP_authDataHeader *authData)
 
 uint8_t ctap_cbor_encode_credential_descriptor(CborEncoder *map,
 					       struct Credential *cred,
-					       int type)
+					       PublicKeyCredentialType type)
 {
 	CborEncoder desc;
 
@@ -190,6 +190,12 @@ int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 {
 	uint8_t tag[16];
 
+	if (desc->type == PUB_KEY_CRED_CTAP1) {
+		return u2f_authenticate_credential(
+		    (struct u2f_key_handle *)&desc->credential.id,
+		    U2F_KEY_HANDLE_SIZE, rp_id_hash);
+	}
+
 	switch (desc->type) {
 	case PUB_KEY_CRED_PUB_KEY:
 		// Verify mac and RP
@@ -202,17 +208,9 @@ int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 		return (secure_memeq(desc->credential.id.tag, tag,
 				     CREDENTIAL_TAG_SIZE) == 1);
 		break;
-	case PUB_KEY_CRED_CTAP1:
-		return u2f_authenticate_credential(
-		    (struct u2f_key_handle *)&desc->credential.id,
-		    U2F_KEY_HANDLE_SIZE, rp_id_hash);
-		break;
-	case PUB_KEY_CRED_CUSTOM:
-		return is_extension_request(getAssertionState.customCredId,
-					    getAssertionState.customCredIdSize);
-		break;
 	default:
-		printf1(TAG_ERR, "PUB_KEY_CRED_UNKNOWN %x\n", desc->type);
+		printf1(TAG_ERR, "Unknown PublicKeyCredentialType: 0x%x\n",
+			desc->type);
 		break;
 	}
 
@@ -300,10 +298,9 @@ void ctap_flush_state()
 
 size_t ctap_get_credential_id_size(int type)
 {
-	if (type == PUB_KEY_CRED_CTAP1)
+	if (type == PUB_KEY_CRED_CTAP1) {
 		return U2F_KEY_HANDLE_SIZE;
-	if (type == PUB_KEY_CRED_CUSTOM)
-		return getAssertionState.customCredIdSize;
+	}
 	return sizeof(CredentialId);
 }
 
@@ -410,7 +407,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 				  CREDENTIAL_NONCE_SIZE);
 
 		uint8_t alg =
-		    credInfo->COSEAlgorithmIdentifier == COSE_ALG_EDDSA
+		    credInfo->coseAlgorithmIdentifier == COSE_ALG_EDDSA
 			? CREDID_ALG_EDDSA
 			: CREDID_ALG_ES256;
 
@@ -487,7 +484,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 		cose_key_generate(&cose_key, (uint8_t *)&authData->attest.id,
 				  sizeof(CredentialId),
 				  credInfo->publicKeyCredentialType,
-				  credInfo->COSEAlgorithmIdentifier);
+				  credInfo->coseAlgorithmIdentifier);
 
 		auth_data_sz =
 		    sizeof(CTAP_authData) +
