@@ -72,48 +72,35 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 {
 	CTAP_clientPin CP;
 	CborEncoder map;
-	/*
-	 * Worst-case encrypted token output: 16-byte IV + 32-byte token.
-	 */
-
 	uint8_t pinTokenEnc[CP_IV_SIZE + PINUVAUTHTOKEN_SIZE];
 	int pinTokenEncLen = 0;
 	CborError cbor_ret;
 	CtapStatus ctap_ret;
 
-	/*
-	 * Parse first – we must know subCommand before we can gate on lock
-	 * state. Failure here returns immediately; CP may be partially filled.
-	 */
 	ctap_ret = parse_client_pin_request(&CP, request, length);
 	if (ctap_ret.value != CTAP2_OK) {
 		printf2(TAG_ERR, "Error, parse_client_pin_request() failed\n");
 		return ctap_ret;
 	}
 
-	// Fail fast, only supported protocols
-	if ((CP.pinProtocol != 1 && CP.pinProtocol != 2)) {
-		return (CtapStatus){CTAP1_ERR_INVALID_PARAMETER};
+	// Validate pin protocol except for getPINRetries which is the only
+	// exception
+	if (CP.subCommand != CP_SubCmd_getPINRetries) {
+		if (CP.pinProtocol == 0) {
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
+		}
+
+		if (CP.pinProtocol != 1 && CP.pinProtocol != 2) {
+			return (CtapStatus){CTAP1_ERR_INVALID_PARAMETER};
+		}
 	}
 
-	/* Commands that touch PIN state require unlock */
-	switch (CP.subCommand) {
-	case CP_SubCmd_setPIN:
-	case CP_SubCmd_changePIN:
-	case CP_SubCmd_getPinToken:
-	case CP_SubCmd_getPinUvAuthTokenUsingPinWithPermissions:
-		if (ctap_client_pin_is_locked()) {
-			return (CtapStatus){CTAP2_ERR_PIN_BLOCKED};
-		}
-		if (ctap_client_pin_is_boot_locked()) {
-			return (CtapStatus){CTAP2_ERR_PIN_AUTH_BLOCKED};
-		}
-		break;
-	default:
-		break;
-	}
-
-	int num_map = (CP.getRetries ? 1 : 0);
+	// Split into two switch cases:
+	// 1. Sub commands that don't check for lock out
+	// 2. Sub commands that do
+	//
+	// Switch 1 has to return in each case, so we can catch invalid
+	// subcommands in switch two.
 
 	switch (CP.subCommand) {
 	case CP_SubCmd_getPINRetries:
@@ -122,17 +109,11 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		cbor_ret = cbor_encoder_create_map(encoder, &map, 2);
 		cbor_check_ret(cbor_ret);
 
-		CP.getRetries = 1;
-
 		cbor_ret = cbor_encode_int(&map, CP_Resp_pinRetries);
 		cbor_check_ret(cbor_ret);
 		cbor_ret = cbor_encode_uint(&map, leftover_pin_attempts());
 		cbor_check_ret(cbor_ret);
 
-		/*
-		 * powerCycleState: true when further attempts require a power
-		 * cycle (i.e. boot-locked but not permanently locked).
-		 */
 		cbor_ret = cbor_encode_int(&map, CP_Resp_powerCycleState);
 		cbor_check_ret(cbor_ret);
 		cbor_ret = cbor_encode_boolean(
@@ -142,13 +123,17 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 
 		cbor_ret = cbor_encoder_close_container(encoder, &map);
 		cbor_check_ret(cbor_ret);
-		return (CtapStatus){
-		    CTAP2_OK}; /* early return – container already closed */
+
+		// Has to return here, or will get stuck in next switch.
+		return (CtapStatus){CTAP2_OK};
+		break;
 
 	case CP_SubCmd_getKeyAgreement:
 		printf1(TAG_CP, "CP_SubCmd_getKeyAgreement\n");
-		num_map++;
-		cbor_ret = cbor_encoder_create_map(encoder, &map, num_map);
+
+		// Already checked for missing parameter and pin protocol
+
+		cbor_ret = cbor_encoder_create_map(encoder, &map, 1);
 		cbor_check_ret(cbor_ret);
 
 		cbor_ret = cbor_encode_int(&map, CP_Resp_keyAgreement);
@@ -163,17 +148,24 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		    &map, key_agreement.pub_key, key_agreement.pub_key + 32,
 		    PUB_KEY_CRED_PUB_KEY, COSE_ALG_ECDH_ES_HKDF_256);
 		ctap_check_retr(ctap_ret);
+
+		cbor_ret = cbor_encoder_close_container(encoder, &map);
+		cbor_check_ret(cbor_ret);
+
+		// Has to return here, or will get stuck in next switch.
+		return (CtapStatus){CTAP2_OK};
 		break;
 
 	case CP_SubCmd_setPIN:
 		printf1(TAG_CP, "CP_SubCmd_setPIN\n");
 
-		if (ctap_client_pin_is_set()) {
-			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
-		}
 		if (!CP.newPinEncSize || !CP.pinAuthPresent ||
 		    !CP.keyAgreementPresent) {
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
+		}
+
+		if (ctap_client_pin_is_set()) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 		}
 
 		ctap_ret =
@@ -181,8 +173,25 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 					   (uint8_t *)&CP.keyAgreement.pubkey,
 					   CP.pinAuth, NULL, CP.pinProtocol);
 		ctap_check_retr(ctap_ret);
+
+		// Has to return here, or will get stuck in next switch.
+		return (CtapStatus){CTAP2_OK};
 		break;
 
+	default:
+		// Do nothing
+		break;
+	}
+
+	// Sub commands below require unlock
+	if (ctap_client_pin_is_locked()) {
+		return (CtapStatus){CTAP2_ERR_PIN_BLOCKED};
+	}
+	if (ctap_client_pin_is_boot_locked()) {
+		return (CtapStatus){CTAP2_ERR_PIN_AUTH_BLOCKED};
+	}
+
+	switch (CP.subCommand) {
 	case CP_SubCmd_changePIN:
 		printf1(TAG_CP, "CP_SubCmd_changePIN\n");
 
@@ -216,8 +225,7 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
-		num_map++;
-		cbor_ret = cbor_encoder_create_map(encoder, &map, num_map);
+		cbor_ret = cbor_encoder_create_map(encoder, &map, 1);
 		cbor_check_ret(cbor_ret);
 
 		cbor_ret = cbor_encode_int(&map, CP_Resp_pinUvAuthToken);
@@ -234,6 +242,9 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 
 		cbor_ret =
 		    cbor_encode_byte_string(&map, pinTokenEnc, pinTokenEncLen);
+		cbor_check_ret(cbor_ret);
+
+		cbor_ret = cbor_encoder_close_container(encoder, &map);
 		cbor_check_ret(cbor_ret);
 
 		/* getPinToken grants no specific permissions (full token) */
@@ -282,8 +293,7 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			}
 		}
 
-		num_map++;
-		cbor_ret = cbor_encoder_create_map(encoder, &map, num_map);
+		cbor_ret = cbor_encoder_create_map(encoder, &map, 1);
 		cbor_check_ret(cbor_ret);
 
 		cbor_ret = cbor_encode_int(&map, CP_Resp_pinUvAuthToken);
@@ -302,6 +312,9 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		    cbor_encode_byte_string(&map, pinTokenEnc, pinTokenEncLen);
 		cbor_check_ret(cbor_ret);
 
+		cbor_ret = cbor_encoder_close_container(encoder, &map);
+		cbor_check_ret(cbor_ret);
+
 		/*
 		 * TODO: bind the token to CP.permissions and CP.rpId.
 		 * A full implementation stores these in a companion structure
@@ -318,22 +331,6 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		printf2(TAG_ERR, "Error, invalid client pin subcommand %d\n",
 			CP.subCommand);
 		return (CtapStatus){CTAP2_ERR_INVALID_SUBCOMMAND};
-	}
-
-	/*
-	 * Append pinRetries to the map if any sub-command requested it.
-	 * (getPINRetries already closed its own map and returned early.)
-	 */
-	if (CP.getRetries) {
-		cbor_ret = cbor_encode_int(&map, CP_Resp_pinRetries);
-		cbor_check_ret(cbor_ret);
-		cbor_ret = cbor_encode_uint(&map, leftover_pin_attempts());
-		cbor_check_ret(cbor_ret);
-	}
-
-	if (num_map || CP.getRetries) {
-		cbor_ret = cbor_encoder_close_container(encoder, &map);
-		cbor_check_ret(cbor_ret);
 	}
 
 	return (CtapStatus){CTAP2_OK};
@@ -910,7 +907,7 @@ static void update_pin(uint8_t *pin, int len)
  * optionally verify the current PIN (changePIN), before storing new pin.
  *
  * Note: If authenticator is locked or boot locked should already be checked
- * before calling this internal function.
+ * before calling this internal function if applicable.
  */
 static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 					 uint8_t *platform_pubkey,
@@ -984,6 +981,7 @@ static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 		decrypt(pinHashEnc, hash_enc_size, enc_key, pinProtocol);
 
 		if (!verify_against_stored_pin(pinHashEnc)) {
+			printf2(TAG_ERR, "Pin does not match!\n");
 			secure_wipe(enc_key, sizeof(enc_key));
 			secure_wipe(mac_key, sizeof(mac_key));
 

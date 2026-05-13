@@ -94,8 +94,6 @@ typedef struct {
 	uint8_t permissionsPresent;
 	char rpId[CP_MAX_RPID_LEN + 1];
 	uint8_t rpIdPresent;
-	_Bool getKeyAgreement;
-	_Bool getRetries;
 } CTAP_clientPin;
 
 CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length);
