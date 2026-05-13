@@ -91,10 +91,9 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		return ctap_ret;
 	}
 
-	/* Basic sanity: pinProtocol must be 1 or 2 for CTAP 2.1 */
-	if ((CP.pinProtocol != 1 && CP.pinProtocol != 2) ||
-	    CP.subCommand == 0) {
-		return (CtapStatus){CTAP1_ERR_OTHER};
+	// Fail fast, only supported protocols
+	if ((CP.pinProtocol != 1 && CP.pinProtocol != 2)) {
+		return (CtapStatus){CTAP1_ERR_INVALID_PARAMETER};
 	}
 
 	/* Commands that touch PIN state require unlock */
