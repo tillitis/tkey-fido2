@@ -52,8 +52,8 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 			   : (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 	}
 	if (GA.pinAuthPresent) {
-		ctap_ret =
-		    ctap_client_pin_verify_auth(GA.pinAuth, GA.clientDataHash);
+		ctap_ret = ctap_client_pin_verify_auth(
+		    GA.pinAuth, GA.clientDataHash, GA.pinProtocol);
 		ctap_check_retr(ctap_ret);
 		getAssertionState.user_verified = 1;
 	} else {

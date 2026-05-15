@@ -815,7 +815,7 @@ static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM)
 		return (CtapStatus){CTAP2_OK};
 	}
 
-	return ctap_client_pin_verify_auth_ex(CM->pinAuth,
-					      (uint8_t *)&CM->hashed,
-					      CM->subCommandParamsCborSize + 1);
+	return ctap_client_pin_verify_auth_ex(
+	    CM->pinAuth, (uint8_t *)&CM->hashed,
+	    CM->subCommandParamsCborSize + 1, CM->pinProtocol);
 }

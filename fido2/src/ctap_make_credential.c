@@ -67,7 +67,7 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 	} else {
 		if (ctap_client_pin_is_set() || (MC.pinAuthPresent)) {
 			ctap_ret = ctap_client_pin_verify_auth(
-			    MC.pinAuth, MC.clientDataHash);
+			    MC.pinAuth, MC.clientDataHash, MC.pinProtocol);
 			ctap_check_retr(ctap_ret);
 		}
 	}

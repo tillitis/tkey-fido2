@@ -108,8 +108,9 @@ int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
 			   uint8_t message_len, const uint8_t *signature,
 			   uint8_t pin_protocol);
 CtapStatus ctap_client_pin_verify_auth(uint8_t *pinAuth,
-				       uint8_t *clientDataHash);
+				       uint8_t *clientDataHash,
+				       uint8_t pin_protocol);
 CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
-					  size_t len);
+					  size_t len, uint8_t pin_protocol);
 
 #endif
