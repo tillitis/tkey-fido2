@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
 	key_agreement_t key_agreement;
-	uint8_t value[PINUVAUTHTOKEN_SIZE];
+	uint8_t token[PINUVAUTHTOKEN_SIZE];
 	pinUvAuthToken_state_t state;
 } pinUvAuthToken_t;
 
@@ -421,7 +421,7 @@ CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 {
 	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
 
-	int ret = ctap_client_pin_verify(pinUvAuthToken->value, buf, len,
+	int ret = ctap_client_pin_verify(pinUvAuthToken->token, buf, len,
 					 pinAuth, pin_protocol);
 	if (ret < 0) {
 		return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
@@ -590,7 +590,7 @@ static int encrypt_pinUvAuthToken(uint8_t *out, int *out_len,
 	if (pin_protocol == 1) {
 
 		crypto_aes256_init(enc_key, NULL);
-		memcpy(out, pinUvAuthToken->value, PINUVAUTHTOKEN_SIZE);
+		memcpy(out, pinUvAuthToken->token, PINUVAUTHTOKEN_SIZE);
 		crypto_aes256_encrypt(out, PINUVAUTHTOKEN_SIZE);
 		*out_len = PINUVAUTHTOKEN_SIZE;
 
@@ -601,7 +601,7 @@ static int encrypt_pinUvAuthToken(uint8_t *out, int *out_len,
 			return -1;
 		}
 		memcpy(out, iv, CP_IV_SIZE);
-		memcpy(out + CP_IV_SIZE, pinUvAuthToken->value,
+		memcpy(out + CP_IV_SIZE, pinUvAuthToken->token,
 		       PINUVAUTHTOKEN_SIZE);
 
 		crypto_aes256_init(enc_key, iv);
@@ -669,8 +669,8 @@ static uint8_t leftover_pin_attempts(void)
 
 static void lock_device_permanently(void)
 {
-	memset(pinUvAuthToken_p1.value, 0, PINUVAUTHTOKEN_SIZE);
-	memset(pinUvAuthToken_p2.value, 0, PINUVAUTHTOKEN_SIZE);
+	memset(pinUvAuthToken_p1.token, 0, PINUVAUTHTOKEN_SIZE);
+	memset(pinUvAuthToken_p2.token, 0, PINUVAUTHTOKEN_SIZE);
 	memset(STATE.PIN_CODE_HASH, 0, sizeof(STATE.PIN_CODE_HASH));
 
 	printf1(TAG_CP, "Device permanently locked!\n");
@@ -888,7 +888,7 @@ static int reset_pinUvAuthToken(uint8_t pin_protocol)
 	printf1(TAG_CP, "reset_token() %d\n", pin_protocol);
 	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
 
-	if (ctap_generate_rng(pinUvAuthToken->value, PINUVAUTHTOKEN_SIZE) !=
+	if (ctap_generate_rng(pinUvAuthToken->token, PINUVAUTHTOKEN_SIZE) !=
 	    1) {
 		printf2(TAG_ERR, "Error, ctap_generate_rng() failed\n");
 		return -1;
