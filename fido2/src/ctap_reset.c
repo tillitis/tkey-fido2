@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Tillitis AB <tillitis.se>
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "ctap_reset.h"
 #include "crypto.h"
 #include "ctap_client_pin.h"
-#include "ctap_reset.h"
 #include "device.h"
 #include "log.h"
 

@@ -63,8 +63,9 @@ typedef struct {
 
 } CTAP_getAssertion;
 
-uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length);
-uint8_t ctap_get_assertion_cbor_encode_assertion_response(
+CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
+			      int length);
+CtapStatus ctap_get_assertion_cbor_encode_assertion_response(
     CborEncoder *map, CTAP_credentialDescriptor *cred, uint8_t *auth_data_buf,
     unsigned int auth_data_buf_sz, uint8_t *clientDataHash);
 

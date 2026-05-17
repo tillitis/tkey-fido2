@@ -68,7 +68,7 @@ typedef struct {
 	int pinProtocol;
 } CTAP_credMgmt;
 
-uint8_t ctap_credential_management(CborEncoder *encoder, uint8_t *request,
-				   int length);
+CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
+				      int length);
 
 #endif

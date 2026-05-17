@@ -9,6 +9,6 @@
 
 #include "cbor.h"
 
-uint8_t ctap_get_next_assertion(CborEncoder *encoder);
+CtapStatus ctap_get_next_assertion(CborEncoder *encoder);
 
 #endif

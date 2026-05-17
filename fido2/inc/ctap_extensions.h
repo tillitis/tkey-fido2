@@ -36,9 +36,9 @@ typedef struct {
 	uint8_t cred_protect;
 } CTAP_extensions;
 
-int ctap_extensions_encode_output(CTAP_extensions *ext,
-				  uint8_t *ext_encoder_buf,
-				  unsigned int *ext_encoder_buf_size);
-uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext);
+CtapStatus ctap_extensions_encode_output(CTAP_extensions *ext,
+					 uint8_t *ext_encoder_buf,
+					 unsigned int *ext_encoder_buf_size);
+CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext);
 
 #endif

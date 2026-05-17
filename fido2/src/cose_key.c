@@ -10,72 +10,72 @@
 #include "ctap_parse.h"
 #include "log.h"
 
-int cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
-		 PublicKeyCredentialType credtype,
-		 COSEAlgorithmIdentifier algtype)
+CtapStatus cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
+			PublicKeyCredentialType credtype,
+			COSEAlgorithmIdentifier algtype)
 {
-	int ret;
+	CborError cbor_ret;
 	CborEncoder map;
 
-	ret = cbor_encoder_create_map(cose_key, &map,
-				      algtype != COSE_ALG_EDDSA ? 5 : 4);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_create_map(cose_key, &map,
+					   algtype != COSE_ALG_EDDSA ? 5 : 4);
+	cbor_check_ret(cbor_ret);
 
 	{
-		ret = cbor_encode_int(&map, COSE_KEY_LABEL_KTY);
-		check_ret(ret);
-		ret = cbor_encode_int(&map, algtype != COSE_ALG_EDDSA
-						? COSE_KEY_KTY_EC2
-						: COSE_KEY_KTY_OKP);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, COSE_KEY_LABEL_KTY);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_int(&map, algtype != COSE_ALG_EDDSA
+						     ? COSE_KEY_KTY_EC2
+						     : COSE_KEY_KTY_OKP);
+		cbor_check_ret(cbor_ret);
 	}
 
 	{
-		ret = cbor_encode_int(&map, COSE_KEY_LABEL_ALG);
-		check_ret(ret);
-		ret = cbor_encode_int(&map, algtype);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, COSE_KEY_LABEL_ALG);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_int(&map, algtype);
+		cbor_check_ret(cbor_ret);
 	}
 
 	{
-		ret = cbor_encode_int(&map, COSE_KEY_LABEL_CRV);
-		check_ret(ret);
-		ret = cbor_encode_int(&map, algtype != COSE_ALG_EDDSA
-						? COSE_KEY_CRV_P256
-						: COSE_KEY_CRV_ED25519);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, COSE_KEY_LABEL_CRV);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_int(&map, algtype != COSE_ALG_EDDSA
+						     ? COSE_KEY_CRV_P256
+						     : COSE_KEY_CRV_ED25519);
+		cbor_check_ret(cbor_ret);
 	}
 
 	{
-		ret = cbor_encode_int(&map, COSE_KEY_LABEL_X);
-		check_ret(ret);
-		ret = cbor_encode_byte_string(&map, x, 32);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, COSE_KEY_LABEL_X);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_byte_string(&map, x, 32);
+		cbor_check_ret(cbor_ret);
 	}
 
 	if (algtype != COSE_ALG_EDDSA) {
-		ret = cbor_encode_int(&map, COSE_KEY_LABEL_Y);
-		check_ret(ret);
-		ret = cbor_encode_byte_string(&map, y, 32);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, COSE_KEY_LABEL_Y);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_byte_string(&map, y, 32);
+		cbor_check_ret(cbor_ret);
 	}
 
-	ret = cbor_encoder_close_container(cose_key, &map);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_close_container(cose_key, &map);
+	cbor_check_ret(cbor_ret);
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
-int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
-		      PublicKeyCredentialType credtype,
-		      COSEAlgorithmIdentifier algtype)
+CtapStatus cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input,
+			     int len, PublicKeyCredentialType credtype,
+			     COSEAlgorithmIdentifier algtype)
 {
 	uint8_t x[32], y[32];
 
 	if (credtype != PUB_KEY_CRED_PUB_KEY) {
 		printf2(TAG_ERR,
 			"Error, pubkey credential type not supported\n");
-		return -1;
+		return (CtapStatus){CTAP2_ERR_INVALID_CREDENTIAL};
 	}
 
 	switch (algtype) {
@@ -90,18 +90,21 @@ int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
 
 	default:
 		printf2(TAG_ERR, "Error, COSE alg %d not supported\n", algtype);
-		return -1;
+		return (CtapStatus){CTAP2_ERR_UNSUPPORTED_ALGORITHM};
 	}
-	int ret = cose_key_add(cose_key, x, y, credtype, algtype);
-	check_ret(ret);
-	return 0;
+	CtapStatus ctap_ret = cose_key_add(cose_key, x, y, credtype, algtype);
+	ctap_check_retr(ctap_ret);
+
+	return (CtapStatus){CTAP2_OK};
 }
 
-uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
+CtapStatus cose_key_parse(CborValue *it, COSE_key *cose)
 {
 	CborValue map;
 	size_t map_length;
-	int ret, key;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
+	int key;
 	unsigned int i;
 	int xkey = 0, ykey = 0;
 	cose->kty = 0;
@@ -109,28 +112,28 @@ uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 
 	if (cbor_value_get_type(it) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_enter_container(it, &map);
-	check_ret(ret);
+	cbor_ret = cbor_value_enter_container(it, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_get_map_length(it, &map_length);
-	check_ret(ret);
+	cbor_ret = cbor_value_get_map_length(it, &map_length);
+	cbor_check_ret(cbor_ret);
 
 	printf1(TAG_PARSE, "cose key has %d elements\n", map_length);
 
 	for (i = 0; i < map_length; i++) {
 		if (cbor_value_get_type(&map) != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
-			return CTAP2_ERR_INVALID_CBOR;
+			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
 
-		ret = cbor_value_get_int_checked(&map, &key);
-		check_ret(ret);
+		cbor_ret = cbor_value_get_int_checked(&map, &key);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 
 		switch (key) {
 
@@ -139,11 +142,11 @@ uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 			if (cbor_value_get_type(&map) != CborIntegerType) {
 				printf2(TAG_ERR,
 					"Error, expecting int for map key\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 
-			ret = cbor_value_get_int_checked(&map, &cose->kty);
-			check_ret(ret);
+			cbor_ret = cbor_value_get_int_checked(&map, &cose->kty);
+			cbor_check_ret(cbor_ret);
 			break;
 
 		case COSE_KEY_LABEL_ALG:
@@ -155,26 +158,26 @@ uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 			if (cbor_value_get_type(&map) != CborIntegerType) {
 				printf2(TAG_ERR,
 					"Error, expecting int for map key\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 
-			ret = cbor_value_get_int_checked(&map, &cose->crv);
-			check_ret(ret);
+			cbor_ret = cbor_value_get_int_checked(&map, &cose->crv);
+			cbor_check_ret(cbor_ret);
 			break;
 
 		case COSE_KEY_LABEL_X:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_X\n");
-			ret = ctap_parse_fixed_length_byte_string(
+			ctap_ret = ctap_parse_fixed_length_byte_string(
 			    &map, cose->pubkey.x, 32);
-			check_retr(ret);
+			ctap_check_retr(ctap_ret);
 			xkey = 1;
 			break;
 
 		case COSE_KEY_LABEL_Y:
 			printf1(TAG_PARSE, "COSE_KEY_LABEL_Y\n");
-			ret = ctap_parse_fixed_length_byte_string(
+			ctap_ret = ctap_parse_fixed_length_byte_string(
 			    &map, cose->pubkey.y, 32);
-			check_retr(ret);
+			ctap_check_retr(ctap_ret);
 			ykey = 1;
 			break;
 
@@ -184,11 +187,12 @@ uint8_t cose_key_parse(CborValue *it, COSE_key *cose)
 				key);
 		}
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 	}
 	if (xkey == 0 || ykey == 0 || cose->kty == 0 || cose->crv == 0) {
-		return CTAP2_ERR_MISSING_PARAMETER;
+		return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 	}
-	return 0;
+
+	return (CtapStatus){CTAP2_OK};
 }

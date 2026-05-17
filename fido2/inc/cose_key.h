@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "cbor.h"
+#include "ctap_errors.h"
 #include "webauthn.h"
 
 // clang-format off
@@ -45,12 +46,12 @@ typedef struct {
 	int crv;
 } COSE_key;
 
-int cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
-		 PublicKeyCredentialType credtype,
-		 COSEAlgorithmIdentifier algtype);
-int cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input, int len,
-		      PublicKeyCredentialType credtype,
-		      COSEAlgorithmIdentifier algtype);
-uint8_t cose_key_parse(CborValue *it, COSE_key *cose);
+CtapStatus cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
+			PublicKeyCredentialType credtype,
+			COSEAlgorithmIdentifier algtype);
+CtapStatus cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input,
+			     int len, PublicKeyCredentialType credtype,
+			     COSEAlgorithmIdentifier algtype);
+CtapStatus cose_key_parse(CborValue *it, COSE_key *cose);
 
 #endif

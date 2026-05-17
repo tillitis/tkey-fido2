@@ -37,6 +37,6 @@
 
 // clang-format on
 
-uint8_t ctap_get_info(CborEncoder *encoder);
+CtapStatus ctap_get_info(CborEncoder *encoder);
 
 #endif

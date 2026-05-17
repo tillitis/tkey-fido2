@@ -14,15 +14,16 @@ extern struct _getAssertionState getAssertionState;
 
 static CTAP_credentialDescriptor *get_next_credential();
 
-uint8_t ctap_get_next_assertion(CborEncoder *encoder)
+CtapStatus ctap_get_next_assertion(CborEncoder *encoder)
 {
-	int ret;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 	CborEncoder map;
 
 	CTAP_credentialDescriptor *cred = get_next_credential();
 
 	if (cred == NULL) {
-		return CTAP2_ERR_NOT_ALLOWED;
+		return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 	}
 
 	printf1(TAG_GREEN, "NextAssertion: Cred count %d\n",
@@ -36,14 +37,14 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 
 	if (cred->credential.user.id_size) {
 		printf1(TAG_GREEN, "adding user info to assertion response\n");
-		ret = cbor_encoder_create_map(encoder, &map, 4);
+		cbor_ret = cbor_encoder_create_map(encoder, &map, 4);
 	} else {
 		printf1(TAG_GREEN,
 			"NOT adding user info to assertion response\n");
-		ret = cbor_encoder_create_map(encoder, &map, 3);
+		cbor_ret = cbor_encoder_create_map(encoder, &map, 3);
 	}
 
-	check_ret(ret);
+	cbor_check_ret(cbor_ret);
 
 	// if only one account for this RP, null out the user details
 	if (!getAssertionState.user_verified) {
@@ -54,11 +55,10 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 
 	unsigned int ext_encoder_buf_size =
 	    sizeof(getAssertionState.buf.extensions);
-	ret = ctap_extensions_encode_output(&getAssertionState.extensions,
-					    getAssertionState.buf.extensions,
-					    &ext_encoder_buf_size);
-
-	if (ret == 0) {
+	ctap_ret = ctap_extensions_encode_output(
+	    &getAssertionState.extensions, getAssertionState.buf.extensions,
+	    &ext_encoder_buf_size);
+	if (ctap_ret.value == CTAP2_OK) {
 		if (ext_encoder_buf_size) {
 			getAssertionState.buf.authData.flags |= (1 << 7);
 		} else {
@@ -66,17 +66,16 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder)
 		}
 	}
 
-	ret = ctap_get_assertion_cbor_encode_assertion_response(
+	ctap_ret = ctap_get_assertion_cbor_encode_assertion_response(
 	    &map, cred, (uint8_t *)&getAssertionState.buf.authData,
 	    sizeof(CTAP_authDataHeader) + ext_encoder_buf_size,
 	    getAssertionState.clientDataHash);
+	ctap_check_retr(ctap_ret);
 
-	check_retr(ret);
+	cbor_ret = cbor_encoder_close_container(encoder, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_encoder_close_container(encoder, &map);
-	check_ret(ret);
-
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 static CTAP_credentialDescriptor *get_next_credential()

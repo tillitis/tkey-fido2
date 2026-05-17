@@ -20,44 +20,48 @@ static int build_filtered_credential_list(CTAP_getAssertion *GA,
 					  uint8_t *rp_id_hash,
 					  uint8_t *rp_id_lookup);
 static int cred_cmp_func(const void *_a, const void *_b);
-static uint8_t parse_allow_list_credentials(CTAP_getAssertion *GA,
-					    CborValue *it);
-static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
-					   uint8_t *request, int length);
-static int8_t save_credential_list(uint8_t *clientDataHash,
-				   CTAP_credentialDescriptor *creds,
-				   uint32_t count, CTAP_extensions *extensions);
+static CtapStatus parse_allow_list_credentials(CTAP_getAssertion *GA,
+					       CborValue *it);
+static CtapStatus parse_get_assertion_request(CTAP_getAssertion *GA,
+					      uint8_t *request, int length);
+static CtapStatus save_credential_list(uint8_t *clientDataHash,
+				       CTAP_credentialDescriptor *creds,
+				       uint32_t count,
+				       CTAP_extensions *extensions);
 
-uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
+CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
+			      int length)
 {
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 	CTAP_getAssertion GA;
 
-	int ret = parse_get_assertion_request(&GA, request, length);
+	ctap_ret = parse_get_assertion_request(&GA, request, length);
 
-	if (ret != 0) {
+	if (ctap_ret.value != CTAP2_OK) {
 		printf2(TAG_ERR,
 			"Error, parse_get_assertion_request() failed\n");
-		return ret;
+		return ctap_ret;
 	}
 
 	if (GA.pinAuthEmpty) {
-		ret = ctap2_user_presence_test();
-		check_retr(ret);
+		ctap_ret = ctap2_user_presence_test();
+		ctap_check_retr(ctap_ret);
 		return ctap_client_pin_is_set() == 1
-			   ? CTAP2_ERR_PIN_AUTH_INVALID
-			   : CTAP2_ERR_PIN_NOT_SET;
+			   ? (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID}
+			   : (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 	}
 	if (GA.pinAuthPresent) {
-		ret =
+		ctap_ret =
 		    ctap_client_pin_verify_auth(GA.pinAuth, GA.clientDataHash);
-		check_retr(ret);
+		ctap_check_retr(ctap_ret);
 		getAssertionState.user_verified = 1;
 	} else {
 		getAssertionState.user_verified = 0;
 	}
 
 	if (!GA.rp.size || !GA.clientDataHashPresent) {
-		return CTAP2_ERR_MISSING_PARAMETER;
+		return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 	}
 	CborEncoder map;
 
@@ -78,7 +82,7 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 
 	if (validCredCount == 0) {
 		printf2(TAG_ERR, "Error, no authentic credential\n");
-		return CTAP2_ERR_NO_CREDENTIALS;
+		return (CtapStatus){CTAP2_ERR_NO_CREDENTIALS};
 	} else if (validCredCount > 1) {
 		map_size += 1;
 	}
@@ -93,8 +97,8 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 		printf1(TAG_GA, "hmac-secret is present\n");
 	}
 
-	ret = cbor_encoder_create_map(encoder, &map, map_size);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_create_map(encoder, &map, map_size);
+	cbor_check_ret(cbor_ret);
 
 	// if only one account for this RP, null out the user details
 	if (validCredCount < 2 || !getAssertionState.user_verified) {
@@ -129,12 +133,12 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 #endif
 	{
 		device_disable_up(GA.up == 0);
-		ret = ctap_make_auth_data(
+		ctap_ret = ctap_make_auth_data(
 		    &GA.rp, rp_id_hash, rp_id_lookup, &map,
 		    (uint8_t *)&getAssertionState.buf.authData,
 		    &auth_data_buf_sz, NULL, &GA.extensions);
 		device_disable_up(false);
-		check_retr(ret);
+		ctap_check_retr(ctap_ret);
 
 		getAssertionState.buf.authData.flags &= ~(1 << 2);
 		getAssertionState.buf.authData.flags |=
@@ -144,10 +148,10 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 			unsigned int ext_encoder_buf_size =
 			    sizeof(getAssertionState.buf.extensions);
 
-			ret = ctap_extensions_encode_output(
+			ctap_ret = ctap_extensions_encode_output(
 			    &GA.extensions, getAssertionState.buf.extensions,
 			    &ext_encoder_buf_size);
-			check_retr(ret);
+			ctap_check_retr(ctap_ret);
 			if (ext_encoder_buf_size) {
 				getAssertionState.buf.authData.flags |=
 				    (1 << 7);
@@ -156,52 +160,53 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length)
 		}
 	}
 
-	ret = ctap_get_assertion_cbor_encode_assertion_response(
+	ctap_ret = ctap_get_assertion_cbor_encode_assertion_response(
 	    &map, cred, (uint8_t *)&getAssertionState.buf, auth_data_buf_sz,
 	    GA.clientDataHash); // 1,2,3,4
-	check_retr(ret);
+	ctap_check_retr(ctap_ret);
 
 	if (validCredCount > 1) {
-		ret = cbor_encode_int(&map, GA_Resp_numberOfCredentials);
-		check_ret(ret);
-		ret = cbor_encode_int(&map, validCredCount);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, GA_Resp_numberOfCredentials);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_int(&map, validCredCount);
+		cbor_check_ret(cbor_ret);
 	}
 
-	ret = cbor_encoder_close_container(encoder, &map);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_close_container(encoder, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = save_credential_list(GA.clientDataHash,
-				   GA.creds + 1 /* skip first credential*/,
-				   validCredCount - 1, &GA.extensions);
-	check_retr(ret);
+	ctap_ret = save_credential_list(GA.clientDataHash,
+					GA.creds + 1 /* skip first credential*/,
+					validCredCount - 1, &GA.extensions);
+	ctap_check_retr(ctap_ret);
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 // adds 2 to map, or 3 if add_user is true
-uint8_t ctap_get_assertion_cbor_encode_assertion_response(
+CtapStatus ctap_get_assertion_cbor_encode_assertion_response(
     CborEncoder *map, CTAP_credentialDescriptor *cred, uint8_t *auth_data_buf,
     unsigned int auth_data_buf_sz, uint8_t *clientDataHash)
 {
-	int ret;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 	uint8_t sigbuf[64];
 	uint8_t sigder[72];
 	int sigder_sz;
 
-	ret = cbor_encode_int(map, GA_Resp_credential);
-	check_ret(ret);
+	cbor_ret = cbor_encode_int(map, GA_Resp_credential);
+	cbor_check_ret(cbor_ret);
 
-	ret = ctap_cbor_encode_credential_descriptor(map, &cred->credential,
-						     cred->type);
-	check_retr(ret);
+	ctap_ret = ctap_cbor_encode_credential_descriptor(
+	    map, &cred->credential, cred->type);
+	ctap_check_retr(ctap_ret);
 
 	{
-		ret = cbor_encode_int(map, MC_Resp_authData);
-		check_ret(ret);
-		ret = cbor_encode_byte_string(map, auth_data_buf,
-					      auth_data_buf_sz);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(map, MC_Resp_authData);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_byte_string(map, auth_data_buf,
+						   auth_data_buf_sz);
+		cbor_check_ret(cbor_ret);
 	}
 
 	size_t cred_size = ctap_get_credential_id_size(cred->type);
@@ -228,25 +233,25 @@ uint8_t ctap_get_assertion_cbor_encode_assertion_response(
 	printf1(TAG_GREEN, "sigder_sz = %d\n", sigder_sz);
 
 	{
-		ret = cbor_encode_int(map, GA_Resp_signature);
-		check_ret(ret);
-		ret = cbor_encode_byte_string(map, sigder, sigder_sz);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(map, GA_Resp_signature);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_byte_string(map, sigder, sigder_sz);
+		cbor_check_ret(cbor_ret);
 	}
 
 	if (cred->credential.user.id_size) {
 		printf1(TAG_GREEN, "adding user details to output\n");
 
-		int ret = cbor_encode_int(map, GA_Resp_user);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(map, GA_Resp_user);
+		cbor_check_ret(cbor_ret);
 
-		ret = ctap_cbor_encode_user_entity(
+		ctap_ret = ctap_cbor_encode_user_entity(
 		    map, &cred->credential.user,
 		    getAssertionState.user_verified);
-		check_retr(ret);
+		ctap_check_retr(ctap_ret);
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 // @return the number of valid credentials
@@ -408,10 +413,11 @@ static int cred_cmp_func(const void *_a, const void *_b)
 	return b->credential.id.count - a->credential.id.count;
 }
 
-static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
-					   uint8_t *request, int length)
+static CtapStatus parse_get_assertion_request(CTAP_getAssertion *GA,
+					      uint8_t *request, int length)
 {
-	int ret;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 	unsigned int i;
 	int key;
 	size_t map_length;
@@ -422,43 +428,43 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 	GA->creds = getAssertionState.creds; // Save stack memory
 	GA->up = 0xff;
 
-	ret = cbor_parser_init(request, length, CborValidateCanonicalFormat,
-			       &parser, &it);
-	check_ret(ret);
+	cbor_ret = cbor_parser_init(request, length,
+				    CborValidateCanonicalFormat, &parser, &it);
+	cbor_check_ret(cbor_ret);
 
 	if (cbor_value_get_type(&it) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_enter_container(&it, &map);
-	check_ret(ret);
+	cbor_ret = cbor_value_enter_container(&it, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_get_map_length(&it, &map_length);
-	check_ret(ret);
+	cbor_ret = cbor_value_get_map_length(&it, &map_length);
+	cbor_check_ret(cbor_ret);
 
 	printf1(TAG_GA, "GA map has %d elements\n", map_length);
 
 	for (i = 0; i < map_length; i++) {
 		if (cbor_value_get_type(&map) != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
-			return CTAP2_ERR_INVALID_CBOR;
+			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
-		ret = cbor_value_get_int_checked(&map, &key);
-		check_ret(ret);
+		cbor_ret = cbor_value_get_int_checked(&map, &key);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
-		ret = 0;
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = CborNoError;
 
 		switch (key) {
 
 		case GA_Cmd_clientDataHash:
 			printf1(TAG_GA, "GA_Cmd_clientDataHash\n");
 
-			ret = ctap_parse_fixed_length_byte_string(
+			ctap_ret = ctap_parse_fixed_length_byte_string(
 			    &map, GA->clientDataHash, CLIENT_DATA_HASH_SIZE);
-			check_retr(ret);
+			ctap_check_retr(ctap_ret);
 			GA->clientDataHashPresent = 1;
 
 			printf1(TAG_GA, "\n");
@@ -468,30 +474,31 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 		case GA_Cmd_rpId:
 			printf1(TAG_GA, "GA_Cmd_rpId\n");
 
-			ret = ctap_parse_rp_id(&GA->rp, &map);
+			ctap_ret = ctap_parse_rp_id(&GA->rp, &map);
+			ctap_check_retr(ctap_ret);
 
 			printf1(TAG_GA, "  ID: %s\n", GA->rp.id);
 			break;
 
 		case GA_Cmd_allowList:
 			printf1(TAG_GA, "GA_Cmd_allowList\n");
-			ret = parse_allow_list_credentials(GA, &map);
-			check_ret(ret);
+			ctap_ret = parse_allow_list_credentials(GA, &map);
+			ctap_check_retr(ctap_ret);
 			GA->allowListPresent = 1;
 			break;
 
 		case GA_Cmd_extensions:
 			printf1(TAG_GA, "GA_Cmd_extensions\n");
-			ret =
+			ctap_ret =
 			    ctap_extensions_parse_input(&map, &GA->extensions);
-			check_retr(ret);
+			ctap_check_retr(ctap_ret);
 			break;
 
 		case GA_Cmd_options:
 			printf1(TAG_GA, "GA_Cmd_options\n");
-			ret =
+			ctap_ret =
 			    ctap_parse_options(&map, &GA->rk, &GA->uv, &GA->up);
-			check_retr(ret);
+			ctap_check_retr(ctap_ret);
 			break;
 
 		case GA_Cmd_pinUvAuthParam:
@@ -501,75 +508,81 @@ static uint8_t parse_get_assertion_request(CTAP_getAssertion *GA,
 			if (cbor_value_get_type(&map) != CborByteStringType) {
 				printf2(TAG_ERR, "Error, expecting byte string "
 						 "for map key\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			if (cbor_value_get_string_length(&map, &pinSize) !=
 			    CborNoError) {
 				printf2(TAG_ERR, "Error, invalid map data\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			if (pinSize == 0) {
 				GA->pinAuthEmpty = 1;
 				break;
 			}
 
-			ret = ctap_parse_fixed_length_byte_string(
+			ctap_ret = ctap_parse_fixed_length_byte_string(
 			    &map, GA->pinAuth, PIN_UV_AUTH_PARAM_MAX_SIZE);
-			if (CTAP1_ERR_INVALID_LENGTH != ret) // damn microsoft
+			if (CTAP1_ERR_INVALID_LENGTH !=
+			    ctap_ret.value) // damn microsoft
 			{
-				check_retr(ret);
+				ctap_check_retr(ctap_ret);
 
 			} else {
-				ret = 0;
+				ctap_ret = (CtapStatus){CTAP2_OK};
 			}
 
-			check_retr(ret);
+			ctap_check_retr(ctap_ret);
 			GA->pinAuthPresent = 1;
 			break;
 
 		case GA_Cmd_pinUvAuthProtocol:
 			printf1(TAG_GA, "GA_Cmd_pinUvAuthProtocol\n");
 			if (cbor_value_get_type(&map) == CborIntegerType) {
-				ret = cbor_value_get_int_checked(
+				cbor_ret = cbor_value_get_int_checked(
 				    &map, &GA->pinProtocol);
-				check_ret(ret);
+				cbor_check_ret(cbor_ret);
 			} else {
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			break;
 		}
 
-		if (ret != 0) {
+		if (cbor_ret != CborNoError) {
 			printf2(TAG_ERR, "Error, parsing failed\n");
-			return ret;
+			cbor_check_ret(cbor_ret);
+		}
+		if (ctap_ret.value != CTAP2_OK) {
+			printf2(TAG_ERR, "Error, parsing failed\n");
+			return ctap_ret;
 		}
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
-static uint8_t parse_allow_list_credentials(CTAP_getAssertion *GA,
-					    CborValue *it)
+static CtapStatus parse_allow_list_credentials(CTAP_getAssertion *GA,
+					       CborValue *it)
 {
 	CborValue arr;
 	size_t len;
-	int ret;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 	unsigned int i;
 	CTAP_credentialDescriptor *cred;
 
 	if (cbor_value_get_type(it) != CborArrayType) {
 		printf2(TAG_ERR, "Error, expecting cbor array\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_enter_container(it, &arr);
-	check_ret(ret);
+	cbor_ret = cbor_value_enter_container(it, &arr);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_get_array_length(it, &len);
-	check_ret(ret);
+	cbor_ret = cbor_value_get_array_length(it, &len);
+	cbor_check_ret(cbor_ret);
 
 	GA->credLen = 0;
 
@@ -577,30 +590,31 @@ static uint8_t parse_allow_list_credentials(CTAP_getAssertion *GA,
 		if (i >= ALLOW_LIST_MAX_SIZE) {
 			printf1(TAG_PARSE,
 				"Error, out of memory for allow list.\n");
-			return CTAP2_ERR_LIMIT_EXCEEDED;
+			return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
 		}
 
 		GA->credLen += 1;
 		cred = &GA->creds[i];
 
 		memset(cred, 0, sizeof(CTAP_credentialDescriptor));
-		ret = ctap_parse_pubkey_credential_descriptor(&arr, cred);
-		check_retr(ret);
+		ctap_ret = ctap_parse_pubkey_credential_descriptor(&arr, cred);
+		ctap_check_retr(ctap_ret);
 
-		ret = cbor_value_advance(&arr);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&arr);
+		cbor_check_ret(cbor_ret);
 	}
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
-static int8_t save_credential_list(uint8_t *clientDataHash,
-				   CTAP_credentialDescriptor *creds,
-				   uint32_t count, CTAP_extensions *extensions)
+static CtapStatus save_credential_list(uint8_t *clientDataHash,
+				       CTAP_credentialDescriptor *creds,
+				       uint32_t count,
+				       CTAP_extensions *extensions)
 {
 	if (count) {
 		if (count > ALLOW_LIST_MAX_SIZE - 1) {
 			printf2(TAG_ERR, "ALLOW_LIST_MAX_SIZE Exceeded\n");
-			return CTAP2_ERR_LIMIT_EXCEEDED;
+			return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
 		}
 
 		memmove(getAssertionState.clientDataHash, clientDataHash,
@@ -613,5 +627,5 @@ static int8_t save_credential_list(uint8_t *clientDataHash,
 	getAssertionState.count = count;
 	getAssertionState.index = 0;
 	printf1(TAG_GA, "saved %d credentials\n", count);
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }

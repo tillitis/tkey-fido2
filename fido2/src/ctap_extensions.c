@@ -12,15 +12,15 @@
 
 extern struct _getAssertionState getAssertionState;
 
-static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
-						 CTAP_hmac_secret *hs);
+static CtapStatus ctap_extensions_parse_hmac_secret(CborValue *val,
+						    CTAP_hmac_secret *hs);
 
-int ctap_extensions_encode_output(CTAP_extensions *ext,
-				  uint8_t *ext_encoder_buf,
-				  unsigned int *ext_encoder_buf_size)
+CtapStatus ctap_extensions_encode_output(CTAP_extensions *ext,
+					 uint8_t *ext_encoder_buf,
+					 unsigned int *ext_encoder_buf_size)
 {
 	CborEncoder extensions;
-	int ret;
+	CborError cbor_ret;
 	uint8_t extensions_used = 0;
 	uint8_t hmac_secret_output_is_valid = 0;
 	uint8_t hmac_secret_requested_is_valid = 0;
@@ -43,7 +43,7 @@ int ctap_extensions_encode_output(CTAP_extensions *ext,
 					   ext->hmac_secret.saltLen,
 					   ext->hmac_secret.saltAuth, 1) < 0) {
 			printf1(TAG_CTAP, "saltAuth is invalid\n");
-			return CTAP2_ERR_PIN_AUTH_INVALID;
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 		}
 		printf1(TAG_CTAP, "saltAuth is valid\n");
 
@@ -101,53 +101,53 @@ int ctap_extensions_encode_output(CTAP_extensions *ext,
 				  *ext_encoder_buf_size, 0);
 		{
 			CborEncoder extension_output_map;
-			ret = cbor_encoder_create_map(&extensions,
-						      &extension_output_map,
-						      extensions_used);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_create_map(
+			    &extensions, &extension_output_map,
+			    extensions_used);
+			cbor_check_ret(cbor_ret);
 			if (hmac_secret_output_is_valid) {
 				{
-					ret = cbor_encode_text_stringz(
+					cbor_ret = cbor_encode_text_stringz(
 					    &extension_output_map,
 					    "hmac-secret");
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 
-					ret = cbor_encode_byte_string(
+					cbor_ret = cbor_encode_byte_string(
 					    &extension_output_map,
 					    hmac_secret_output,
 					    ext->hmac_secret.saltLen);
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 				}
 			}
 			if (cred_protect_is_valid) {
 				{
-					ret = cbor_encode_text_stringz(
+					cbor_ret = cbor_encode_text_stringz(
 					    &extension_output_map,
 					    "credProtect");
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 
-					ret = cbor_encode_int(
+					cbor_ret = cbor_encode_int(
 					    &extension_output_map,
 					    ext->cred_protect);
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 				}
 			}
 			if (hmac_secret_requested_is_valid) {
 				{
-					ret = cbor_encode_text_stringz(
+					cbor_ret = cbor_encode_text_stringz(
 					    &extension_output_map,
 					    "hmac-secret");
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 
-					ret = cbor_encode_boolean(
+					cbor_ret = cbor_encode_boolean(
 					    &extension_output_map, 1);
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 				}
 			}
 
-			ret = cbor_encoder_close_container(
+			cbor_ret = cbor_encoder_close_container(
 			    &extensions, &extension_output_map);
-			check_ret(ret);
+			cbor_check_ret(cbor_ret);
 		}
 		*ext_encoder_buf_size =
 		    cbor_encoder_get_buffer_size(&extensions, ext_encoder_buf);
@@ -156,28 +156,29 @@ int ctap_extensions_encode_output(CTAP_extensions *ext,
 		*ext_encoder_buf_size = 0;
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
-uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
+CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 {
 	CborValue map;
 	size_t sz, map_length;
 	char key[16];
-	int ret;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 	unsigned int i;
 	bool b;
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_enter_container(val, &map);
-	check_ret(ret);
+	cbor_ret = cbor_value_enter_container(val, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_get_map_length(val, &map_length);
-	check_ret(ret);
+	cbor_ret = cbor_value_get_map_length(val, &map_length);
+	cbor_check_ret(cbor_ret);
 
 	for (i = 0; i < map_length; i++) {
 		if (cbor_value_get_type(&map) != CborTextStringType) {
@@ -185,37 +186,37 @@ uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 				"Error, expecting text string type for options "
 				"map key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR;
+			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
 		sz = sizeof(key);
-		ret = cbor_value_copy_text_string(&map, key, &sz, NULL);
+		cbor_ret = cbor_value_copy_text_string(&map, key, &sz, NULL);
 
-		if (ret == CborErrorOutOfMemory) {
+		if (cbor_ret == CborErrorOutOfMemory) {
 			printf2(TAG_ERR,
 				"Error, rp map key is too large. Ignoring.\n");
-			check_ret(cbor_value_advance(&map));
-			check_ret(cbor_value_advance(&map));
+			cbor_check_ret(cbor_value_advance(&map));
+			cbor_check_ret(cbor_value_advance(&map));
 			continue;
 		}
-		check_ret(ret);
+		cbor_check_ret(cbor_ret);
 		key[sizeof(key) - 1] = 0;
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 
 		if (strncmp(key, "hmac-secret", 11) == 0) {
 			if (cbor_value_get_type(&map) == CborBooleanType) {
-				ret = cbor_value_get_boolean(&map, &b);
-				check_ret(ret);
+				cbor_ret = cbor_value_get_boolean(&map, &b);
+				cbor_check_ret(cbor_ret);
 				if (b)
 					ext->hmac_secret_present =
 					    EXT_HMAC_SECRET_REQUESTED;
 				printf1(TAG_CTAP,
 					"Set hmac_secret_present to %d\n", b);
 			} else if (cbor_value_get_type(&map) == CborMapType) {
-				ret = ctap_extensions_parse_hmac_secret(
+				ctap_ret = ctap_extensions_parse_hmac_secret(
 				    &map, &ext->hmac_secret);
-				check_retr(ret);
+				ctap_check_retr(ctap_ret);
 				ext->hmac_secret_present =
 				    EXT_HMAC_SECRET_PARSED;
 				printf1(TAG_CTAP,
@@ -228,8 +229,8 @@ uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 		} else if (strncmp(key, "credProtect", 11) == 0) {
 			if (cbor_value_get_type(&map) == CborIntegerType) {
 				int value;
-				ret = cbor_value_get_int(&map, &value);
-				check_ret(ret);
+				cbor_ret = cbor_value_get_int(&map, &value);
+				cbor_check_ret(cbor_ret);
 
 				if (value >= 1 && value <= 3) {
 					ext->cred_protect = (uint8_t)value;
@@ -246,33 +247,34 @@ uint8_t ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 			}
 		}
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 	}
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
-static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
-						 CTAP_hmac_secret *hs)
+static CtapStatus ctap_extensions_parse_hmac_secret(CborValue *val,
+						    CTAP_hmac_secret *hs)
 {
 	size_t map_length;
 	size_t salt_len;
 	uint8_t parsed_count = 0;
 	int key;
-	int ret;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 	unsigned int i;
 	CborValue map;
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_enter_container(val, &map);
-	check_ret(ret);
+	cbor_ret = cbor_value_enter_container(val, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_get_map_length(val, &map_length);
-	check_ret(ret);
+	cbor_ret = cbor_value_get_map_length(val, &map_length);
+	cbor_check_ret(cbor_ret);
 
 	for (i = 0; i < map_length; i++) {
 		if (cbor_value_get_type(&map) != CborIntegerType) {
@@ -280,46 +282,46 @@ static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
 				"Error, expecting CborIntegerTypefor "
 				"hmac-secret map key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR;
+			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
-		ret = cbor_value_get_int(&map, &key);
-		check_ret(ret);
+		cbor_ret = cbor_value_get_int(&map, &key);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 
 		switch (key) {
 
 		case EXT_HMAC_SECRET_COSE_KEY:
-			ret = cose_key_parse(&map, &hs->keyAgreement);
-			check_retr(ret);
+			ctap_ret = cose_key_parse(&map, &hs->keyAgreement);
+			ctap_check_retr(ctap_ret);
 			parsed_count++;
 			break;
 
 		case EXT_HMAC_SECRET_SALT_ENC:
 			salt_len = 64;
-			ret = cbor_value_copy_byte_string(&map, hs->saltEnc,
-							  &salt_len, NULL);
+			cbor_ret = cbor_value_copy_byte_string(
+			    &map, hs->saltEnc, &salt_len, NULL);
 			if ((salt_len != 32 && salt_len != 64) ||
-			    ret == CborErrorOutOfMemory) {
-				return CTAP1_ERR_INVALID_LENGTH;
+			    cbor_ret == CborErrorOutOfMemory) {
+				return (CtapStatus){CTAP1_ERR_INVALID_LENGTH};
 			}
-			check_ret(ret);
+			cbor_check_ret(cbor_ret);
 			hs->saltLen = salt_len;
 			parsed_count++;
 			break;
 
 		case EXT_HMAC_SECRET_SALT_AUTH:
 			salt_len = 32;
-			ret = cbor_value_copy_byte_string(&map, hs->saltAuth,
-							  &salt_len, NULL);
-			check_ret(ret);
+			cbor_ret = cbor_value_copy_byte_string(
+			    &map, hs->saltAuth, &salt_len, NULL);
+			cbor_check_ret(cbor_ret);
 			parsed_count++;
 			break;
 		}
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 	}
 
 	if (parsed_count != 3) {
@@ -327,8 +329,8 @@ static uint8_t ctap_extensions_parse_hmac_secret(CborValue *val,
 			"Error, ctap_extensions_parse_hmac_secret() missing "
 			"parameter. Got %d.\n",
 			parsed_count);
-		return CTAP2_ERR_MISSING_PARAMETER;
+		return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }

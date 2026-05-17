@@ -42,16 +42,16 @@ static int is_cred_id_matching_rk(const CredentialId *credId,
 static void truncate_rpid(uint8_t *stored_rpid, uint8_t *stored_len,
 			  const uint8_t *rpid, size_t rpid_len);
 
-int ctap2_user_presence_test()
+CtapStatus ctap2_user_presence_test()
 {
 	device_set_status(CTAPHID_STATUS_UPNEEDED);
 	int ret = ctap_user_presence_test(CTAP2_UP_DELAY_MS);
 	if (ret > 0) {
-		return CTAP1_ERR_SUCCESS;
+		return (CtapStatus){CTAP2_OK};
 	} else if (ret < 0) {
-		return CTAP2_ERR_KEEPALIVE_CANCEL;
+		return (CtapStatus){CTAP2_ERR_KEEPALIVE_CANCEL};
 	} else {
-		return CTAP2_ERR_ACTION_TIMEOUT;
+		return (CtapStatus){CTAP2_ERR_ACTION_TIMEOUT};
 	}
 }
 
@@ -72,44 +72,45 @@ uint32_t ctap_auth_data_update_count(CTAP_authDataHeader *authData)
 	return count;
 }
 
-uint8_t ctap_cbor_encode_credential_descriptor(CborEncoder *map,
-					       struct Credential *cred,
-					       PublicKeyCredentialType type)
+CtapStatus ctap_cbor_encode_credential_descriptor(CborEncoder *map,
+						  struct Credential *cred,
+						  PublicKeyCredentialType type)
 {
 	CborEncoder desc;
+	CborError cbor_ret;
 
-	int ret = cbor_encoder_create_map(map, &desc, 2);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_create_map(map, &desc, 2);
+	cbor_check_ret(cbor_ret);
 
 	{
-		ret = cbor_encode_text_string(&desc, "id", 2);
-		check_ret(ret);
+		cbor_ret = cbor_encode_text_string(&desc, "id", 2);
+		cbor_check_ret(cbor_ret);
 
-		ret =
+		cbor_ret =
 		    cbor_encode_byte_string(&desc, (uint8_t *)&cred->id,
 					    ctap_get_credential_id_size(type));
-		check_ret(ret);
+		cbor_check_ret(cbor_ret);
 	}
 
 	{
-		ret = cbor_encode_text_string(&desc, "type", 4);
-		check_ret(ret);
+		cbor_ret = cbor_encode_text_string(&desc, "type", 4);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_encode_text_string(&desc, "public-key", 10);
-		check_ret(ret);
+		cbor_ret = cbor_encode_text_string(&desc, "public-key", 10);
+		cbor_check_ret(cbor_ret);
 	}
 
-	ret = cbor_encoder_close_container(map, &desc);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_close_container(map, &desc);
+	cbor_check_ret(cbor_ret);
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
-uint8_t ctap_cbor_encode_user_entity(CborEncoder *map, CTAP_userEntity *user,
-				     int is_verified)
+CtapStatus ctap_cbor_encode_user_entity(CborEncoder *map, CTAP_userEntity *user,
+					int is_verified)
 {
 	CborEncoder entity;
-	int ret;
+	CborError cbor_ret;
 
 	/* Always include id */
 	int map_size = 1;
@@ -120,36 +121,36 @@ uint8_t ctap_cbor_encode_user_entity(CborEncoder *map, CTAP_userEntity *user,
 		map_size += 2; /* name + displayName */
 	}
 
-	ret = cbor_encoder_create_map(map, &entity, map_size);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_create_map(map, &entity, map_size);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_encode_text_string(&entity, "id", 2);
-	check_ret(ret);
+	cbor_ret = cbor_encode_text_string(&entity, "id", 2);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_encode_byte_string(&entity, user->id, user->id_size);
-	check_ret(ret);
+	cbor_ret = cbor_encode_byte_string(&entity, user->id, user->id_size);
+	cbor_check_ret(cbor_ret);
 
 	if (dispname) {
 
-		ret = cbor_encode_text_string(&entity, "name", 4);
-		check_ret(ret);
+		cbor_ret = cbor_encode_text_string(&entity, "name", 4);
+		cbor_check_ret(cbor_ret);
 
-		ret =
+		cbor_ret =
 		    cbor_encode_text_stringz(&entity, (const char *)user->name);
-		check_ret(ret);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_encode_text_string(&entity, "displayName", 11);
-		check_ret(ret);
+		cbor_ret = cbor_encode_text_string(&entity, "displayName", 11);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_encode_text_stringz(&entity,
-					       (const char *)user->displayName);
-		check_ret(ret);
+		cbor_ret = cbor_encode_text_stringz(
+		    &entity, (const char *)user->displayName);
+		cbor_check_ret(cbor_ret);
 	}
 
-	ret = cbor_encoder_close_container(map, &entity);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_close_container(map, &entity);
+	cbor_check_ret(cbor_ret);
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 uint8_t ctap_check_credential_metadata(CredentialId *credential,
@@ -345,13 +346,14 @@ void ctap_init()
 		printf1(TAG_ERR, "DEVICE LOCKED!\n");
 	}
 
-    ctap_client_pin_initialize();
+	ctap_client_pin_initialize();
 }
 
-int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
-			uint8_t *rp_id_lookup, CborEncoder *map,
-			uint8_t *auth_data_buf, uint32_t *len,
-			CTAP_credInfo *credInfo, CTAP_extensions *extensions)
+CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
+			       uint8_t *rp_id_lookup, CborEncoder *map,
+			       uint8_t *auth_data_buf, uint32_t *len,
+			       CTAP_credInfo *credInfo,
+			       CTAP_extensions *extensions)
 {
 	CborEncoder cose_key;
 
@@ -374,13 +376,13 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 
 	count = ctap_auth_data_update_count(&authData->head);
 
-	int but;
+	CtapStatus but;
 
 	but = ctap2_user_presence_test();
-	if (CTAP2_ERR_PROCESSING == but) {
+	if (CTAP2_ERR_PROCESSING == but.value) {
 		authData->head.flags = (0 << 0); // User presence disabled
 	} else {
-		check_retr(but);
+		ctap_check_retr(but);
 		authData->head.flags = (1 << 0); // User presence
 	}
 
@@ -438,7 +440,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 		if (credInfo->rk) {
 			// Check for space
 			if (STATE.rk_stored >= ctap_max_number_of_rks()) {
-				return CTAP2_ERR_KEY_STORE_FULL;
+				return (CtapStatus){CTAP2_ERR_KEY_STORE_FULL};
 			}
 			// Fill credential
 			memmove(&rk.id, &authData->attest.id,
@@ -473,7 +475,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 
 			int ret = ctap_overwrite_rk(&rk);
 			if (ret < 0) {
-				return CTAP1_ERR_OTHER;
+				return (CtapStatus){CTAP1_ERR_OTHER};
 			}
 		}
 
@@ -481,6 +483,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 		dump_hex1(TAG_GREEN, (uint8_t *)&authData->attest.id,
 			  sizeof(CredentialId));
 
+		// TODO Check return value here?
 		cose_key_generate(&cose_key, (uint8_t *)&authData->attest.id,
 				  sizeof(CredentialId),
 				  credInfo->publicKeyCredentialType,
@@ -492,7 +495,7 @@ int ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 	}
 
 	*len = auth_data_sz;
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
@@ -513,11 +516,11 @@ void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
 	memmove(tag, hashbuf, CREDENTIAL_TAG_SIZE);
 }
 
-uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
+CtapStatus ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 {
 	CborEncoder encoder;
 	memset(&encoder, 0, sizeof(CborEncoder));
-	uint8_t status = 0;
+	CtapStatus status = {0};
 	uint8_t cmd = *pkt_raw;
 	pkt_raw++;
 	length--;
@@ -536,11 +539,11 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 	case CTAP_CREDENTIAL_MANAGEMENT:
 	case CTAP_CREDENTIAL_MANAGEMENT_PRE:
 		if (ctap_client_pin_is_locked()) {
-			status = CTAP2_ERR_PIN_BLOCKED;
+			status = (CtapStatus){CTAP2_ERR_PIN_BLOCKED};
 			goto done;
 		}
 		if (ctap_client_pin_is_boot_locked()) {
-			status = CTAP2_ERR_PIN_AUTH_BLOCKED;
+			status = (CtapStatus){CTAP2_ERR_PIN_AUTH_BLOCKED};
 			goto done;
 		}
 		break;
@@ -589,7 +592,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 	case CTAP_RESET:
 		printf1(TAG_CTAP, "CTAP_RESET\n");
 		status = ctap2_user_presence_test();
-		if (status == CTAP1_ERR_SUCCESS) {
+		if (status.value == CTAP2_OK) {
 			ctap_reset();
 		}
 		break;
@@ -601,7 +604,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 			resp->length =
 			    cbor_encoder_get_buffer_size(&encoder, buf);
 			dump_hex1(TAG_DUMP, buf, resp->length);
-			if (status == 0) {
+			if (status.value == CTAP2_OK) {
 				cmd = CTAP_GET_ASSERTION; // allow for next
 							  // assertion
 			}
@@ -610,7 +613,7 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 			    TAG_ERR,
 			    "unwanted GET_NEXT_ASSERTION.  lastcmd == 0x%02x\n",
 			    getAssertionState.lastcmd);
-			status = CTAP2_ERR_NOT_ALLOWED;
+			status = (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 		break;
 
@@ -627,13 +630,13 @@ uint8_t ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
 	case CTAP_SELECTION:
 		printf1(TAG_CTAP, "CTAP_AUTHENTICATOR_SELECTION\n");
 		status = ctap2_user_presence_test();
-		if (status != CTAP1_ERR_SUCCESS) {
-			status = CTAP2_ERR_USER_ACTION_TIMEOUT;
+		if (status.value != CTAP2_OK) {
+			status = (CtapStatus){CTAP2_ERR_USER_ACTION_TIMEOUT};
 		}
 		break;
 
 	default:
-		status = CTAP1_ERR_INVALID_COMMAND;
+		status = (CtapStatus){CTAP1_ERR_INVALID_COMMAND};
 		printf2(TAG_ERR, "Error, invalid cmd: 0x%02x\n", cmd);
 	}
 
@@ -641,7 +644,7 @@ done:
 	device_set_status(CTAPHID_STATUS_IDLE);
 	getAssertionState.lastcmd = cmd;
 
-	if (status != CTAP1_ERR_SUCCESS) {
+	if (status.value != CTAP2_OK) {
 		resp->length = 0;
 	}
 

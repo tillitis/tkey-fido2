@@ -37,9 +37,9 @@ static int active_pin_protocol = 0;
 
 extern AuthenticatorState STATE;
 
-static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
-				      uint8_t *platform_pubkey,
-				      uint8_t *pinHashEnc, int pinProtocol);
+static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
+					 uint8_t *platform_pubkey,
+					 uint8_t *pinHashEnc, int pinProtocol);
 static int auth_param_size(int proto);
 static uint8_t decrement_pin_attempts(void);
 static void decrypt(uint8_t *buf, int len, const uint8_t *enc_key,
@@ -52,23 +52,23 @@ static void kdf(const uint8_t *ikm, int pin_protocol,
 		uint8_t *shared_secret_enc_key, uint8_t *shared_secret_mac_key);
 static uint8_t leftover_pin_attempts(void);
 static void lock_device_permanently(void);
-static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
-					int length);
+static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
+					   int length);
 static void regenerate_key_agreement(void);
 static int reset_pinUvAuthToken(void);
 static void reset_pin_attempts(void);
 static size_t trailing_zeros(uint8_t *buf, size_t indx);
 static void update_pin(uint8_t *pin, int len);
-static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int len,
-				      uint8_t *platform_pubkey,
-				      uint8_t *pinAuth, uint8_t *pinHashEnc,
-				      int pinProtocol);
+static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int len,
+					 uint8_t *platform_pubkey,
+					 uint8_t *pinAuth, uint8_t *pinHashEnc,
+					 int pinProtocol);
 static int verify_against_stored_pin(uint8_t *pinHashEnc);
 
 /* -------------------------------------------------------------------------
  * Public entry point
  * ---------------------------------------------------------------------- */
-uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
+CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 {
 	CTAP_clientPin CP;
 	CborEncoder map;
@@ -78,22 +78,23 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 
 	uint8_t pinTokenEnc[CP_IV_SIZE + PINUVAUTHTOKEN_SIZE];
 	int pinTokenEncLen = 0;
-	int ret;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 
 	/*
 	 * Parse first – we must know subCommand before we can gate on lock
 	 * state. Failure here returns immediately; CP may be partially filled.
 	 */
-	ret = parse_client_pin_request(&CP, request, length);
-	if (ret != 0) {
+	ctap_ret = parse_client_pin_request(&CP, request, length);
+	if (ctap_ret.value != CTAP2_OK) {
 		printf2(TAG_ERR, "Error, parse_client_pin_request() failed\n");
-		return ret;
+		return ctap_ret;
 	}
 
 	/* Basic sanity: pinProtocol must be 1 or 2 for CTAP 2.1 */
 	if ((CP.pinProtocol != 1 && CP.pinProtocol != 2) ||
 	    CP.subCommand == 0) {
-		return CTAP1_ERR_OTHER;
+		return (CtapStatus){CTAP1_ERR_OTHER};
 	}
 
 	/* Commands that touch PIN state require unlock */
@@ -103,10 +104,10 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	case CP_SubCmd_getPinToken:
 	case CP_SubCmd_getPinUvAuthTokenUsingPinWithPermissions:
 		if (ctap_client_pin_is_locked()) {
-			return CTAP2_ERR_PIN_BLOCKED;
+			return (CtapStatus){CTAP2_ERR_PIN_BLOCKED};
 		}
 		if (ctap_client_pin_is_boot_locked()) {
-			return CTAP2_ERR_PIN_AUTH_BLOCKED;
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_BLOCKED};
 		}
 		break;
 	default:
@@ -119,120 +120,122 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	case CP_SubCmd_getPINRetries:
 		printf1(TAG_CP, "CP_SubCmd_getPINRetries\n");
 
-		ret = cbor_encoder_create_map(encoder, &map, 2);
-		check_ret(ret);
+		cbor_ret = cbor_encoder_create_map(encoder, &map, 2);
+		cbor_check_ret(cbor_ret);
 
 		CP.getRetries = 1;
 
-		ret = cbor_encode_int(&map, CP_Resp_pinRetries);
-		check_ret(ret);
-		ret = cbor_encode_uint(&map, leftover_pin_attempts());
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, CP_Resp_pinRetries);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_uint(&map, leftover_pin_attempts());
+		cbor_check_ret(cbor_ret);
 
 		/*
 		 * powerCycleState: true when further attempts require a power
 		 * cycle (i.e. boot-locked but not permanently locked).
 		 */
-		ret = cbor_encode_int(&map, CP_Resp_powerCycleState);
-		check_ret(ret);
-		ret = cbor_encode_boolean(&map,
-					  ctap_client_pin_is_boot_locked() &&
-					      !ctap_client_pin_is_locked());
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, CP_Resp_powerCycleState);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_boolean(
+		    &map, ctap_client_pin_is_boot_locked() &&
+			      !ctap_client_pin_is_locked());
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_encoder_close_container(encoder, &map);
-		check_ret(ret);
-		return 0; /* early return – container already closed */
+		cbor_ret = cbor_encoder_close_container(encoder, &map);
+		cbor_check_ret(cbor_ret);
+		return (CtapStatus){
+		    CTAP2_OK}; /* early return – container already closed */
 
 	case CP_SubCmd_getKeyAgreement:
 		printf1(TAG_CP, "CP_SubCmd_getKeyAgreement\n");
 		num_map++;
-		ret = cbor_encoder_create_map(encoder, &map, num_map);
-		check_ret(ret);
+		cbor_ret = cbor_encoder_create_map(encoder, &map, num_map);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_encode_int(&map, CP_Resp_keyAgreement);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, CP_Resp_keyAgreement);
+		cbor_check_ret(cbor_ret);
 
 		crypto_ecc256_compute_public_key(key_agreement.priv_key,
 						 key_agreement.pub_key);
 
 		/* cose_key_add is equivialent with getPyblicKey() and CBOR
 		 * encoding the result */
-		ret = cose_key_add(
+		ctap_ret = cose_key_add(
 		    &map, key_agreement.pub_key, key_agreement.pub_key + 32,
 		    PUB_KEY_CRED_PUB_KEY, COSE_ALG_ECDH_ES_HKDF_256);
-		check_retr(ret);
+		ctap_check_retr(ctap_ret);
 		break;
 
 	case CP_SubCmd_setPIN:
 		printf1(TAG_CP, "CP_SubCmd_setPIN\n");
 
 		if (ctap_client_pin_is_set()) {
-			return CTAP2_ERR_NOT_ALLOWED;
+			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 		if (!CP.newPinEncSize || !CP.pinAuthPresent ||
 		    !CP.keyAgreementPresent) {
-			return CTAP2_ERR_MISSING_PARAMETER;
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
-		ret = update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize,
-					     (uint8_t *)&CP.keyAgreement.pubkey,
-					     CP.pinAuth, NULL, CP.pinProtocol);
-		check_retr(ret);
+		ctap_ret =
+		    update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize,
+					   (uint8_t *)&CP.keyAgreement.pubkey,
+					   CP.pinAuth, NULL, CP.pinProtocol);
+		ctap_check_retr(ctap_ret);
 		break;
 
 	case CP_SubCmd_changePIN:
 		printf1(TAG_CP, "CP_SubCmd_changePIN\n");
 
 		if (!ctap_client_pin_is_set()) {
-			return CTAP2_ERR_PIN_NOT_SET;
+			return (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 		}
 
 		if (!CP.newPinEncSize || !CP.pinAuthPresent ||
 		    !CP.keyAgreementPresent || !CP.pinHashEncPresent) {
-			return CTAP2_ERR_MISSING_PARAMETER;
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
-		ret = update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize,
-					     (uint8_t *)&CP.keyAgreement.pubkey,
-					     CP.pinAuth, CP.pinHashEnc,
-					     CP.pinProtocol);
-		check_retr(ret);
+		ctap_ret = update_pin_if_verified(
+		    CP.newPinEnc, CP.newPinEncSize,
+		    (uint8_t *)&CP.keyAgreement.pubkey, CP.pinAuth,
+		    CP.pinHashEnc, CP.pinProtocol);
+		ctap_check_retr(ctap_ret);
 		break;
 
 	case CP_SubCmd_getPinToken:
 		printf1(TAG_CP, "CP_SubCmd_getPinToken\n");
 
 		if (!ctap_client_pin_is_set()) {
-			return CTAP2_ERR_PIN_NOT_SET;
+			return (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 		}
 
 		if (!CP.keyAgreementPresent || !CP.pinHashEncPresent) {
 			printf2(TAG_ERR,
 				"Error, missing keyAgreement or pinHashEnc for "
 				"getPinToken\n");
-			return CTAP2_ERR_MISSING_PARAMETER;
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
 		num_map++;
-		ret = cbor_encoder_create_map(encoder, &map, num_map);
-		check_ret(ret);
+		cbor_ret = cbor_encoder_create_map(encoder, &map, num_map);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_encode_int(&map, CP_Resp_pinUvAuthToken);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, CP_Resp_pinUvAuthToken);
+		cbor_check_ret(cbor_ret);
 
-		ret = add_enc_pinUvAuthToken(pinTokenEnc,
-					     (uint8_t *)&CP.keyAgreement.pubkey,
-					     CP.pinHashEnc, CP.pinProtocol);
-		check_retr(ret);
+		ctap_ret = add_enc_pinUvAuthToken(
+		    pinTokenEnc, (uint8_t *)&CP.keyAgreement.pubkey,
+		    CP.pinHashEnc, CP.pinProtocol);
+		ctap_check_retr(ctap_ret);
 
 		pinTokenEncLen = (CP.pinProtocol == 2)
 				     ? (CP_IV_SIZE + PINUVAUTHTOKEN_SIZE)
 				     : PINUVAUTHTOKEN_SIZE;
 
-		ret =
+		cbor_ret =
 		    cbor_encode_byte_string(&map, pinTokenEnc, pinTokenEncLen);
-		check_ret(ret);
+		cbor_check_ret(cbor_ret);
 
 		/* getPinToken grants no specific permissions (full token) */
 		active_pin_protocol = CP.pinProtocol;
@@ -243,13 +246,13 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			"CP_SubCmd_getPinUvAuthTokenUsingPinWithPermissions\n");
 
 		if (!ctap_client_pin_is_set()) {
-			return CTAP2_ERR_PIN_NOT_SET;
+			return (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 		}
 		if (!CP.keyAgreementPresent || !CP.pinHashEncPresent) {
-			return CTAP2_ERR_MISSING_PARAMETER;
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 		if (!CP.permissionsPresent || CP.permissions == 0) {
-			return CTAP2_ERR_MISSING_PARAMETER;
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
 		/*
@@ -271,32 +274,34 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			     CP_pinUvAuthToken_permissions_acfg);
 
 			if (rp_required && !CP.rpIdPresent) {
-				return CTAP2_ERR_MISSING_PARAMETER;
+				return (CtapStatus){
+				    CTAP2_ERR_MISSING_PARAMETER};
 			}
 			if (rp_forbidden && CP.rpIdPresent) {
-				return CTAP1_ERR_INVALID_PARAMETER;
+				return (CtapStatus){
+				    CTAP1_ERR_INVALID_PARAMETER};
 			}
 		}
 
 		num_map++;
-		ret = cbor_encoder_create_map(encoder, &map, num_map);
-		check_ret(ret);
+		cbor_ret = cbor_encoder_create_map(encoder, &map, num_map);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_encode_int(&map, CP_Resp_pinUvAuthToken);
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, CP_Resp_pinUvAuthToken);
+		cbor_check_ret(cbor_ret);
 
-		ret = add_enc_pinUvAuthToken(pinTokenEnc,
-					     (uint8_t *)&CP.keyAgreement.pubkey,
-					     CP.pinHashEnc, CP.pinProtocol);
-		check_retr(ret);
+		ctap_ret = add_enc_pinUvAuthToken(
+		    pinTokenEnc, (uint8_t *)&CP.keyAgreement.pubkey,
+		    CP.pinHashEnc, CP.pinProtocol);
+		ctap_check_retr(ctap_ret);
 
 		pinTokenEncLen = (CP.pinProtocol == 2)
 				     ? (CP_IV_SIZE + PINUVAUTHTOKEN_SIZE)
 				     : PINUVAUTHTOKEN_SIZE;
 
-		ret =
+		cbor_ret =
 		    cbor_encode_byte_string(&map, pinTokenEnc, pinTokenEncLen);
-		check_ret(ret);
+		cbor_check_ret(cbor_ret);
 
 		/*
 		 * TODO: bind the token to CP.permissions and CP.rpId.
@@ -313,7 +318,7 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	default:
 		printf2(TAG_ERR, "Error, invalid client pin subcommand %d\n",
 			CP.subCommand);
-		return CTAP2_ERR_INVALID_SUBCOMMAND;
+		return (CtapStatus){CTAP2_ERR_INVALID_SUBCOMMAND};
 	}
 
 	/*
@@ -321,18 +326,18 @@ uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	 * (getPINRetries already closed its own map and returned early.)
 	 */
 	if (CP.getRetries) {
-		ret = cbor_encode_int(&map, CP_Resp_pinRetries);
-		check_ret(ret);
-		ret = cbor_encode_uint(&map, leftover_pin_attempts());
-		check_ret(ret);
+		cbor_ret = cbor_encode_int(&map, CP_Resp_pinRetries);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = cbor_encode_uint(&map, leftover_pin_attempts());
+		cbor_check_ret(cbor_ret);
 	}
 
 	if (num_map || CP.getRetries) {
-		ret = cbor_encoder_close_container(encoder, &map);
-		check_ret(ret);
+		cbor_ret = cbor_encoder_close_container(encoder, &map);
+		cbor_check_ret(cbor_ret);
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 int ctap_client_pin_initialize(void)
@@ -379,24 +384,25 @@ int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
 	return 0;
 }
 
-uint8_t ctap_client_pin_verify_auth(uint8_t *pinAuth, uint8_t *clientDataHash)
+CtapStatus ctap_client_pin_verify_auth(uint8_t *pinAuth,
+				       uint8_t *clientDataHash)
 {
 	return ctap_client_pin_verify_auth_ex(pinAuth, clientDataHash,
 					      CLIENT_DATA_HASH_SIZE);
 }
 
 // verify(pinUvAuthToken, clientDataHash pinUvAuthParam).
-uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
-				       size_t len)
+CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
+					  size_t len)
 {
 
 	// TODO: Do we know from an external request the pin protocol?
 	int ret = ctap_client_pin_verify(pinUvAuthToken, buf, len, pinAuth,
 					 active_pin_protocol);
 	if (ret < 0) {
-		return CTAP2_ERR_PIN_AUTH_INVALID;
+		return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 	}
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 /* decapsulate(peerCoseKey) → sharedSecret | error  */
@@ -415,9 +421,9 @@ int ctap_client_pin_decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
  * Note: If authenticator is locked or boot locked should already be checked
  * before calling this internal function.
  */
-static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
-				      uint8_t *platform_pubkey,
-				      uint8_t *pinHashEnc, int pinProtocol)
+static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
+					 uint8_t *platform_pubkey,
+					 uint8_t *pinHashEnc, int pinProtocol)
 {
 	uint8_t enc_key[32];
 	uint8_t mac_key[32];
@@ -451,13 +457,13 @@ static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 		decrement_pin_attempts();
 
 		if (ctap_client_pin_is_locked()) {
-			return CTAP2_ERR_PIN_BLOCKED;
+			return (CtapStatus){CTAP2_ERR_PIN_BLOCKED};
 		}
 
 		if (ctap_client_pin_is_boot_locked()) {
-			return CTAP2_ERR_PIN_AUTH_BLOCKED;
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_BLOCKED};
 		}
-		return CTAP2_ERR_PIN_INVALID;
+		return (CtapStatus){CTAP2_ERR_PIN_INVALID};
 	}
 
 	reset_pin_attempts();
@@ -472,10 +478,10 @@ static uint8_t add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 	secure_wipe(mac_key, sizeof(mac_key));
 
 	if (ret != 0) {
-		return CTAP1_ERR_OTHER;
+		return (CtapStatus){CTAP1_ERR_OTHER};
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 /*
@@ -638,10 +644,11 @@ static void lock_device_permanently(void)
 	authenticator_write_state(&STATE);
 }
 
-static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
-					int length)
+static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
+					   int length)
 {
-	int ret;
+	CborError cbor_ret;
+	CtapStatus ctap_ret;
 	unsigned int i;
 	int key;
 	size_t map_length;
@@ -652,35 +659,35 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 
 	memset(CP, 0, sizeof(CTAP_clientPin));
 
-	ret = cbor_parser_init(request, length, CborValidateCanonicalFormat,
-			       &parser, &it);
-	check_ret(ret);
+	cbor_ret = cbor_parser_init(request, length,
+				    CborValidateCanonicalFormat, &parser, &it);
+	cbor_check_ret(cbor_ret);
 
 	if (cbor_value_get_type(&it) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_enter_container(&it, &map);
-	check_ret(ret);
+	cbor_ret = cbor_value_enter_container(&it, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_get_map_length(&it, &map_length);
-	check_ret(ret);
+	cbor_ret = cbor_value_get_map_length(&it, &map_length);
+	cbor_check_ret(cbor_ret);
 
 	printf1(TAG_CP, "CP map has %d elements\n", map_length);
 
 	for (i = 0; i < map_length; i++) {
 		if (cbor_value_get_type(&map) != CborIntegerType) {
 			printf2(TAG_ERR, "Error, expecting int for map key\n");
-			return CTAP2_ERR_INVALID_CBOR;
+			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
 
-		ret = cbor_value_get_int_checked(&map, &key);
-		check_ret(ret);
+		cbor_ret = cbor_value_get_int_checked(&map, &key);
+		cbor_check_ret(cbor_ret);
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
-		ret = 0;
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
+		cbor_ret = CborNoError;
 
 		switch (key) {
 
@@ -689,11 +696,11 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			if (cbor_value_get_type(&map) != CborIntegerType) {
 				printf2(TAG_ERR,
 					"Error, expecting int for map key\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 
 			cbor_value_get_int_checked(&map, &CP->pinProtocol);
-			check_ret(ret);
+			cbor_check_ret(cbor_ret);
 			break;
 
 		case CP_Cmd_subCommand:
@@ -701,16 +708,16 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			if (cbor_value_get_type(&map) != CborIntegerType) {
 				printf2(TAG_ERR,
 					"Error, expecting int for map key\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			cbor_value_get_int_checked(&map, &CP->subCommand);
-			check_ret(ret);
+			cbor_check_ret(cbor_ret);
 			break;
 
 		case CP_Cmd_keyAgreement:
 			printf1(TAG_CP, "CP_Cmd_keyAgreement\n");
-			ret = cose_key_parse(&map, &CP->keyAgreement);
-			check_retr(ret);
+			ctap_ret = cose_key_parse(&map, &CP->keyAgreement);
+			ctap_check_retr(ctap_ret);
 			CP->keyAgreementPresent = 1;
 			break;
 
@@ -724,12 +731,12 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			 * PIN_UV_AUTH_PARAM_MAX_SIZE bytes.
 			 */
 			if (cbor_value_get_type(&map) != CborByteStringType) {
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			sz = PIN_UV_AUTH_PARAM_MAX_SIZE;
-			ret = cbor_value_copy_byte_string(&map, CP->pinAuth,
-							  &sz, NULL);
-			check_ret(ret);
+			cbor_ret = cbor_value_copy_byte_string(
+			    &map, CP->pinAuth, &sz, NULL);
+			cbor_check_ret(cbor_ret);
 			CP->pinAuthPresent = 1;
 			break;
 
@@ -738,27 +745,29 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			if (cbor_value_get_type(&map) != CborByteStringType) {
 				printf2(TAG_ERR, "Error, expecting byte string "
 						 "for map key\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 
-			ret = cbor_value_calculate_string_length(&map, &sz);
-			check_ret(ret);
+			cbor_ret =
+			    cbor_value_calculate_string_length(&map, &sz);
+			cbor_check_ret(cbor_ret);
 			if (sz > NEW_PIN_ENC_MAX_SIZE ||
 			    sz < NEW_PIN_ENC_MIN_SIZE) {
-				return CTAP2_ERR_PIN_POLICY_VIOLATION;
+				return (CtapStatus){
+				    CTAP2_ERR_PIN_POLICY_VIOLATION};
 			}
 
 			CP->newPinEncSize = (int)sz;
 			sz = NEW_PIN_ENC_MAX_SIZE;
-			ret = cbor_value_copy_byte_string(&map, CP->newPinEnc,
-							  &sz, NULL);
-			check_ret(ret);
+			cbor_ret = cbor_value_copy_byte_string(
+			    &map, CP->newPinEnc, &sz, NULL);
+			cbor_check_ret(cbor_ret);
 			break;
 
 		case CP_Cmd_pinHashEnc:
 			printf1(TAG_CP, "CP_Cmd_pinHashEnc\n");
 			if (cbor_value_get_type(&map) != CborByteStringType) {
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			/*
 			 * Protocol 1: 16 bytes; protocol 2: 32 bytes (IV +
@@ -766,16 +775,16 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			 * exact length later.
 			 */
 			sz = sizeof(CP->pinHashEnc);
-			ret = cbor_value_copy_byte_string(&map, CP->pinHashEnc,
-							  &sz, NULL);
-			check_ret(ret);
+			cbor_ret = cbor_value_copy_byte_string(
+			    &map, CP->pinHashEnc, &sz, NULL);
+			cbor_check_ret(cbor_ret);
 			CP->pinHashEncPresent = 1;
 			break;
 
 		case CP_Cmd_permissions:
 			printf1(TAG_CP, "CP_Cmd_permissions\n");
 			if (cbor_value_get_type(&map) != CborIntegerType) {
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			{
 				int perm = 0;
@@ -788,12 +797,12 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 		case CP_Cmd_rpId:
 			printf1(TAG_CP, "CP_Cmd_rpId\n");
 			if (cbor_value_get_type(&map) != CborTextStringType) {
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			sz = CP_MAX_RPID_LEN;
-			ret = cbor_value_copy_text_string(&map, CP->rpId, &sz,
-							  NULL);
-			check_ret(ret);
+			cbor_ret = cbor_value_copy_text_string(&map, CP->rpId,
+							       &sz, NULL);
+			cbor_check_ret(cbor_ret);
 			CP->rpId[sz] = '\0';
 			CP->rpIdPresent = 1;
 			break;
@@ -803,11 +812,11 @@ static uint8_t parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			break;
 		}
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 /* regenerate(): Generate a fresh, random P-256 private key, x, and compute the
@@ -904,17 +913,17 @@ static void update_pin(uint8_t *pin, int len)
  * Note: If authenticator is locked or boot locked should already be checked
  * before calling this internal function.
  */
-static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
-				      uint8_t *platform_pubkey,
-				      uint8_t *pinAuth, uint8_t *pinHashEnc,
-				      int pinProtocol)
+static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
+					 uint8_t *platform_pubkey,
+					 uint8_t *pinAuth, uint8_t *pinHashEnc,
+					 int pinProtocol)
 {
 	uint8_t enc_key[32];
 	uint8_t mac_key[32];
 
 	// newPinEnc is suppsoed to be 64 bytes
 	if (newPinEnc_len < 64) {
-		return CTAP1_ERR_INVALID_PARAMETER;
+		return (CtapStatus){CTAP1_ERR_INVALID_PARAMETER};
 	}
 
 	ctap_client_pin_decapsulate(platform_pubkey, pinProtocol, enc_key,
@@ -937,7 +946,7 @@ static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 
 	if (ctap_client_pin_verify(mac_key, tmp_verify_buf, tmp_verify_buf_len,
 				   pinAuth, pinProtocol) < 0) {
-		return CTAP2_ERR_PIN_AUTH_INVALID;
+		return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 	}
 
 	// Decrypt new PIN with shared secret
@@ -961,7 +970,7 @@ static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 			newPin_len);
 		secure_wipe(enc_key, sizeof(enc_key));
 		secure_wipe(mac_key, sizeof(mac_key));
-		return CTAP2_ERR_PIN_POLICY_VIOLATION;
+		return (CtapStatus){CTAP2_ERR_PIN_POLICY_VIOLATION};
 	} else {
 		printf1(TAG_CP, "New pin: %s [%d bytes]\n", newPinEnc,
 			newPin_len);
@@ -983,12 +992,12 @@ static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 			decrement_pin_attempts();
 
 			if (ctap_client_pin_is_locked()) {
-				return CTAP2_ERR_PIN_BLOCKED;
+				return (CtapStatus){CTAP2_ERR_PIN_BLOCKED};
 			}
 			if (ctap_client_pin_is_boot_locked()) {
-				return CTAP2_ERR_PIN_AUTH_BLOCKED;
+				return (CtapStatus){CTAP2_ERR_PIN_AUTH_BLOCKED};
 			}
-			return CTAP2_ERR_PIN_INVALID;
+			return (CtapStatus){CTAP2_ERR_PIN_INVALID};
 		}
 
 		reset_pin_attempts();
@@ -1001,7 +1010,7 @@ static uint8_t update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 	// Set new PIN (update and store PIN_CODE_HASH)
 	update_pin(newPinEnc, newPin_len);
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
 // Verifies the pinHashEnc from the platform,  pinHashEnc =

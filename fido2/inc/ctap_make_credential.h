@@ -58,7 +58,7 @@ typedef struct {
 
 } CTAP_makeCredential;
 
-uint8_t ctap_make_credential(CborEncoder *encoder, uint8_t *request,
-			     int length);
+CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
+				int length);
 
 #endif

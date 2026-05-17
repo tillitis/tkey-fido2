@@ -480,9 +480,9 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 	return buffer_status();
 }
 
-extern void _check_ret(CborError ret, int line, const char *filename);
+extern void _cbor_check_ret(CborError ret, int line, const char *filename);
 #define check_hardcore(r)                                                      \
-	_check_ret(r, __LINE__, __FILE__);                                     \
+	_cbor_check_ret(r, __LINE__, __FILE__);                                \
 	if ((r) != CborNoError)                                                \
 		exit(1);
 
@@ -498,6 +498,7 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 	int len = 0;
 #ifndef DISABLE_CTAPHID_CBOR
 	int status;
+	CtapStatus ctap_ret;
 #endif
 
 	static uint8_t is_busy = 0;
@@ -575,8 +576,8 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 		}
 		is_busy = 1;
 		ctap_response_init(&ctap_resp);
-		status = ctap_request(ctap_buffer, len, &ctap_resp);
-
+		ctap_ret = ctap_request(ctap_buffer, len, &ctap_resp);
+		status = ctap_ret.value;
 		wb.bcnt = (ctap_resp.length + 1);
 		wb.cid = cid;
 		wb.cmd = cmd;
@@ -663,7 +664,7 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 		if (ret < 0) {
 			status = CTAP1_ERR_OTHER;
 		} else {
-			status = CTAP1_ERR_SUCCESS;
+			status = CTAP2_OK;
 		}
 
 		timestamp();
@@ -688,7 +689,7 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 		if (ret < 0) {
 			status = CTAP1_ERR_OTHER;
 		} else {
-			status = CTAP1_ERR_SUCCESS;
+			status = CTAP2_OK;
 		}
 
 		timestamp();

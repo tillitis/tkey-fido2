@@ -14,11 +14,20 @@
 
 extern struct _getAssertionState getAssertionState;
 
-void _check_ret(CborError ret, int line, const char *filename)
+void _cbor_check_ret(CborError ret, int line, const char *filename)
 {
 	if (ret != CborNoError) {
 		printf1(TAG_ERR, "CborError: 0x%x: %s: %d: %s\n", ret, filename,
 			line, cbor_error_string(ret));
+		/*exit(1);*/
+	}
+}
+
+void _ctap_check_ret(CtapStatus ret, int line, const char *filename)
+{
+	if (ret.value != CTAP2_OK) {
+		printf1(TAG_ERR, "CTAP Error: 0x%x: %s: %d: %s\n", ret.value,
+			filename, line, ctap_error_string(ret));
 		/*exit(1);*/
 	}
 }
@@ -70,10 +79,11 @@ const char *cbor_value_get_type_string(const CborValue *value)
 	}
 }
 
-uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
-						CTAP_credentialDescriptor *cred)
+CtapStatus
+ctap_parse_pubkey_credential_descriptor(CborValue *arr,
+					CTAP_credentialDescriptor *cred)
 {
-	int ret;
+	CborError cbor_ret;
 	size_t buflen;
 	char keytype[12];
 	CborValue val;
@@ -81,42 +91,42 @@ uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 
 	if (cbor_value_get_type(arr) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_map_find_value(arr, "id", &val);
-	check_ret(ret);
+	cbor_ret = cbor_value_map_find_value(arr, "id", &val);
+	cbor_check_ret(cbor_ret);
 
 	if (cbor_value_get_type(&val) != CborByteStringType) {
 		printf2(TAG_ERR, "Error, No valid ID field (%s)\n",
 			cbor_value_get_type_string(&val));
-		return CTAP2_ERR_MISSING_PARAMETER;
+		return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 	}
 
 	buflen = sizeof(CredentialId);
-	ret = cbor_value_copy_byte_string(&val, (uint8_t *)&cred->credential.id,
-					  &buflen, NULL);
+	cbor_ret = cbor_value_copy_byte_string(
+	    &val, (uint8_t *)&cred->credential.id, &buflen, NULL);
 
 	if (buflen == U2F_KEY_HANDLE_SIZE) {
 		printf2(TAG_PARSE, "CTAP1 credential\n");
 		cred->type = PUB_KEY_CRED_CTAP1;
 	}
-	check_ret(ret);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_map_find_value(arr, "type", &val);
-	check_ret(ret);
+	cbor_ret = cbor_value_map_find_value(arr, "type", &val);
+	cbor_check_ret(cbor_ret);
 
 	if (cbor_value_get_type(&val) != CborTextStringType) {
 		printf2(TAG_ERR, "Error, No valid type field\n");
-		return CTAP2_ERR_MISSING_PARAMETER;
+		return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 	}
 
 	buflen = sizeof(keytype);
-	ret = cbor_value_copy_text_string(&val, keytype, &buflen, NULL);
-	if (ret == CborErrorOutOfMemory) {
+	cbor_ret = cbor_value_copy_text_string(&val, keytype, &buflen, NULL);
+	if (cbor_ret == CborErrorOutOfMemory) {
 		cred->type = PUB_KEY_CRED_UNKNOWN;
 	} else {
-		check_ret(ret);
+		cbor_check_ret(cbor_ret);
 	}
 
 	if (strncmp(keytype, "public-key", 11) == 0) {
@@ -128,52 +138,52 @@ uint8_t ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 		printf1(TAG_RED, "Unknown type: %s\n", keytype);
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
-uint8_t ctap_parse_fixed_length_byte_string(CborValue *map, uint8_t *dst,
-					    unsigned int len)
+CtapStatus ctap_parse_fixed_length_byte_string(CborValue *map, uint8_t *dst,
+					       unsigned int len)
 {
 	size_t sz;
-	int ret;
+	CborError cbor_ret;
 	if (cbor_value_get_type(map) == CborByteStringType) {
 		sz = len;
-		ret = cbor_value_copy_byte_string(map, dst, &sz, NULL);
-		check_ret(ret);
+		cbor_ret = cbor_value_copy_byte_string(map, dst, &sz, NULL);
+		cbor_check_ret(cbor_ret);
 		if (sz != len) {
 			printf2(TAG_ERR,
 				"Error, byte string is different length (%d vs "
 				"%d)\n",
 				len, sz);
-			return CTAP1_ERR_INVALID_LENGTH;
+			return (CtapStatus){CTAP1_ERR_INVALID_LENGTH};
 		}
 	} else {
 		printf2(TAG_ERR, "Error, CborByteStringType expected\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }
 
-uint8_t ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
-			   uint8_t *up)
+CtapStatus ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
+			      uint8_t *up)
 {
 	size_t sz, map_length;
 	char key[8];
-	int ret;
+	CborError cbor_ret;
 	unsigned int i;
 	_Bool b;
 	CborValue map;
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_enter_container(val, &map);
-	check_ret(ret);
+	cbor_ret = cbor_value_enter_container(val, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_get_map_length(val, &map_length);
-	check_ret(ret);
+	cbor_ret = cbor_value_get_map_length(val, &map_length);
+	cbor_check_ret(cbor_ret);
 
 	for (i = 0; i < map_length; i++) {
 		if (cbor_value_get_type(&map) != CborTextStringType) {
@@ -181,87 +191,90 @@ uint8_t ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
 				"Error, expecting text string type for options "
 				"map key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR;
+			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
-		sz = sizeof(key);
-		ret = cbor_value_copy_text_string(&map, key, &sz, NULL);
 
-		if (ret == CborErrorOutOfMemory) {
+		sz = sizeof(key);
+		cbor_ret = cbor_value_copy_text_string(&map, key, &sz, NULL);
+		if (cbor_ret == CborErrorOutOfMemory) {
 			printf2(TAG_ERR, "Error, rp map key is too large\n");
-			return CTAP2_ERR_LIMIT_EXCEEDED;
+			return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
 		}
-		check_ret(ret);
+		cbor_check_ret(cbor_ret);
 		key[sizeof(key) - 1] = 0;
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 
 		if (cbor_value_get_type(&map) != CborBooleanType) {
 			printf2(TAG_ERR, "Error, expecting bool type for "
 					 "option map value\n");
-			return CTAP2_ERR_INVALID_CBOR;
+			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
 
 		if (strncmp(key, "rk", 2) == 0) {
-			ret = cbor_value_get_boolean(&map, &b);
-			check_ret(ret);
+			cbor_ret = cbor_value_get_boolean(&map, &b);
+			cbor_check_ret(cbor_ret);
 			printf1(TAG_GA, "rk: %d\n", b);
 			*rk = b;
 		} else if (strncmp(key, "uv", 2) == 0) {
-			ret = cbor_value_get_boolean(&map, &b);
-			check_ret(ret);
+			cbor_ret = cbor_value_get_boolean(&map, &b);
+			cbor_check_ret(cbor_ret);
 			printf1(TAG_GA, "uv: %d\n", b);
 			*uv = b;
 		} else if (strncmp(key, "up", 2) == 0) {
-			ret = cbor_value_get_boolean(&map, &b);
-			check_ret(ret);
+			cbor_ret = cbor_value_get_boolean(&map, &b);
+			cbor_check_ret(cbor_ret);
 			printf1(TAG_GA, "up: %d\n", b);
 			*up = b;
 		} else {
 			printf2(TAG_PARSE, "ignoring option specified %s\n",
 				key);
 		}
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 	}
-	return 0;
+
+	return (CtapStatus){CTAP2_OK};
 }
 
-uint8_t ctap_parse_rp_id(struct rpId *rp, CborValue *val)
+CtapStatus ctap_parse_rp_id(struct rpId *rp, CborValue *val)
 {
+	CborError cbor_ret;
 	size_t sz = DOMAIN_NAME_MAX_SIZE;
 	if (cbor_value_get_type(val) != CborTextStringType) {
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
-	int ret = cbor_value_copy_text_string(val, (char *)rp->id, &sz, NULL);
-	if (ret == CborErrorOutOfMemory) {
+	cbor_ret = cbor_value_copy_text_string(val, (char *)rp->id, &sz, NULL);
+	if (cbor_ret == CborErrorOutOfMemory) {
 		printf2(TAG_ERR, "Error, RP_ID is too large\n");
-		return CTAP2_ERR_LIMIT_EXCEEDED;
+		return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
 	}
-	check_ret(ret);
+	cbor_check_ret(cbor_ret);
 	rp->id[DOMAIN_NAME_MAX_SIZE] = 0; // Extra byte defined in struct.
 	rp->size = sz;
-	return 0;
+
+	return (CtapStatus){CTAP2_OK};
 }
 
-uint8_t ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
+CtapStatus ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 {
 	size_t sz, map_length;
 	uint8_t key[24];
-	int ret;
+	CborError cbor_ret;
 	unsigned int i;
 	CborValue map;
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
-		return CTAP2_ERR_INVALID_CBOR;
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
 
-	ret = cbor_value_enter_container(val, &map);
-	check_ret(ret);
+	cbor_ret = cbor_value_enter_container(val, &map);
+	cbor_check_ret(cbor_ret);
 
-	ret = cbor_value_get_map_length(val, &map_length);
-	check_ret(ret);
+	cbor_ret = cbor_value_get_map_length(val, &map_length);
+	cbor_check_ret(cbor_ret);
 
 	for (i = 0; i < map_length; i++) {
 		if (cbor_value_get_type(&map) != CborTextStringType) {
@@ -269,53 +282,55 @@ uint8_t ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 				"Error, expecting text string type for user "
 				"map key, got %s\n",
 				cbor_value_get_type_string(&map));
-			return CTAP2_ERR_INVALID_CBOR;
+			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
 
 		sz = sizeof(key);
-		ret = cbor_value_copy_text_string(&map, (char *)key, &sz, NULL);
+		cbor_ret =
+		    cbor_value_copy_text_string(&map, (char *)key, &sz, NULL);
 
-		if (ret == CborErrorOutOfMemory) {
+		if (cbor_ret == CborErrorOutOfMemory) {
 			printf2(TAG_ERR, "Error, rp map key is too large\n");
-			return CTAP2_ERR_LIMIT_EXCEEDED;
+			return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
 		}
 
-		check_ret(ret);
+		cbor_check_ret(cbor_ret);
 		key[sizeof(key) - 1] = 0;
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 
 		if (strcmp((const char *)key, "id") == 0) {
 
 			if (cbor_value_get_type(&map) != CborByteStringType) {
 				printf2(TAG_ERR, "Error, expecting byte string "
 						 "type for rp map value\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 
 			sz = USER_ID_MAX_SIZE;
-			ret = cbor_value_copy_byte_string(&map, user->id, &sz,
-							  NULL);
-			if (ret == CborErrorOutOfMemory) {
+			cbor_ret = cbor_value_copy_byte_string(&map, user->id,
+							       &sz, NULL);
+			if (cbor_ret == CborErrorOutOfMemory) {
 				printf2(TAG_ERR,
 					"Error, USER_ID is too large\n");
-				return CTAP2_ERR_LIMIT_EXCEEDED;
+				return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
 			}
 			user->id_size = sz;
-			check_ret(ret);
+			cbor_check_ret(cbor_ret);
 		} else if (strcmp((const char *)key, "name") == 0) {
 			if (cbor_value_get_type(&map) != CborTextStringType) {
 				printf2(TAG_ERR, "Error, expecting text string "
 						 "type for user.name value\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			sz = USER_NAME_LIMIT;
-			ret = cbor_value_copy_text_string(
+			cbor_ret = cbor_value_copy_text_string(
 			    &map, (char *)user->name, &sz, NULL);
-			if (ret != CborErrorOutOfMemory) { // Just truncate the
-							   // name it's okay
-				check_ret(ret);
+			if (cbor_ret !=
+			    CborErrorOutOfMemory) { // Just truncate the
+						    // name it's okay
+				cbor_check_ret(cbor_ret);
 			}
 			user->name[USER_NAME_LIMIT - 1] = 0;
 		} else if (strcmp((const char *)key, "displayName") == 0) {
@@ -323,14 +338,15 @@ uint8_t ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 				printf2(TAG_ERR,
 					"Error, expecting text string type for "
 					"user.displayName value\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			sz = DISPLAY_NAME_LIMIT;
-			ret = cbor_value_copy_text_string(
+			cbor_ret = cbor_value_copy_text_string(
 			    &map, (char *)user->displayName, &sz, NULL);
-			if (ret != CborErrorOutOfMemory) { // Just truncate the
-							   // name it's okay
-				check_ret(ret);
+			if (cbor_ret !=
+			    CborErrorOutOfMemory) { // Just truncate the
+						    // name it's okay
+				cbor_check_ret(cbor_ret);
 			}
 			user->displayName[DISPLAY_NAME_LIMIT - 1] = 0;
 		} else if (strcmp((const char *)key, "icon") == 0) {
@@ -341,7 +357,7 @@ uint8_t ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 			if (cbor_value_get_type(&map) != CborTextStringType) {
 				printf2(TAG_ERR, "Error, expecting text string "
 						 "type for user.icon value\n");
-				return CTAP2_ERR_INVALID_CBOR;
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 
 		} else {
@@ -349,9 +365,9 @@ uint8_t ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 				key);
 		}
 
-		ret = cbor_value_advance(&map);
-		check_ret(ret);
+		cbor_ret = cbor_value_advance(&map);
+		cbor_check_ret(cbor_ret);
 	}
 
-	return 0;
+	return (CtapStatus){CTAP2_OK};
 }

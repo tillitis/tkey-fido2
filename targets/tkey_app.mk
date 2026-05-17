@@ -28,6 +28,7 @@ TARGET_SRCS := \
                fido2/src/ctap.c                                   \
                fido2/src/ctap_client_pin.c                        \
                fido2/src/ctap_credential_management.c             \
+               fido2/src/ctap_errors.c                            \
                fido2/src/ctap_extensions.c                        \
                fido2/src/ctap_get_assertion.c                     \
                fido2/src/ctap_get_info.c                          \
@@ -104,6 +105,7 @@ TARGET_CFLAGS := \
                  -fno-common \
                  -mno-relax \
                  -Wall \
+                 -Wenum-conversion \
                  -Werror=implicit-function-declaration
 
 #TARGET_CFLAGS += -Wextra         # Gives lots of new warnings

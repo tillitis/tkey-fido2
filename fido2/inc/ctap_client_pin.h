@@ -98,7 +98,7 @@ typedef struct {
 	_Bool getRetries;
 } CTAP_clientPin;
 
-uint8_t ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length);
+CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length);
 int ctap_client_pin_decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
 				uint8_t *shared_secret_enc_key,
 				uint8_t *shared_secret_mac_key);
@@ -109,8 +109,9 @@ uint8_t ctap_client_pin_is_set(void);
 int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
 			   uint8_t message_len, const uint8_t *signature,
 			   uint8_t pin_protocol);
-uint8_t ctap_client_pin_verify_auth(uint8_t *pinAuth, uint8_t *clientDataHash);
-uint8_t ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
-				       size_t len);
+CtapStatus ctap_client_pin_verify_auth(uint8_t *pinAuth,
+				       uint8_t *clientDataHash);
+CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
+					  size_t len);
 
 #endif

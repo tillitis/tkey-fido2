@@ -11,9 +11,9 @@
 #include "device.h"
 #include <attestation.h>
 
-uint8_t ctap_get_info(CborEncoder *encoder)
+CtapStatus ctap_get_info(CborEncoder *encoder)
 {
-	int ret;
+	CborError cbor_ret;
 	CborEncoder array;
 	CborEncoder map;
 	CborEncoder options;
@@ -21,79 +21,79 @@ uint8_t ctap_get_info(CborEncoder *encoder)
 	uint8_t aaguid[16];
 	attestation_read_aaguid(aaguid);
 
-	ret = cbor_encoder_create_map(encoder, &map, 8);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_create_map(encoder, &map, 8);
+	cbor_check_ret(cbor_ret);
 	{
 
-		ret = cbor_encode_uint(&map, GI_Resp_versions);
-		check_ret(ret);
+		cbor_ret = cbor_encode_uint(&map, GI_Resp_versions);
+		cbor_check_ret(cbor_ret);
 		{
-			ret = cbor_encoder_create_array(&map, &array, 3);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_create_array(&map, &array, 3);
+			cbor_check_ret(cbor_ret);
 			{
-				ret =
+				cbor_ret =
 				    cbor_encode_text_stringz(&array, "U2F_V2");
-				check_ret(ret);
-				ret = cbor_encode_text_stringz(&array,
-							       "FIDO_2_0");
-				check_ret(ret);
-				ret = cbor_encode_text_stringz(&array,
-							       "FIDO_2_1");
-				check_ret(ret);
+				cbor_check_ret(cbor_ret);
+				cbor_ret = cbor_encode_text_stringz(&array,
+								    "FIDO_2_0");
+				cbor_check_ret(cbor_ret);
+				cbor_ret = cbor_encode_text_stringz(&array,
+								    "FIDO_2_1");
+				cbor_check_ret(cbor_ret);
 			}
-			ret = cbor_encoder_close_container(&map, &array);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_close_container(&map, &array);
+			cbor_check_ret(cbor_ret);
 		}
 
-		ret = cbor_encode_uint(&map, GI_Resp_extensions);
-		check_ret(ret);
+		cbor_ret = cbor_encode_uint(&map, GI_Resp_extensions);
+		cbor_check_ret(cbor_ret);
 		{
-			ret = cbor_encoder_create_array(&map, &array, 2);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_create_array(&map, &array, 2);
+			cbor_check_ret(cbor_ret);
 			{
-				ret = cbor_encode_text_stringz(&array,
-							       "credProtect");
-				check_ret(ret);
+				cbor_ret = cbor_encode_text_stringz(
+				    &array, "credProtect");
+				cbor_check_ret(cbor_ret);
 
-				ret = cbor_encode_text_stringz(&array,
-							       "hmac-secret");
-				check_ret(ret);
+				cbor_ret = cbor_encode_text_stringz(
+				    &array, "hmac-secret");
+				cbor_check_ret(cbor_ret);
 			}
-			ret = cbor_encoder_close_container(&map, &array);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_close_container(&map, &array);
+			cbor_check_ret(cbor_ret);
 		}
 
-		ret = cbor_encode_uint(&map, GI_Resp_aaguid);
-		check_ret(ret);
+		cbor_ret = cbor_encode_uint(&map, GI_Resp_aaguid);
+		cbor_check_ret(cbor_ret);
 		{
-			ret = cbor_encode_byte_string(&map, aaguid, 16);
-			check_ret(ret);
+			cbor_ret = cbor_encode_byte_string(&map, aaguid, 16);
+			cbor_check_ret(cbor_ret);
 		}
 
-		ret = cbor_encode_uint(&map, GI_Resp_options);
-		check_ret(ret);
+		cbor_ret = cbor_encode_uint(&map, GI_Resp_options);
+		cbor_check_ret(cbor_ret);
 		{
-			ret = cbor_encoder_create_map(&map, &options, 5);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_create_map(&map, &options, 5);
+			cbor_check_ret(cbor_ret);
 			{
-				ret =
+				cbor_ret =
 				    cbor_encode_text_string(&options, "rk", 2);
-				check_ret(ret);
+				cbor_check_ret(cbor_ret);
 				{
-					ret = cbor_encode_boolean(
+					cbor_ret = cbor_encode_boolean(
 					    &options, 1); // Capable of storing
 							  // keys locally
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 				}
 
-				ret =
+				cbor_ret =
 				    cbor_encode_text_string(&options, "up", 2);
-				check_ret(ret);
+				cbor_check_ret(cbor_ret);
 				{
-					ret = cbor_encode_boolean(
+					cbor_ret = cbor_encode_boolean(
 					    &options, 1); // Capable of testing
 							  // user presence
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 				}
 
 				// NOT [yet] capable of verifying user
@@ -106,76 +106,79 @@ uint8_t ctap_get_info(CborEncoder *encoder)
 				//     check_ret(ret);
 				// }
 
-				ret = cbor_encode_text_string(&options, "plat",
-							      4);
-				check_ret(ret);
+				cbor_ret = cbor_encode_text_string(&options,
+								   "plat", 4);
+				cbor_check_ret(cbor_ret);
 				{
-					ret = cbor_encode_boolean(
+					cbor_ret = cbor_encode_boolean(
 					    &options,
 					    0); // Not attached to platform
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 				}
 
-				ret = cbor_encode_text_string(&options,
-							      "credMgmt", 8);
-				check_ret(ret);
+				cbor_ret = cbor_encode_text_string(
+				    &options, "credMgmt", 8);
+				cbor_check_ret(cbor_ret);
 				{
-					ret = cbor_encode_boolean(&options, 1);
-					check_ret(ret);
+					cbor_ret =
+					    cbor_encode_boolean(&options, 1);
+					cbor_check_ret(cbor_ret);
 				}
 
-				ret = cbor_encode_text_string(&options,
-							      "clientPin", 9);
-				check_ret(ret);
+				cbor_ret = cbor_encode_text_string(
+				    &options, "clientPin", 9);
+				cbor_check_ret(cbor_ret);
 				{
-					ret = cbor_encode_boolean(
+					cbor_ret = cbor_encode_boolean(
 					    &options, ctap_client_pin_is_set());
-					check_ret(ret);
+					cbor_check_ret(cbor_ret);
 				}
 			}
-			ret = cbor_encoder_close_container(&map, &options);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_close_container(&map, &options);
+			cbor_check_ret(cbor_ret);
 		}
 
-		ret = cbor_encode_uint(&map, GI_Resp_maxMsgSize);
-		check_ret(ret);
+		cbor_ret = cbor_encode_uint(&map, GI_Resp_maxMsgSize);
+		cbor_check_ret(cbor_ret);
 		{
-			ret = cbor_encode_int(&map, CTAP_MAX_MESSAGE_SIZE);
-			check_ret(ret);
+			cbor_ret = cbor_encode_int(&map, CTAP_MAX_MESSAGE_SIZE);
+			cbor_check_ret(cbor_ret);
 		}
 
-		ret = cbor_encode_uint(&map, GI_Resp_pinUvAuthProtocols);
-		check_ret(ret);
+		cbor_ret = cbor_encode_uint(&map, GI_Resp_pinUvAuthProtocols);
+		cbor_check_ret(cbor_ret);
 		{
-			ret = cbor_encoder_create_array(&map, &pins, 2);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_create_array(&map, &pins, 2);
+			cbor_check_ret(cbor_ret);
 			{
-				ret = cbor_encode_int(&pins, 1);
-				check_ret(ret);
+				cbor_ret = cbor_encode_int(&pins, 1);
+				cbor_check_ret(cbor_ret);
 
-				ret = cbor_encode_int(&pins, 2);
-				check_ret(ret);
+				cbor_ret = cbor_encode_int(&pins, 2);
+				cbor_check_ret(cbor_ret);
 			}
-			ret = cbor_encoder_close_container(&map, &pins);
-			check_ret(ret);
+			cbor_ret = cbor_encoder_close_container(&map, &pins);
+			cbor_check_ret(cbor_ret);
 		}
 
-		ret = cbor_encode_uint(&map, GI_Resp_maxCredentialCountInList);
-		check_ret(ret);
+		cbor_ret =
+		    cbor_encode_uint(&map, GI_Resp_maxCredentialCountInList);
+		cbor_check_ret(cbor_ret);
 		{
-			ret = cbor_encode_uint(&map, ALLOW_LIST_MAX_SIZE);
-			check_ret(ret);
+			cbor_ret = cbor_encode_uint(&map, ALLOW_LIST_MAX_SIZE);
+			cbor_check_ret(cbor_ret);
 		}
 
-		ret = cbor_encode_uint(&map, GI_Resp_maxCredentialIdLength);
-		check_ret(ret);
+		cbor_ret =
+		    cbor_encode_uint(&map, GI_Resp_maxCredentialIdLength);
+		cbor_check_ret(cbor_ret);
 		{
-			ret = cbor_encode_uint(&map, 128);
-			check_ret(ret);
+			cbor_ret = cbor_encode_uint(&map, 128);
+			cbor_check_ret(cbor_ret);
 		}
 	}
-	ret = cbor_encoder_close_container(encoder, &map);
-	check_ret(ret);
+	cbor_ret = cbor_encoder_close_container(encoder, &map);
+	cbor_check_ret(cbor_ret);
 
-	return CTAP1_ERR_SUCCESS;
+	return (CtapStatus){CTAP2_OK};
 }
