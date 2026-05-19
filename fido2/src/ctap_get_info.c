@@ -73,7 +73,7 @@ CtapStatus ctap_get_info(CborEncoder *encoder)
 		cbor_ret = cbor_encode_uint(&map, GI_Resp_options);
 		cbor_check_ret(cbor_ret);
 		{
-			cbor_ret = cbor_encoder_create_map(&map, &options, 5);
+			cbor_ret = cbor_encoder_create_map(&map, &options, 6);
 			cbor_check_ret(cbor_ret);
 			{
 				cbor_ret =
@@ -131,6 +131,14 @@ CtapStatus ctap_get_info(CborEncoder *encoder)
 				{
 					cbor_ret = cbor_encode_boolean(
 					    &options, ctap_client_pin_is_set());
+					cbor_check_ret(cbor_ret);
+				}
+
+				cbor_ret = cbor_encode_text_string(
+				    &options, "pinUvAuthToken", 14);
+				cbor_check_ret(cbor_ret);
+				{
+					cbor_ret = cbor_encode_boolean(&options, 1);
 					cbor_check_ret(cbor_ret);
 				}
 			}
