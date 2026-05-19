@@ -97,9 +97,14 @@ typedef struct {
 } CTAP_clientPin;
 
 CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length);
+void ctap_client_pin_clear_user_present(uint8_t pin_protocol);
+void ctap_client_pin_clear_user_verified(uint8_t pin_protocol);
+void ctap_client_pin_clear_PinUvAuthToken_permissions_except_Lbw(
+    uint8_t pin_protocol);
 int ctap_client_pin_decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
 				uint8_t *shared_secret_enc_key,
 				uint8_t *shared_secret_mac_key);
+bool ctap_client_pin_get_user_verified(uint8_t pin_protocol);
 int ctap_client_pin_initialize(void);
 int8_t ctap_client_pin_is_boot_locked(void);
 int8_t ctap_client_pin_is_locked(void);

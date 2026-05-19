@@ -78,6 +78,13 @@ static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int len,
 					 uint8_t *pinAuth, uint8_t *pinHashEnc,
 					 int pinProtocol);
 static int verify_against_stored_pin(uint8_t *pinHashEnc);
+/* pinUvAuthToken State Maintenance Functions */
+static void begin_using_pinUvAuthToken(bool user_is_preset,
+				       uint8_t pin_protocol,
+				       uint8_t permissions);
+static bool get_user_present(uint8_t pin_protocol);
+static void pinUvAuthToken_usage_time_observer(uint8_t pin_protocol);
+static void stop_using_pinUvAuthToken(uint8_t pin_protocol);
 
 /* -------------------------------------------------------------------------
  * Public entry point
@@ -1073,4 +1080,125 @@ static int verify_against_stored_pin(uint8_t *pinHashEnc)
 	crypto_sha256_final(pinHashSalted);
 
 	return memcmp(pinHashSalted, STATE.PIN_CODE_HASH, 16) == 0;
+}
+
+/* pinUvAuthToken State Maintenance Functions */
+
+static void begin_using_pinUvAuthToken(bool user_is_present,
+				       uint8_t pin_protocol,
+				       uint8_t permissions)
+{
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	pinUvAuthToken->state.user_present = user_is_present;
+	pinUvAuthToken->state.permissions = permissions;
+	pinUvAuthToken->state.user_verified = true;
+	pinUvAuthToken->state.in_use = true;
+	uint32_t now = millis();
+	pinUvAuthToken->state.usage_timer_start_ms = now;
+	pinUvAuthToken->state.usage_timer_last_used_ms = now;
+
+	printf1(TAG_CP,
+		"begin_use permission: %d\n user_present: %d\n now: %d\n",
+		permissions, user_is_present, now);
+
+	return;
+}
+
+static void pinUvAuthToken_usage_time_observer(uint8_t pin_protocol)
+{
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	// If not in use, do nothing
+	if (pinUvAuthToken->state.in_use == false) {
+		return;
+	}
+
+	uint32_t now = millis();
+
+	printf1(TAG_CP, "Time elapsed from start: %d (ms)\n",
+		now - pinUvAuthToken->state.usage_timer_last_used_ms);
+
+	// If max usage time period reach, invalidate
+	if (now - pinUvAuthToken->state.usage_timer_start_ms >
+	    TOKEN_MAX_USAGE_PERIOD_MS) {
+		stop_using_pinUvAuthToken(pin_protocol);
+	}
+
+	// If user present time limit reached, user no longer present
+	if (now - pinUvAuthToken->state.usage_timer_start_ms >
+	    TOKEN_MAX_USER_PRESENT_MS) {
+		ctap_client_pin_clear_user_present(pin_protocol);
+	}
+
+	// If the token is not used within 30 seconds, invalidate
+	if (now - pinUvAuthToken->state.usage_timer_last_used_ms >
+	    TOKEN_MAX_USER_PRESENT_MS) {
+		stop_using_pinUvAuthToken(pin_protocol);
+		return;
+	}
+
+	// Update rolling timer
+	pinUvAuthToken->state.usage_timer_last_used_ms = now;
+
+	return;
+}
+
+static bool get_user_present(uint8_t pin_protocol)
+{
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	if (pinUvAuthToken->state.in_use) {
+		return pinUvAuthToken->state.user_present;
+	}
+	return false;
+}
+
+bool ctap_client_pin_get_user_verified(uint8_t pin_protocol)
+{
+
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	if (pinUvAuthToken->state.in_use) {
+		return pinUvAuthToken->state.user_verified;
+	}
+	return false;
+}
+
+void ctap_client_pin_clear_user_present(uint8_t pin_protocol)
+{
+
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	if (pinUvAuthToken->state.in_use) {
+		pinUvAuthToken->state.user_present = false;
+	}
+}
+
+void ctap_client_pin_clear_user_verified(uint8_t pin_protocol)
+{
+
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	if (pinUvAuthToken->state.in_use) {
+		pinUvAuthToken->state.user_verified = false;
+	}
+}
+
+void ctap_client_pin_clear_PinUvAuthToken_permissions_except_Lbw(
+    uint8_t pin_protocol)
+{
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	if (pinUvAuthToken->state.in_use) {
+		pinUvAuthToken->state.permissions &=
+		    CP_pinUvAuthToken_permissions_lbw;
+	}
+}
+
+static void stop_using_pinUvAuthToken(uint8_t pin_protocol)
+{
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	memset(&pinUvAuthToken->state, 0x00, sizeof(pinUvAuthToken_state_t));
 }
