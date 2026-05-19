@@ -61,14 +61,28 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 		return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 	}
 
-	if (ctap_client_pin_is_set() == 1 && MC.pinAuthPresent == 0) {
-		printf2(TAG_ERR, "Error, pinAuth is required\n");
-		return (CtapStatus){CTAP2_ERR_PUAT_REQUIRED};
-	} else {
+	// TODO:: This needs to be verified against spec
+	if (ctap_client_pin_is_set()) {
+		if (MC.pinAuthPresent == 0) {
+			printf2(TAG_ERR, "Error, pinAuth is required\n");
+			return (CtapStatus){CTAP2_ERR_PUAT_REQUIRED};
+		}
+
 		if (ctap_client_pin_is_set() || (MC.pinAuthPresent)) {
 			ctap_ret = ctap_client_pin_verify_auth(
 			    MC.pinAuth, MC.clientDataHash, MC.pinProtocol);
 			ctap_check_retr(ctap_ret);
+		}
+
+		if (!ctap_client_pin_get_user_verified(MC.pinProtocol)) {
+			printf2(TAG_ERR, "User not verified\n");
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+
+		if (!ctap_client_pin_verify_permissions(
+			MC.pinProtocol, CP_pinUvAuthToken_permissions_mc)) {
+			printf2(TAG_ERR, "Permissions not verified\n");
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 		}
 	}
 
@@ -83,6 +97,14 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 	dump_hex1(TAG_MC, rp_id_hash, sizeof(rp_id_hash));
 	printf1(TAG_MC, "rpid_lookup:\n");
 	dump_hex1(TAG_MC, rp_id_lookup, sizeof(rp_id_lookup));
+
+	if (ctap_client_pin_is_set()) {
+		// We need to calculate rp id hash first.
+		if (!ctap_client_pin_verify_permissions_rp_id(
+			MC.pinProtocol, rp_id_hash) != CTAP2_OK) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+	}
 
 	for (i = 0; i < MC.excludeListSize; i++) {
 		ctap_ret = ctap_parse_pubkey_credential_descriptor(
@@ -149,6 +171,15 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 				       auth_data_buf, &auth_data_sz,
 				       &MC.credInfo, &MC.extensions);
 	ctap_check_retr(ctap_ret);
+
+	// TODO: Should be done in collaboration with the user presence. Should
+	// probably be refactored The UP option should always be true here. 0xff
+	// indicates that it is true by default
+
+	ctap_client_pin_clear_user_present(MC.pinProtocol);
+	ctap_client_pin_clear_user_verified(MC.pinProtocol);
+	ctap_client_pin_clear_PinUvAuthToken_permissions_except_Lbw(
+	    MC.pinProtocol);
 
 	{
 		unsigned int ext_encoder_buf_size =
