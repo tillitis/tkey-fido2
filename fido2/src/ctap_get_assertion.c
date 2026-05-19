@@ -46,30 +46,56 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 
 	if (GA.pinAuthEmpty) {
 		ctap_ret = ctap2_user_presence_test();
+		// TODO: should return CTAP2_ERR_OPERATION_DENIED if declined or
+		// timeout. see 6.2.2.2
 		ctap_check_retr(ctap_ret);
+
 		return ctap_client_pin_is_set() == 1
 			   ? (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID}
 			   : (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 	}
+
+    // RPID and clientDataHash are always mandatory
+	if (!GA.rp.size || !GA.clientDataHashPresent) {
+		return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
+	}
+
+	uint8_t rp_id_hash[32];
+	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE];
+	ctap_derive_rp_id_info(GA.rp.id, GA.rp.size, rp_id_hash, rp_id_lookup);
+
+	// If pinUvAuthParam is present and the authenticator is protected, do
+	// verification. If not, continue but set user_verifier = 0.
 	if (GA.pinAuthPresent) {
+		if (GA.pinProtocol == 0) {
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
+		}
 		ctap_ret = ctap_client_pin_verify_auth(
 		    GA.pinAuth, GA.clientDataHash, GA.pinProtocol);
 		ctap_check_retr(ctap_ret);
+
+		if (!ctap_client_pin_get_user_verified(GA.pinProtocol)) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+
+		if (!ctap_client_pin_verify_permissions(
+			GA.pinProtocol, CP_pinUvAuthToken_permissions_ga)) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+
+		if (!ctap_client_pin_verify_permissions_rp_id(GA.pinProtocol,
+							      rp_id_hash)) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+
 		getAssertionState.user_verified = 1;
 	} else {
 		getAssertionState.user_verified = 0;
 	}
 
-	if (!GA.rp.size || !GA.clientDataHashPresent) {
-		return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
-	}
 	CborEncoder map;
 
 	int map_size = 3;
-
-	uint8_t rp_id_hash[32];
-	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE];
-	ctap_derive_rp_id_info(GA.rp.id, GA.rp.size, rp_id_hash, rp_id_lookup);
 
 	printf1(TAG_GA, "rpid:\n");
 	dump_hex1(TAG_GA, rp_id_hash, sizeof(rp_id_hash));
@@ -140,6 +166,19 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 		device_disable_up(false);
 		ctap_check_retr(ctap_ret);
 
+		// if user presence is collected
+		if (getAssertionState.buf.authData.flags & 0x01) {
+			if (GA.pinAuthPresent) {
+				ctap_client_pin_clear_user_present(
+				    GA.pinProtocol);
+				ctap_client_pin_clear_user_verified(
+				    GA.pinProtocol);
+				ctap_client_pin_clear_PinUvAuthToken_permissions_except_Lbw(
+				    GA.pinProtocol);
+			}
+		}
+
+		// Update UV-bit
 		getAssertionState.buf.authData.flags &= ~(1 << 2);
 		getAssertionState.buf.authData.flags |=
 		    (getAssertionState.user_verified << 2);
