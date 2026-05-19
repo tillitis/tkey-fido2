@@ -10,6 +10,7 @@
 
 #include "cbor.h"
 #include "cose_key.h"
+#include "ctap.h"
 
 // clang-format off
 /* CLIENT_PIN (0x06) */
@@ -48,6 +49,24 @@
 #define CP_pinUvAuthToken_permissions_be    0x08 // Bio Enrollment,              RP ID: Ignored
 #define CP_pinUvAuthToken_permissions_lbw   0x10 // Large Blob Write,            RP ID: Ignored
 #define CP_pinUvAuthToken_permissions_acfg  0x20 // Authenticator Configuration, RP ID: Ignored
+
+#define CP_pinUvAuthToken_permissions_defined_mask               \
+                            (CP_pinUvAuthToken_permissions_mc    | \
+                             CP_pinUvAuthToken_permissions_ga    | \
+                             CP_pinUvAuthToken_permissions_cm    | \
+                             CP_pinUvAuthToken_permissions_be    | \
+                             CP_pinUvAuthToken_permissions_lbw   | \
+                             CP_pinUvAuthToken_permissions_acfg)
+
+#define CP_pinUvAuthToken_permissions_default_mask                \
+                            (CP_pinUvAuthToken_permissions_mc   | \
+                             CP_pinUvAuthToken_permissions_ga)
+
+// Define the authenticators unsupported permissions
+#define CP_pinUvAuthToken_permissions_unsupported_mask            \
+                            (CP_pinUvAuthToken_permissions_be   | \
+                             CP_pinUvAuthToken_permissions_lbw  | \
+                             CP_pinUvAuthToken_permissions_acfg)
 
 #define NEW_PIN_ENC_MAX_SIZE 256 // Includes NULL terminator
 #define NEW_PIN_ENC_MIN_SIZE 64
@@ -92,8 +111,8 @@ typedef struct {
 	// Permissions sub-commands
 	uint8_t permissions;
 	uint8_t permissionsPresent;
-	char rpId[CP_MAX_RPID_LEN + 1];
-	uint8_t rpIdPresent;
+	uint8_t rpId[DOMAIN_NAME_MAX_SIZE + 1];
+	size_t rpIdSize;
 } CTAP_clientPin;
 
 CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length);
@@ -109,6 +128,7 @@ int ctap_client_pin_initialize(void);
 int8_t ctap_client_pin_is_boot_locked(void);
 int8_t ctap_client_pin_is_locked(void);
 uint8_t ctap_client_pin_is_set(void);
+bool ctap_client_pin_permissions_rp_id_present(uint8_t pin_protocol);
 int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
 			   uint8_t message_len, const uint8_t *signature,
 			   uint8_t pin_protocol);
@@ -117,5 +137,10 @@ CtapStatus ctap_client_pin_verify_auth(uint8_t *pinAuth,
 				       uint8_t pin_protocol);
 CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 					  size_t len, uint8_t pin_protocol);
+
+bool ctap_client_pin_verify_permissions_rp_id(uint8_t pin_protocol,
+					      uint8_t *rp_id_hash);
+bool ctap_client_pin_verify_permissions(uint8_t pin_protocol,
+					uint8_t requested_permission);
 
 #endif

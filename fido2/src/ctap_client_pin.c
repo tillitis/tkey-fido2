@@ -9,6 +9,7 @@
 #include "cbor.h"
 #include "cose_key.h"
 #include "crypto.h"
+#include "ctap.h"
 #include "ctap_client_pin.h"
 #include "ctap_errors.h"
 #include "ctap_parse.h"
@@ -29,7 +30,8 @@ typedef struct {
 
 typedef struct {
 	uint8_t permissions_rp_id_hash[32];
-	uint16_t permissions;
+	bool permissions_rp_id_present;
+	uint8_t permissions;
 	uint32_t usage_timer_start_ms;
 	uint32_t usage_timer_last_used_ms;
 	bool in_use;
@@ -52,7 +54,11 @@ extern AuthenticatorState STATE;
 
 static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 					 uint8_t *platform_pubkey,
-					 uint8_t *pinHashEnc, int pinProtocol);
+					 uint8_t *pinHashEnc, int pinProtocol,
+					 uint8_t permissions, uint8_t *rp_id,
+					 size_t rp_id_size);
+static void associate_permissions_rp_id(uint8_t *rp_id, size_t rp_id_size,
+					uint8_t pin_protocol);
 static int auth_param_size(int proto);
 static uint8_t decrement_pin_attempts(void);
 static void decrypt(uint8_t *buf, int len, const uint8_t *enc_key,
@@ -256,6 +262,12 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
+		// Permissions and RPID is not allowed
+		if (CP.permissionsPresent || CP.permissions != 0 ||
+		    CP.rpIdSize > 0) {
+			return (CtapStatus){CTAP1_ERR_INVALID_PARAMETER};
+		}
+
 		cbor_ret = cbor_encoder_create_map(encoder, &map, 1);
 		cbor_check_ret(cbor_ret);
 
@@ -264,7 +276,8 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 
 		ctap_ret = add_enc_pinUvAuthToken(
 		    pinTokenEnc, (uint8_t *)&CP.keyAgreement.pubkey,
-		    CP.pinHashEnc, CP.pinProtocol);
+		    CP.pinHashEnc, CP.pinProtocol,
+		    CP_pinUvAuthToken_permissions_default_mask, CP.rpId, 0);
 		ctap_check_retr(ctap_ret);
 
 		pinTokenEncLen = (CP.pinProtocol == 2)
@@ -295,32 +308,22 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
-		/*
-		 * Validate permission/rpId combinations per CTAP 2.1
-		 * §6.5.5.7.2: mc and ga REQUIRE an rpId. be, lbw, acfg MUST NOT
-		 * have an rpId.
-		 */
+		// Filter undefined permissions (they are to be ignored)
+		CP.permissions &= CP_pinUvAuthToken_permissions_defined_mask;
 
-		// TODO: Are they really forbidden..? Spec says ignored.
+		// Not OK by spec to request permissions for unsupported
+		// features
+		if (CP.permissions &
+		    CP_pinUvAuthToken_permissions_unsupported_mask) {
+			return (CtapStatus){CTAP2_ERR_UNAUTHORIZED_PERMISSION};
+		}
 
-		{
-			uint8_t rp_required =
-			    CP.permissions & (CP_pinUvAuthToken_permissions_mc |
-					      CP_pinUvAuthToken_permissions_ga);
-			uint8_t rp_forbidden =
-			    CP.permissions &
-			    (CP_pinUvAuthToken_permissions_be |
-			     CP_pinUvAuthToken_permissions_lbw |
-			     CP_pinUvAuthToken_permissions_acfg);
+		uint8_t rp_id_required =
+		    CP.permissions & (CP_pinUvAuthToken_permissions_mc |
+				      CP_pinUvAuthToken_permissions_ga);
 
-			if (rp_required && !CP.rpIdPresent) {
-				return (CtapStatus){
-				    CTAP2_ERR_MISSING_PARAMETER};
-			}
-			if (rp_forbidden && CP.rpIdPresent) {
-				return (CtapStatus){
-				    CTAP1_ERR_INVALID_PARAMETER};
-			}
+		if (rp_id_required && (CP.rpIdSize == 0)) {
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
 		cbor_ret = cbor_encoder_create_map(encoder, &map, 1);
@@ -331,7 +334,8 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 
 		ctap_ret = add_enc_pinUvAuthToken(
 		    pinTokenEnc, (uint8_t *)&CP.keyAgreement.pubkey,
-		    CP.pinHashEnc, CP.pinProtocol);
+		    CP.pinHashEnc, CP.pinProtocol, CP.permissions, CP.rpId,
+		    CP.rpIdSize);
 		ctap_check_retr(ctap_ret);
 
 		pinTokenEncLen = (CP.pinProtocol == 2)
@@ -345,12 +349,6 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		cbor_ret = cbor_encoder_close_container(encoder, &map);
 		cbor_check_ret(cbor_ret);
 
-		/*
-		 * TODO: bind the token to CP.permissions and CP.rpId.
-		 * A full implementation stores these in a companion structure
-		 * so that ctap_make_credential / ctap_get_assertion can
-		 * enforce the permission scope before accepting the token.
-		 */
 		break;
 
 	// Subcommands not supported, so compress into the default state.
@@ -422,11 +420,56 @@ CtapStatus ctap_client_pin_verify_auth(uint8_t *pinAuth,
 	    pinAuth, clientDataHash, CLIENT_DATA_HASH_SIZE, pin_protocol);
 }
 
+bool ctap_client_pin_permissions_rp_id_present(uint8_t pin_protocol)
+{
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+	return pinUvAuthToken->state.permissions_rp_id_present;
+}
+
+// Returns true if the rp_id_hash matches the present pinUvAuthTokens
+// permissions rpid hash, or if no permissions rpid hash is set.
+bool ctap_client_pin_verify_permissions_rp_id(uint8_t pin_protocol,
+					      uint8_t *rp_id_hash)
+{
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	if (pinUvAuthToken->state.permissions_rp_id_present) {
+		if (!memeq(pinUvAuthToken->state.permissions_rp_id_hash,
+			   rp_id_hash, 32)) {
+			printf1(TAG_CP, "verify_permissions_rpid: not equal\n");
+			return false;
+		}
+	}
+	return true;
+}
+
+bool ctap_client_pin_verify_permissions(uint8_t pin_protocol,
+					uint8_t requested_permission)
+{
+	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	printf1(
+	    TAG_CP, "state.permissions %d (%d)\n",
+	    pinUvAuthToken->state.permissions,
+	    requested_permission); // Verify that the correct permission exist
+	if ((pinUvAuthToken->state.permissions & requested_permission) == 0) {
+		return false;
+	}
+	return true;
+}
+
 // verify(pinUvAuthToken, clientDataHash pinUvAuthParam).
 CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 					  size_t len, uint8_t pin_protocol)
 {
 	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	pinUvAuthToken_usage_time_observer(pin_protocol);
+
+	// Verify that the token is in use
+	if (!pinUvAuthToken->state.in_use) {
+		return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+	}
 
 	int ret = ctap_client_pin_verify(pinUvAuthToken->token, buf, len,
 					 pinAuth, pin_protocol);
@@ -454,7 +497,9 @@ int ctap_client_pin_decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
  */
 static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 					 uint8_t *platform_pubkey,
-					 uint8_t *pinHashEnc, int pinProtocol)
+					 uint8_t *pinHashEnc, int pinProtocol,
+					 uint8_t permissions, uint8_t *rp_id,
+					 size_t rp_id_size)
 {
 	uint8_t enc_key[32];
 	uint8_t mac_key[32];
@@ -489,10 +534,14 @@ static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 
 	reset_pin_attempts();
 
-	/* Encrypt a new pinUvAuthToken for delivery to the platform */
+	// Encrypt a new pinUvAuthToken for delivery to the platform
 	// Reset all pinUvAuthTokens
 	reset_pinUvAuthToken(1);
 	reset_pinUvAuthToken(2);
+
+	begin_using_pinUvAuthToken(false, pinProtocol, permissions);
+	associate_permissions_rp_id(rp_id, rp_id_size, pinProtocol);
+
 	ret = encrypt_pinUvAuthToken(pinTokenEnc, &token_enc_len, enc_key,
 				     pinProtocol);
 	(void)token_enc_len; /* caller derives length from protocol */
@@ -505,6 +554,27 @@ static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 	}
 
 	return (CtapStatus){CTAP2_OK};
+}
+
+static void associate_permissions_rp_id(uint8_t *rp_id, size_t rp_id_size,
+					uint8_t pin_protocol)
+{
+	if (rp_id_size > 0) {
+
+		pinUvAuthToken_t *pinUvAuthToken =
+		    get_pin_protocol_state(pin_protocol);
+
+		uint8_t rp_id_lookup[32];
+		ctap_derive_rp_id_info(
+		    rp_id, rp_id_size,
+		    pinUvAuthToken->state.permissions_rp_id_hash, rp_id_lookup);
+
+		pinUvAuthToken->state.permissions_rp_id_present = true;
+
+		printf1(TAG_CP, "Permissions_rp_id: :\n");
+		dump_hex1(TAG_CP, pinUvAuthToken->state.permissions_rp_id_hash,
+			  32);
+	}
 }
 
 /*
@@ -840,12 +910,17 @@ static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			if (cbor_value_get_type(&map) != CborTextStringType) {
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
-			sz = CP_MAX_RPID_LEN;
-			cbor_ret = cbor_value_copy_text_string(&map, CP->rpId,
-							       &sz, NULL);
+			sz = DOMAIN_NAME_MAX_SIZE;
+
+			cbor_ret = cbor_value_copy_text_string(
+			    &map, (char *)CP->rpId, &sz, NULL);
+			if (cbor_ret == CborErrorOutOfMemory) {
+				printf2(TAG_ERR, "Error, RP_ID is too large\n");
+				return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
+			}
 			cbor_check_ret(cbor_ret);
-			CP->rpId[sz] = '\0';
-			CP->rpIdPresent = 1;
+			CP->rpId[DOMAIN_NAME_MAX_SIZE] = '\0';
+			CP->rpIdSize = sz;
 			break;
 
 		default:
@@ -894,6 +969,9 @@ static int reset_pinUvAuthToken(uint8_t pin_protocol)
 
 	printf1(TAG_CP, "reset_token() %d\n", pin_protocol);
 	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
+
+	// Initialize state to default values, currently all zero
+	secure_wipe(&pinUvAuthToken->state, sizeof(pinUvAuthToken_state_t));
 
 	if (ctap_generate_rng(pinUvAuthToken->token, PINUVAUTHTOKEN_SIZE) !=
 	    1) {
