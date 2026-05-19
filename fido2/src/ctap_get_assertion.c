@@ -51,13 +51,29 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 			   ? (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID}
 			   : (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 	}
-	if (GA.pinAuthPresent) {
+
+	if (ctap_client_pin_is_set()) {
+		if (!GA.pinAuthPresent) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
 		ctap_ret = ctap_client_pin_verify_auth(
 		    GA.pinAuth, GA.clientDataHash, GA.pinProtocol);
 		ctap_check_retr(ctap_ret);
 		getAssertionState.user_verified = 1;
 	} else {
 		getAssertionState.user_verified = 0;
+	}
+
+	// TODO:: This needs to be verified against spec
+	if (ctap_client_pin_is_set()) {
+		if (!ctap_client_pin_get_user_verified(GA.pinProtocol)) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+
+		if (!ctap_client_pin_verify_permissions(
+			GA.pinProtocol, CP_pinUvAuthToken_permissions_ga)) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
 	}
 
 	if (!GA.rp.size || !GA.clientDataHashPresent) {
@@ -70,6 +86,14 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 	uint8_t rp_id_hash[32];
 	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE];
 	ctap_derive_rp_id_info(GA.rp.id, GA.rp.size, rp_id_hash, rp_id_lookup);
+
+	// We need to calculate rp id hash first.
+	if (ctap_client_pin_is_set()) {
+		if (!ctap_client_pin_verify_permissions_rp_id(GA.pinProtocol,
+							      rp_id_hash)) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+	}
 
 	printf1(TAG_GA, "rpid:\n");
 	dump_hex1(TAG_GA, rp_id_hash, sizeof(rp_id_hash));
@@ -140,6 +164,19 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 		device_disable_up(false);
 		ctap_check_retr(ctap_ret);
 
+		// if user presence is collected
+		if (getAssertionState.buf.authData.flags & 0x01) {
+			if (GA.pinAuthPresent) {
+				ctap_client_pin_clear_user_present(
+				    GA.pinProtocol);
+				ctap_client_pin_clear_user_verified(
+				    GA.pinProtocol);
+				ctap_client_pin_clear_PinUvAuthToken_permissions_except_Lbw(
+				    GA.pinProtocol);
+			}
+		}
+
+		// Update UV-bit
 		getAssertionState.buf.authData.flags &= ~(1 << 2);
 		getAssertionState.buf.authData.flags |=
 		    (getAssertionState.user_verified << 2);
