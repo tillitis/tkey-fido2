@@ -815,7 +815,29 @@ static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM)
 		return (CtapStatus){CTAP2_OK};
 	}
 
-	return ctap_client_pin_verify_auth_ex(
+	CtapStatus ctap_ret = ctap_client_pin_verify_auth_ex(
 	    CM->pinAuth, (uint8_t *)&CM->hashed,
 	    CM->subCommandParamsCborSize + 1, CM->pinProtocol);
+	if (ctap_ret.value != CTAP2_OK) {
+		return ctap_ret;
+	}
+
+	if (!ctap_client_pin_verify_permissions(
+		CM->pinProtocol, CP_pinUvAuthToken_permissions_cm)) {
+		return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+	}
+
+	if (CM->subCommand == CM_SubCmd_enumerateRPsBegin) {
+		if (ctap_client_pin_permissions_rp_id_present(
+			CM->pinProtocol)) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+	} else {
+		if (!ctap_client_pin_verify_permissions_rp_id(
+			CM->pinProtocol, CM->subCommandParams.rpIdHash)) {
+			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
+		}
+	}
+
+	return (CtapStatus){CTAP2_OK};
 }
