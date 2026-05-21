@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include <stdint.h>
+#include <string.h>
 
 #include "ctap_client_pin.h"
 #include "ctap_credential_management.h"
@@ -17,11 +18,6 @@
 #define COMPARE_LEN 8
 
 typedef enum {
-	RP_MODE_COUNT,
-	RP_MODE_GET_NEXT
-} rp_mode_t;
-
-typedef enum {
 	RK_MODE_COUNT,
 	RK_MODE_GET_NEXT,
 } rk_mode_t;
@@ -32,8 +28,9 @@ typedef struct {
 	uint32_t timestamp;
 	bool rk_valid;
 	CTAP_residentKey rk;
-	uint8_t seen[MAX_UNIQUE_RP][COMPARE_LEN];
-	uint8_t seen_count;
+	uint8_t list_unique_rps[MAX_UNIQUE_RP]; // List of indices to unique
+						// rps in file_idx
+	uint8_t len_list_unique_rps;
 	uint8_t rk_idx;
 	uint8_t file_idx;
 } credential_management_state_t;
@@ -47,11 +44,11 @@ static CtapStatus cbor_encode_enumerate_credential(CborEncoder *encoder,
 static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder, int rp_count);
 static int check_state(uint8_t subCmd);
 static void clear_state();
-static int count_number_of_relying_parties(void);
+static int get_count_unique_relying_parties(void);
 static int count_rk(const uint8_t *rp_id_hash);
 static uint8_t extract_cred_protect_from_metadata(CredentialId *credential);
 static int get_next_rk(const uint8_t *rp_id_hash);
-static int get_next_rp(void);
+static int get_next_unique_rp(void);
 static void init_state(uint8_t cmd);
 static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 						      uint8_t *request,
@@ -60,7 +57,10 @@ static CtapStatus
 parse_credential_management_subcommandparams(CborValue *val, CTAP_credMgmt *CM);
 static int resident_key_is_valid(CTAP_residentKey *rk);
 static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode);
-static int scan_rp(rp_mode_t mode);
+static int scan_file_unique_rp(uint8_t file_idx, uint8_t *out_list_len,
+			       uint8_t *out_list_unique_rps);
+static int scan_files_unique_rp(uint8_t *out_file_idx, uint8_t *out_list_len,
+				uint8_t out_list_unique_rps[MAX_UNIQUE_RP]);
 static CtapStatus update_credential_user_info(CredentialId *id,
 					      CTAP_userEntity *user);
 static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM);
@@ -69,6 +69,7 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 				      int length)
 {
 	int ret;
+	int count = 0;
 	CtapStatus ctap_ret;
 	CTAP_credMgmt CM;
 
@@ -98,13 +99,20 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 		printf1(TAG_CM, "CM_SubCmd_enumerateRPsBegin\n");
 		init_state(CM_SubCmd_enumerateRPsBegin);
 
-		ret = count_number_of_relying_parties();
-		printf1(TAG_CM, "Number of RP found %d\n", ret);
-		if (ret <= 0) {
+		count = get_count_unique_relying_parties();
+		printf1(TAG_CM, "Number of RP found %d\n", count);
+		if (count <= 0) {
 			clear_state();
 			return (CtapStatus){CTAP2_ERR_NO_CREDENTIALS};
 		}
-		ctap_ret = cbor_encode_enumerate_rp(encoder, ret);
+
+		ret = get_next_unique_rp();
+		if (ret < 0 || !state.rk_valid) {
+			clear_state();
+			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
+		}
+
+		ctap_ret = cbor_encode_enumerate_rp(encoder, count);
 		ctap_check_retr(ctap_ret);
 		break;
 
@@ -117,11 +125,12 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 
-		ret = get_next_rp();
-		printf1(TAG_CM, "get_next_rp (%d)\n", ret);
-		if (ret < 0) {
+		ret = get_next_unique_rp();
+		printf1(TAG_CM, "get_next_unique_rp (%d)\n", ret);
+
+		if (ret < 0 || !state.rk_valid) {
 			clear_state();
-			return (CtapStatus){CTAP1_ERR_OTHER};
+			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 
 		ctap_ret = cbor_encode_enumerate_rp(encoder, 0);
@@ -132,7 +141,7 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 		printf1(TAG_CM, "CM_SubCmd_enumerateCredentialsBegin\n");
 		init_state(CM_SubCmd_enumerateCredentialsBegin);
 
-		int count = count_rk(CM.subCommandParams.rpIdHash);
+		count = count_rk(CM.subCommandParams.rpIdHash);
 		if (count <= 0) {
 			clear_state();
 			return (CtapStatus){CTAP2_ERR_NO_CREDENTIALS};
@@ -342,7 +351,6 @@ static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder, int rp_count)
 // Updates the timestamp of state.
 static int check_state(uint8_t subCmd)
 {
-	// TODO: Should probably also check if the tokenWithPermissions is still
 	// valid
 	if (state.valid == true) {
 		switch (subCmd) {
@@ -390,17 +398,16 @@ static void clear_state()
 	memset(&state, 0x00, sizeof(state));
 }
 
-static int count_number_of_relying_parties(void)
+static int get_count_unique_relying_parties(void)
 {
-	// reset iterator state before full scan
-	state.file_idx = 0;
+	// Reset global state
 	state.rk_idx = 0;
-	state.seen_count = 0;
+	state.file_idx = 0;
+	state.len_list_unique_rps = 0;
 	state.rk_valid = false;
 
-	int count = scan_rp(RP_MODE_COUNT);
-
-	return count;
+	return scan_files_unique_rp(&state.file_idx, &state.len_list_unique_rps,
+				    state.list_unique_rps);
 }
 
 static int count_rk(const uint8_t *rp_id_hash)
@@ -428,9 +435,58 @@ static int get_next_rk(const uint8_t *rp_id_hash)
 	return scan_rk(rp_id_lookup, RK_MODE_GET_NEXT);
 }
 
-static int get_next_rp(void)
+// returns next rp in line, continues to scan next file if EOF.
+// Returns -1 when unique rps are exhausted
+static int get_next_unique_rp(void)
 {
-	return scan_rp(RP_MODE_GET_NEXT);
+	state.rk_valid = false;
+
+	printf1(TAG_CM, "get_next_flash %d %d\n", state.rk_idx,
+		state.len_list_unique_rps);
+
+	if (state.rk_idx >= state.len_list_unique_rps) {
+		// End of file
+		state.file_idx++;
+		state.rk_idx = 0;
+		state.len_list_unique_rps = 0;
+
+		while (state.file_idx < MAX_RK_FILES) {
+			int ret = scan_file_unique_rp(
+			    state.file_idx, &state.len_list_unique_rps,
+			    state.list_unique_rps);
+
+			// No RP, check next file
+			if (ret < 0 || state.len_list_unique_rps == 0) {
+				state.file_idx++;
+				continue;
+			}
+
+			break;
+		}
+	}
+
+	// Nothing more to read
+	if (state.len_list_unique_rps == 0) {
+		return -1;
+	}
+
+	uint8_t tmp[1] = {state.file_idx << 4};
+	int nbr_rk = ctap_open_rk_file(tmp);
+
+	if (nbr_rk <= 0) {
+		ctap_close_rk_file();
+		return -1;
+	}
+
+	ctap_load_rk(state.list_unique_rps[state.rk_idx], &state.rk);
+
+	ctap_xcrypt_buf(state.rk.rk_nonce, &state.rk.user, &state.rk.user,
+			sizeof(CTAP_userEntity) + sizeof(rpEntity));
+
+	state.rk_valid = true;
+	state.rk_idx++;
+	ctap_close_rk_file();
+	return 0;
 }
 
 static void init_state(uint8_t cmd)
@@ -625,6 +681,7 @@ static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode)
 
 	int nbr_rk = ctap_open_rk_file(rp_id_lookup);
 	if (nbr_rk < 0) {
+		ctap_close_rk_file();
 		return -1;
 	}
 
@@ -663,99 +720,108 @@ static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode)
 	return (mode == RK_MODE_COUNT) ? count : -1;
 }
 
-static int scan_rp(rp_mode_t mode)
+// Scans a file, if any rks present, returns a list of the indices for unique
+// rps and the length of the list.
+static int scan_file_unique_rp(uint8_t file_idx, uint8_t *out_list_len,
+			       uint8_t *out_list_unique_rps)
 {
-	uint16_t count = 0;
-	uint8_t file_idx_for_get_next = 0;
-	uint8_t rk_idx_for_get_next = 0;
-	CTAP_residentKey rk;
+	CTAP_residentKey tmp_rk;
+	uint8_t seen[MAX_UNIQUE_RP][COMPARE_LEN] = {0x00};
+	uint8_t seen_count = 0;
 
-	while (state.file_idx < 16) {
+	uint8_t tmp[1] = {file_idx << 4};
+	int ret = ctap_open_rk_file(tmp);
 
-		uint8_t tmp[1] = {state.file_idx << 4};
-		int nbr_rk = ctap_open_rk_file(tmp);
+	if (ret < 0) {
+		*out_list_len = 0;
+		ctap_close_rk_file();
+		return -1;
+	}
 
-		if (nbr_rk < 0) {
-			state.file_idx++;
+	size_t nbr_rk = (size_t)ret;
+	size_t index = 0;
+
+	while (index < nbr_rk) {
+
+		ctap_load_rk(index, &tmp_rk);
+
+		if (!resident_key_is_valid(&tmp_rk)) {
+			index++;
 			continue;
 		}
 
-		while (state.rk_idx < nbr_rk) {
+		uint8_t *hash = tmp_rk.id.rp_id_lookup;
 
-			ctap_load_rk(state.rk_idx++, &rk);
-
-			if (!resident_key_is_valid(&rk)) {
-				continue;
-			}
-
-			uint8_t *hash = rk.id.rp_id_lookup;
-
-			int found = 0;
-			for (uint8_t k = 0; k < state.seen_count; k++) {
-				if (memcmp(state.seen[k], hash, COMPARE_LEN) ==
-				    0) {
-					found = 1;
-					break;
-				}
-			}
-			if (found) {
-				continue;
-			}
-
-			// store seen
-			if (state.seen_count < MAX_UNIQUE_RP) {
-				memmove(state.seen[state.seen_count++], hash,
-					COMPARE_LEN);
-			} else {
-				// No memory to store more rps
-				continue;
-			}
-
-			if (mode == RP_MODE_GET_NEXT) {
-
-				ctap_close_rk_file();
-
-				memmove(&state.rk, &rk,
-					sizeof(CTAP_residentKey));
-
-				ctap_xcrypt_buf(state.rk.rk_nonce,
-						&state.rk.user, &state.rk.user,
-						sizeof(CTAP_userEntity) +
-						    sizeof(rpEntity));
-
-				return 0;
-			}
-
-			count++;
-
-			// first RK capture (only needed once)
-			if (!state.rk_valid) {
-				memmove(&state.rk, &rk,
-					sizeof(CTAP_residentKey));
-
-				ctap_xcrypt_buf(state.rk.rk_nonce,
-						&state.rk.user, &state.rk.user,
-						sizeof(CTAP_userEntity) +
-						    sizeof(rpEntity));
-
-				file_idx_for_get_next = state.file_idx;
-				rk_idx_for_get_next = state.rk_idx;
-
-				state.rk_valid = true;
+		int found = 0;
+		for (uint8_t k = 0; k < seen_count; k++) {
+			if (memcmp(seen[k], hash, COMPARE_LEN) == 0) {
+				found = 1;
+				printf1(TAG_CM,
+					"scan_file_unique_rp: already found\n");
+				break;
 			}
 		}
+		if (found) {
+			index++;
+			continue;
+		}
 
-		ctap_close_rk_file();
-
-		state.file_idx++;
-		state.rk_idx = 0;
-		state.seen_count = 0; // reset per file
+		// store unique rp
+		if (seen_count < MAX_UNIQUE_RP) {
+			memmove(seen[seen_count], hash, COMPARE_LEN);
+			out_list_unique_rps[seen_count] = index;
+			seen_count++;
+			printf1(TAG_CM, "scan_file_unique_rp: store seen\n");
+		} else {
+			// No memory to store more rps, return what we have.
+			printf1(TAG_ERR, "scan_file_unique_rp: memory full\n");
+			break;
+		}
+		index++;
 	}
 
-	state.file_idx = file_idx_for_get_next;
-	state.rk_idx = rk_idx_for_get_next;
+	ctap_close_rk_file();
+	*out_list_len = seen_count;
 
-	return (mode == RP_MODE_COUNT) ? count : -1;
+	printf1(TAG_CM, "scan_file_unique_rp: found %d\n", seen_count);
+	return 0;
+}
+
+// Returns number of unique RPs in entire storage.
+// If any, returns a list of unique rps from the first non-empty file
+// (out_file_idx) and the length of the list.
+static int scan_files_unique_rp(uint8_t *out_file_idx, uint8_t *out_list_len,
+				uint8_t out_list_unique_rps[MAX_UNIQUE_RP])
+{
+	uint16_t rp_count = 0;
+	bool first_rp_list_stored = false;
+
+	for (uint8_t file_idx = 0; file_idx < MAX_RK_FILES; file_idx++) {
+		uint8_t tmp_list_indices[MAX_UNIQUE_RP] = {0x00};
+		uint8_t file_count = 0;
+		int ret = scan_file_unique_rp(file_idx, &file_count,
+					      tmp_list_indices);
+
+		// No RP, continue
+		if (ret < 0 || file_count == 0) {
+			continue;
+		}
+
+		// store the first list returned globally
+		if (!first_rp_list_stored) {
+			printf1(TAG_CM,
+				"scan_files_unique_rp: store first %d\n",
+				file_idx);
+			memcpy(out_list_unique_rps, tmp_list_indices,
+			       file_count);
+			*out_file_idx = file_idx;
+			*out_list_len = file_count;
+			first_rp_list_stored = true;
+		}
+
+		rp_count += file_count;
+	}
+	return rp_count;
 }
 
 static CtapStatus update_credential_user_info(CredentialId *id,
