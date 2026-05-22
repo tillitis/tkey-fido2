@@ -87,7 +87,8 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 		}
 	}
 
-	if (MC.up == 1 || MC.up == 0) {
+	// Not allowed to to request with up set to false.
+	if (MC.up == 0) {
 		return (CtapStatus){CTAP2_ERR_INVALID_OPTION};
 	}
 
@@ -402,7 +403,7 @@ static CtapStatus parse_make_credential(CTAP_makeCredential *MC,
 	CborValue it, map;
 
 	memset(MC, 0, sizeof(CTAP_makeCredential));
-	MC->up = 0xff;
+	MC->up = 1; // Default is true, register if platform sends 0
 	cbor_ret = cbor_parser_init(request, length,
 				    CborValidateCanonicalFormat, &parser, &it);
 	cbor_check_ret(cbor_ret);
