@@ -60,7 +60,8 @@
         "up": true,
         "plat": false,
         "credMgmt": true,
-        "clientPin": false
+        "clientPin": false,
+        "pinUvAuthToken": true
       },
       "maxMsgSize": 1200,
       "pinUvAuthProtocols": [1, 2],
