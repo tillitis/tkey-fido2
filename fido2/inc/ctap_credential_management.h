@@ -63,8 +63,8 @@ typedef struct {
 	} hashed;
 	uint32_t subCommandParamsCborSize;
 
-	uint8_t pinAuth[PIN_UV_AUTH_PARAM_MAX_SIZE];
-	uint8_t pinAuthPresent;
+	uint8_t pinUvAuthParam[PIN_UV_AUTH_PARAM_MAX_SIZE];
+	uint8_t pinUvAuthParam_present;
 	int pinProtocol;
 } CTAP_credMgmt;
 

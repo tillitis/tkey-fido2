@@ -5,6 +5,7 @@
 #ifndef _CTAP_H_
 #define _CTAP_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "cbor.h"
@@ -87,7 +88,7 @@
 #define PARAM_excludeList      (1 << 4)
 #define PARAM_extensions       (1 << 5)
 #define PARAM_options          (1 << 6)
-#define PARAM_pinAuth          (1 << 7)
+#define PARAM_pinUvAuthParam   (1 << 7)
 #define PARAM_pinProtocol      (1 << 8)
 #define PARAM_rpId             (1 << 9)
 #define PARAM_allowList        (1 << 10)

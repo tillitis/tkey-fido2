@@ -520,9 +520,10 @@ static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 		case CM_Cmd_pinUvAuthParam:
 			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthParam\n");
 			ctap_ret = ctap_parse_fixed_length_byte_string(
-			    &map, CM->pinAuth, PIN_UV_AUTH_PARAM_MAX_SIZE);
+			    &map, CM->pinUvAuthParam,
+			    PIN_UV_AUTH_PARAM_MAX_SIZE);
 			ctap_check_retr(ctap_ret);
-			CM->pinAuthPresent = 1;
+			CM->pinUvAuthParam_present = 1;
 			break;
 		}
 		cbor_ret = cbor_value_advance(&map);
@@ -811,12 +812,12 @@ static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM)
 {
 	if (CM->subCommand == CM_SubCmd_enumerateRPsGetNextRP ||
 	    CM->subCommand == CM_SubCmd_enumerateCredentialsGetNextCredential) {
-		// pinAuth is not required for these commands
+		// pinUvAuthParam is not required for these commands
 		return (CtapStatus){CTAP2_OK};
 	}
 
 	CtapStatus ctap_ret = ctap_client_pin_verify_auth_ex(
-	    CM->pinAuth, (uint8_t *)&CM->hashed,
+	    CM->pinUvAuthParam, (uint8_t *)&CM->hashed,
 	    CM->subCommandParamsCborSize + 1, CM->pinProtocol);
 	if (ctap_ret.value != CTAP2_OK) {
 		return ctap_ret;

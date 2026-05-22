@@ -81,7 +81,7 @@ static size_t trailing_zeros(uint8_t *buf, size_t indx);
 static void update_pin(uint8_t *pin, int len);
 static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int len,
 					 uint8_t *platform_pubkey,
-					 uint8_t *pinAuth, uint8_t *pinHashEnc,
+					 uint8_t *pinUvAuthParam, uint8_t *pinHashEnc,
 					 int pinProtocol);
 static int verify_against_stored_pin(uint8_t *pinHashEnc);
 /* pinUvAuthToken State Maintenance Functions */
@@ -196,7 +196,7 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 	case CP_SubCmd_setPIN:
 		printf1(TAG_CP, "CP_SubCmd_setPIN\n");
 
-		if (!CP.newPinEncSize || !CP.pinAuthPresent ||
+		if (!CP.newPinEncSize || !CP.pinUvAuthParam_present ||
 		    !CP.keyAgreementPresent) {
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
@@ -208,7 +208,7 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 		ctap_ret =
 		    update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize,
 					   (uint8_t *)&CP.keyAgreement.pubkey,
-					   CP.pinAuth, NULL, CP.pinProtocol);
+					   CP.pinUvAuthParam, NULL, CP.pinProtocol);
 		ctap_check_retr(ctap_ret);
 
 		// Has to return here, or will get stuck in next switch.
@@ -236,14 +236,14 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			return (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 		}
 
-		if (!CP.newPinEncSize || !CP.pinAuthPresent ||
+		if (!CP.newPinEncSize || !CP.pinUvAuthParam_present ||
 		    !CP.keyAgreementPresent || !CP.pinHashEncPresent) {
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 
 		ctap_ret = update_pin_if_verified(
 		    CP.newPinEnc, CP.newPinEncSize,
-		    (uint8_t *)&CP.keyAgreement.pubkey, CP.pinAuth,
+		    (uint8_t *)&CP.keyAgreement.pubkey, CP.pinUvAuthParam,
 		    CP.pinHashEnc, CP.pinProtocol);
 		ctap_check_retr(ctap_ret);
 		break;
@@ -412,12 +412,13 @@ int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
 	return 0;
 }
 
-CtapStatus ctap_client_pin_verify_auth(uint8_t *pinAuth,
+CtapStatus ctap_client_pin_verify_auth(uint8_t *pinUvAuthParam,
 				       uint8_t *clientDataHash,
 				       uint8_t pin_protocol)
 {
-	return ctap_client_pin_verify_auth_ex(
-	    pinAuth, clientDataHash, CLIENT_DATA_HASH_SIZE, pin_protocol);
+	return ctap_client_pin_verify_auth_ex(pinUvAuthParam, clientDataHash,
+					      CLIENT_DATA_HASH_SIZE,
+					      pin_protocol);
 }
 
 bool ctap_client_pin_permissions_rp_id_present(uint8_t pin_protocol)
@@ -459,7 +460,7 @@ bool ctap_client_pin_verify_permissions(uint8_t pin_protocol,
 }
 
 // verify(pinUvAuthToken, clientDataHash pinUvAuthParam).
-CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
+CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinUvAuthParam, uint8_t *buf,
 					  size_t len, uint8_t pin_protocol)
 {
 	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
@@ -472,7 +473,7 @@ CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
 	}
 
 	int ret = ctap_client_pin_verify(pinUvAuthToken->token, buf, len,
-					 pinAuth, pin_protocol);
+					 pinUvAuthParam, pin_protocol);
 	if (ret < 0) {
 		return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 	}
@@ -846,9 +847,9 @@ static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			}
 			sz = PIN_UV_AUTH_PARAM_MAX_SIZE;
 			cbor_ret = cbor_value_copy_byte_string(
-			    &map, CP->pinAuth, &sz, NULL);
+			    &map, CP->pinUvAuthParam, &sz, NULL);
 			cbor_check_ret(cbor_ret);
-			CP->pinAuthPresent = 1;
+			CP->pinUvAuthParam_present = 1;
 			break;
 
 		case CP_Cmd_newPinEnc:
@@ -1037,7 +1038,7 @@ static void update_pin(uint8_t *pin, int len)
 /*
  * Set or update PIN, if one already is set.
  *
- * Verifies pinAuth over (newPinEnc [|| pinHashEnc]), decrypt the new PIN,
+ * Verifies pinUvAuthParam over (newPinEnc [|| pinHashEnc]), decrypt the new PIN,
  * optionally verify the current PIN (changePIN), before storing new pin.
  *
  * Note: If authenticator is locked or boot locked should already be checked
@@ -1045,7 +1046,7 @@ static void update_pin(uint8_t *pin, int len)
  */
 static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 					 uint8_t *platform_pubkey,
-					 uint8_t *pinAuth, uint8_t *pinHashEnc,
+					 uint8_t *pinUvAuthParam, uint8_t *pinHashEnc,
 					 int pinProtocol)
 {
 	uint8_t enc_key[32];
@@ -1059,7 +1060,7 @@ static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 	ctap_client_pin_decapsulate(platform_pubkey, pinProtocol, enc_key,
 				    mac_key);
 
-	/* Verify pinAuth = authenticate(mac_key, newPinEnc [|| pinHashEnc]) */
+	/* Verify pinUvAuthParam = authenticate(mac_key, newPinEnc [|| pinHashEnc]) */
 	int hash_enc_size = (pinProtocol == 2) ? 32 : 16;
 
 	uint8_t tmp_verify_buf[newPinEnc_len + hash_enc_size];
@@ -1075,7 +1076,7 @@ static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 	}
 
 	if (ctap_client_pin_verify(mac_key, tmp_verify_buf, tmp_verify_buf_len,
-				   pinAuth, pinProtocol) < 0) {
+				   pinUvAuthParam, pinProtocol) < 0) {
 		return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 	}
 

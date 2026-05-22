@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 #include "cbor.h"
+#include "ctap.h"
+#include "ctap_client_pin.h"
 #include "ctap_extensions.h"
 
 // clang-format off
@@ -46,13 +48,14 @@ typedef struct {
 	uint8_t uv;
 	uint8_t up;
 
-	uint8_t pinAuth[PIN_UV_AUTH_PARAM_MAX_SIZE];
-	uint8_t pinAuthPresent;
-	// pinAuthEmpty is true iff an empty bytestring was provided as pinAuth.
-	// This is exclusive with |pinAuthPresent|. It exists because an empty
-	// pinAuth is a special signal to block for touch. See
+	uint8_t pinUvAuthParam[PIN_UV_AUTH_PARAM_MAX_SIZE];
+	uint8_t pinUvAuthParam_present;
+	// pinUvAuthParam_empty is true iff an empty bytestring was provided as
+	// pinUvAuthParam. This is exclusive with |pinUvAuthParam_present|. It
+	// exists because an empty pinUvAuthParam is a special signal to block
+	// for touch. See
 	// https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#using-pinToken-in-authenticatorMakeCredential
-	uint8_t pinAuthEmpty;
+	uint8_t pinUvAuthParam_empty;
 	int pinProtocol;
 	CTAP_extensions extensions;
 

@@ -102,8 +102,8 @@ typedef struct {
 	COSE_key keyAgreement;
 	uint8_t keyAgreementPresent;
 	// pinUvAuthParam: 16 bytes for protocol 1, 32 bytes for protocol 2
-	uint8_t pinAuth[PIN_UV_AUTH_PARAM_MAX_SIZE];
-	uint8_t pinAuthPresent;
+	uint8_t pinUvAuthParam[PIN_UV_AUTH_PARAM_MAX_SIZE];
+	uint8_t pinUvAuthParam_present;
 	uint8_t newPinEnc[NEW_PIN_ENC_MAX_SIZE];
 	int newPinEncSize;
 	uint8_t pinHashEnc[32]; // 16 bytes proto-1, 32 bytes proto-2
@@ -132,10 +132,10 @@ bool ctap_client_pin_permissions_rp_id_present(uint8_t pin_protocol);
 int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
 			   uint8_t message_len, const uint8_t *signature,
 			   uint8_t pin_protocol);
-CtapStatus ctap_client_pin_verify_auth(uint8_t *pinAuth,
+CtapStatus ctap_client_pin_verify_auth(uint8_t *pinUvAuthParam,
 				       uint8_t *clientDataHash,
 				       uint8_t pin_protocol);
-CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinAuth, uint8_t *buf,
+CtapStatus ctap_client_pin_verify_auth_ex(uint8_t *pinUvAuthParam, uint8_t *buf,
 					  size_t len, uint8_t pin_protocol);
 
 bool ctap_client_pin_verify_permissions_rp_id(uint8_t pin_protocol,

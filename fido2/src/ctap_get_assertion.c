@@ -44,7 +44,7 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 		return ctap_ret;
 	}
 
-	if (GA.pinAuthEmpty) {
+	if (GA.pinUvAuthParam_empty) {
 		ctap_ret = ctap2_user_presence_test();
 		// TODO: should return CTAP2_ERR_OPERATION_DENIED if declined or
 		// timeout. see 6.2.2.2
@@ -66,12 +66,12 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 
 	// If pinUvAuthParam is present and the authenticator is protected, do
 	// verification. If not, continue but set user_verifier = 0.
-	if (GA.pinAuthPresent) {
+	if (GA.pinUvAuthParam_present) {
 		if (GA.pinProtocol == 0) {
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
 		ctap_ret = ctap_client_pin_verify_auth(
-		    GA.pinAuth, GA.clientDataHash, GA.pinProtocol);
+		    GA.pinUvAuthParam, GA.clientDataHash, GA.pinProtocol);
 		ctap_check_retr(ctap_ret);
 
 		if (!ctap_client_pin_get_user_verified(GA.pinProtocol)) {
@@ -168,7 +168,7 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 
 		// if user presence is collected
 		if (getAssertionState.buf.authData.flags & 0x01) {
-			if (GA.pinAuthPresent) {
+			if (GA.pinUvAuthParam_present) {
 				ctap_client_pin_clear_user_present(
 				    GA.pinProtocol);
 				ctap_client_pin_clear_user_verified(
@@ -555,12 +555,12 @@ static CtapStatus parse_get_assertion_request(CTAP_getAssertion *GA,
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 			if (pinSize == 0) {
-				GA->pinAuthEmpty = 1;
+				GA->pinUvAuthParam_empty = 1;
 				break;
 			}
 
 			ctap_ret = ctap_parse_fixed_length_byte_string(
-			    &map, GA->pinAuth, PIN_UV_AUTH_PARAM_MAX_SIZE);
+			    &map, GA->pinUvAuthParam, PIN_UV_AUTH_PARAM_MAX_SIZE);
 			if (CTAP1_ERR_INVALID_LENGTH !=
 			    ctap_ret.value) // damn microsoft
 			{
@@ -571,7 +571,7 @@ static CtapStatus parse_get_assertion_request(CTAP_getAssertion *GA,
 			}
 
 			ctap_check_retr(ctap_ret);
-			GA->pinAuthPresent = 1;
+			GA->pinUvAuthParam_present = 1;
 			break;
 
 		case GA_Cmd_pinUvAuthProtocol:
