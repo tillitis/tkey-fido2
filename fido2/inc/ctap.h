@@ -262,7 +262,7 @@ CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 			       CTAP_extensions *extensions);
 void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
 			uint8_t *metadata, uint32_t count, uint8_t *tag);
-CtapStatus ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp);
+CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp);
 void ctap_response_init(CTAP_RESPONSE *resp);
 int32_t ctap_restore_metadata_cose_alg(CredentialId *credential);
 int ctap_sign_data(uint8_t *data, int datalen, uint8_t *clientDataHash,

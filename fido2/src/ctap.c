@@ -516,11 +516,11 @@ void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
 	memmove(tag, hashbuf, CREDENTIAL_TAG_SIZE);
 }
 
-CtapStatus ctap_request(uint8_t *pkt_raw, int length, CTAP_RESPONSE *resp)
+CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 {
 	CborEncoder encoder;
 	memset(&encoder, 0, sizeof(CborEncoder));
-	CtapStatus status = {0};
+	CtapStatus status = (CtapStatus){CTAP2_OK};
 	uint8_t cmd = *pkt_raw;
 	pkt_raw++;
 	length--;
@@ -648,8 +648,9 @@ done:
 		resp->length = 0;
 	}
 
-	printf1(TAG_CTAP, "cbor output structure: %d bytes.  Return 0x%02x\n",
-		resp->length, status);
+	printf1(TAG_CTAP,
+		"CBOR output structure: %d bytes. CTAP status: %s (0x%02x)\n",
+		resp->length, ctap_error_string(status), status.value);
 
 	return status;
 }
