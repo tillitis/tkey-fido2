@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Tillitis AB <tillitis.se>
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
+#include "ctap.h"
 #include "ctap_client_pin.h"
 #include "ctap_credential_management.h"
 #include "ctap_errors.h"
@@ -26,8 +28,7 @@ typedef struct {
 	bool valid;
 	uint8_t init_cmd;
 	uint32_t timestamp;
-	bool rk_valid;
-	CTAP_residentKey rk;
+	uint8_t rp_id_hash[32];
 	uint8_t list_unique_rps[MAX_UNIQUE_RP]; // List of indices to unique
 						// rps in file_idx
 	uint8_t len_list_unique_rps;
@@ -39,16 +40,19 @@ static credential_management_state_t state = {0x00};
 extern AuthenticatorState STATE;
 
 static CtapStatus cbor_encode_credential_metadata(CborEncoder *encoder);
-static CtapStatus cbor_encode_enumerate_credential(CborEncoder *encoder,
-						   int rk_count);
-static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder, int rp_count);
+static CtapStatus
+cbor_encode_enumerate_credential(CborEncoder *encoder,
+				 CTAP_residentKey *enumerated_rk, int rk_count);
+static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder,
+					   CTAP_residentKey *enumerated_rk,
+					   int rp_count);
 static int check_state(uint8_t subCmd);
 static void clear_state();
 static int get_count_unique_relying_parties(void);
-static int count_rk(const uint8_t *rp_id_hash);
+static int count_rk(const uint8_t *rp_id_hash, CTAP_residentKey *out_rk);
 static uint8_t extract_cred_protect_from_metadata(CredentialId *credential);
-static int get_next_rk(const uint8_t *rp_id_hash);
-static int get_next_unique_rp(void);
+static int get_next_rk(const uint8_t *rp_id_hash, CTAP_residentKey *out_rk);
+static int get_next_unique_rp(CTAP_residentKey *out_rk);
 static void init_state(uint8_t cmd);
 static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 						      uint8_t *request,
@@ -56,13 +60,15 @@ static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 static CtapStatus
 parse_credential_management_subcommandparams(CborValue *val, CTAP_credMgmt *CM);
 static int resident_key_is_valid(CTAP_residentKey *rk);
-static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode);
+static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode,
+		   CTAP_residentKey *out_rk);
 static int scan_file_unique_rp(uint8_t file_idx, uint8_t *out_list_len,
 			       uint8_t *out_list_unique_rps);
 static int scan_files_unique_rp(uint8_t *out_file_idx, uint8_t *out_list_len,
 				uint8_t out_list_unique_rps[MAX_UNIQUE_RP]);
 static CtapStatus update_credential_user_info(CredentialId *id,
-					      CTAP_userEntity *user);
+					      CTAP_userEntity *user,
+					      CTAP_residentKey *rk_buf);
 static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM);
 
 CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
@@ -85,9 +91,9 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 	// TODO: check parse for each subcommand and return
 	// CTAP2_ERR_MISSING_PARAMETER
+	CTAP_residentKey enumerated_rk = {0x00};
 
 	switch (CM.subCommand) {
-
 	case CM_SubCmd_getCredsMetadata:
 		printf1(TAG_CM, "CM_SubCmd_getCredsMetadata\n");
 		// TODO: verify number of keys stored by counting
@@ -106,13 +112,14 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 			return (CtapStatus){CTAP2_ERR_NO_CREDENTIALS};
 		}
 
-		ret = get_next_unique_rp();
-		if (ret < 0 || !state.rk_valid) {
+		ret = get_next_unique_rp(&enumerated_rk);
+		if (ret < 0) {
 			clear_state();
 			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 
-		ctap_ret = cbor_encode_enumerate_rp(encoder, count);
+		ctap_ret =
+		    cbor_encode_enumerate_rp(encoder, &enumerated_rk, count);
 		ctap_check_retr(ctap_ret);
 		break;
 
@@ -125,15 +132,15 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 
-		ret = get_next_unique_rp();
+		ret = get_next_unique_rp(&enumerated_rk);
 		printf1(TAG_CM, "get_next_unique_rp (%d)\n", ret);
 
-		if (ret < 0 || !state.rk_valid) {
+		if (ret < 0) {
 			clear_state();
 			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 
-		ctap_ret = cbor_encode_enumerate_rp(encoder, 0);
+		ctap_ret = cbor_encode_enumerate_rp(encoder, &enumerated_rk, 0);
 		ctap_check_retr(ctap_ret);
 		break;
 
@@ -141,19 +148,25 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 		printf1(TAG_CM, "CM_SubCmd_enumerateCredentialsBegin\n");
 		init_state(CM_SubCmd_enumerateCredentialsBegin);
 
-		count = count_rk(CM.subCommandParams.rpIdHash);
+		// TODO: check rpid hash is present
+
+		// Store RP ID hash for GetNext request
+		memcpy(state.rp_id_hash, CM.subCommandParams.rpIdHash, 32);
+
+		count = count_rk(state.rp_id_hash, &enumerated_rk);
 		if (count <= 0) {
 			clear_state();
 			return (CtapStatus){CTAP2_ERR_NO_CREDENTIALS};
 		}
 
-		ret = get_next_rk(CM.subCommandParams.rpIdHash);
+		ret = get_next_rk(state.rp_id_hash, &enumerated_rk);
 		if (ret < 0) {
 			clear_state();
 			return (CtapStatus){CTAP2_ERR_NO_CREDENTIALS};
 		}
 
-		ctap_ret = cbor_encode_enumerate_credential(encoder, count);
+		ctap_ret = cbor_encode_enumerate_credential(
+		    encoder, &enumerated_rk, count);
 		ctap_check_retr(ctap_ret);
 		break;
 
@@ -168,13 +181,14 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 			return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 
-		ret = get_next_rk(state.rk.rp.rp_id_hash);
+		ret = get_next_rk(state.rp_id_hash, &enumerated_rk);
 		if (ret < 0) {
 			clear_state();
 			return (CtapStatus){CTAP1_ERR_OTHER};
 		}
 
-		ctap_ret = cbor_encode_enumerate_credential(encoder, 0);
+		ctap_ret = cbor_encode_enumerate_credential(encoder,
+							    &enumerated_rk, 0);
 		ctap_check_retr(ctap_ret);
 		break;
 
@@ -195,7 +209,8 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 		ctap_ret = update_credential_user_info(
 		    &CM.subCommandParams.credentialDescriptor.credential.id,
-		    &CM.subCommandParams.credentialDescriptor.credential.user);
+		    &CM.subCommandParams.credentialDescriptor.credential.user,
+		    &enumerated_rk);
 
 		printf1(TAG_CM, "update_credential_user_info: %d\n",
 			ctap_ret.value);
@@ -235,19 +250,21 @@ static CtapStatus cbor_encode_credential_metadata(CborEncoder *encoder)
 	return (CtapStatus){CTAP2_OK};
 }
 
-static CtapStatus cbor_encode_enumerate_credential(CborEncoder *encoder,
-						   int rk_count)
+static CtapStatus
+cbor_encode_enumerate_credential(CborEncoder *encoder,
+				 CTAP_residentKey *enumerated_rk, int rk_count)
 {
 	CborError cbor_ret;
 	CtapStatus ctap_ret;
 
-	uint8_t cred_protect = extract_cred_protect_from_metadata(&state.rk.id);
+	uint8_t cred_protect =
+	    extract_cred_protect_from_metadata(&enumerated_rk->id);
 	if (cred_protect == 0 || cred_protect > 3) {
 		// Take default value of userVerificationOptional
 		cred_protect = EXT_CRED_PROTECT_OPTIONAL;
 	}
 
-	int32_t cose_alg = ctap_restore_metadata_cose_alg(&state.rk.id);
+	int32_t cose_alg = ctap_restore_metadata_cose_alg(&enumerated_rk->id);
 
 	CborEncoder map;
 	// rk_count should not be included for the GetNext subCommand
@@ -259,7 +276,7 @@ static CtapStatus cbor_encode_enumerate_credential(CborEncoder *encoder,
 	cbor_check_ret(cbor_ret);
 	{
 		ctap_ret =
-		    ctap_cbor_encode_user_entity(&map, &state.rk.user, 1);
+		    ctap_cbor_encode_user_entity(&map, &enumerated_rk->user, 1);
 		ctap_check_retr(ctap_ret);
 	}
 
@@ -267,7 +284,8 @@ static CtapStatus cbor_encode_enumerate_credential(CborEncoder *encoder,
 	cbor_check_ret(cbor_ret);
 	{
 		ctap_ret = ctap_cbor_encode_credential_descriptor(
-		    &map, (struct Credential *)&state.rk, PUB_KEY_CRED_PUB_KEY);
+		    &map, (struct Credential *)enumerated_rk,
+		    PUB_KEY_CRED_PUB_KEY);
 		ctap_check_retr(ctap_ret);
 	}
 
@@ -275,7 +293,7 @@ static CtapStatus cbor_encode_enumerate_credential(CborEncoder *encoder,
 	cbor_check_ret(cbor_ret);
 	{
 		// TODO Check return value here?
-		cose_key_generate(&map, (uint8_t *)&state.rk.id,
+		cose_key_generate(&map, (uint8_t *)&enumerated_rk->id,
 				  sizeof(CredentialId), PUB_KEY_CRED_PUB_KEY,
 				  cose_alg);
 	}
@@ -298,7 +316,9 @@ static CtapStatus cbor_encode_enumerate_credential(CborEncoder *encoder,
 	return (CtapStatus){CTAP2_OK};
 }
 
-static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder, int rp_count)
+static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder,
+					   CTAP_residentKey *enumerated_rk,
+					   int rp_count)
 {
 	CborEncoder map;
 	// rp_count should not be included in GetNext subCommand
@@ -315,10 +335,11 @@ static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder, int rp_count)
 		cbor_check_ret(cbor_ret);
 		cbor_ret = cbor_encode_text_stringz(&rp, "id");
 		cbor_check_ret(cbor_ret);
-		if (state.rk.rp.rp_id_size <= sizeof(state.rk.rp.rp_id)) {
+		if (enumerated_rk->rp.rp_id_size <=
+		    sizeof(enumerated_rk->rp.rp_id)) {
 			cbor_ret = cbor_encode_text_string(
-			    &rp, (const char *)state.rk.rp.rp_id,
-			    state.rk.rp.rp_id_size);
+			    &rp, (const char *)enumerated_rk->rp.rp_id,
+			    enumerated_rk->rp.rp_id_size);
 		} else {
 			cbor_ret = cbor_encode_text_string(&rp, "", 0);
 		}
@@ -326,14 +347,14 @@ static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder, int rp_count)
 		cbor_ret = cbor_encode_text_stringz(&rp, "name");
 		cbor_check_ret(cbor_ret);
 		cbor_ret = cbor_encode_text_stringz(
-		    &rp, (const char *)state.rk.user.name);
+		    &rp, (const char *)enumerated_rk->user.name);
 		cbor_check_ret(cbor_ret);
 		cbor_ret = cbor_encoder_close_container(&map, &rp);
 		cbor_check_ret(cbor_ret);
 	}
 	cbor_ret = cbor_encode_int(&map, 4);
 	cbor_check_ret(cbor_ret);
-	cbor_encode_byte_string(&map, state.rk.rp.rp_id_hash, 32);
+	cbor_encode_byte_string(&map, enumerated_rk->rp.rp_id_hash, 32);
 	cbor_check_ret(cbor_ret);
 	if (rp_count > 0) {
 		cbor_ret = cbor_encode_int(&map, 5);
@@ -404,19 +425,18 @@ static int get_count_unique_relying_parties(void)
 	state.rk_idx = 0;
 	state.file_idx = 0;
 	state.len_list_unique_rps = 0;
-	state.rk_valid = false;
 
 	return scan_files_unique_rp(&state.file_idx, &state.len_list_unique_rps,
 				    state.list_unique_rps);
 }
 
-static int count_rk(const uint8_t *rp_id_hash)
+static int count_rk(const uint8_t *rp_id_hash, CTAP_residentKey *out_rk)
 {
 	state.rk_idx = 0;
 
 	uint8_t rp_id_lookup[16];
 	ctap_compute_mac(rp_id_hash, 32, rp_id_lookup, CREDENTIAL_TAG_SIZE);
-	return scan_rk(rp_id_lookup, RK_MODE_COUNT);
+	return scan_rk(rp_id_lookup, RK_MODE_COUNT, out_rk);
 }
 
 static uint8_t extract_cred_protect_from_metadata(CredentialId *credential)
@@ -428,18 +448,17 @@ static uint8_t extract_cred_protect_from_metadata(CredentialId *credential)
 	return metadata[CREDENTIAL_META_CRED_PROTECT_BYTE];
 }
 
-static int get_next_rk(const uint8_t *rp_id_hash)
+static int get_next_rk(const uint8_t *rp_id_hash, CTAP_residentKey *out_rk)
 {
 	uint8_t rp_id_lookup[16];
 	ctap_compute_mac(rp_id_hash, 32, rp_id_lookup, CREDENTIAL_TAG_SIZE);
-	return scan_rk(rp_id_lookup, RK_MODE_GET_NEXT);
+	return scan_rk(rp_id_lookup, RK_MODE_GET_NEXT, out_rk);
 }
 
 // returns next rp in line, continues to scan next file if EOF.
 // Returns -1 when unique rps are exhausted
-static int get_next_unique_rp(void)
+static int get_next_unique_rp(CTAP_residentKey *out_rk)
 {
-	state.rk_valid = false;
 
 	printf1(TAG_CM, "get_next_flash %d %d\n", state.rk_idx,
 		state.len_list_unique_rps);
@@ -478,12 +497,11 @@ static int get_next_unique_rp(void)
 		return -1;
 	}
 
-	ctap_load_rk(state.list_unique_rps[state.rk_idx], &state.rk);
+	ctap_load_rk(state.list_unique_rps[state.rk_idx], out_rk);
 
-	ctap_xcrypt_buf(state.rk.rk_nonce, &state.rk.user, &state.rk.user,
+	ctap_xcrypt_buf(out_rk->rk_nonce, &out_rk->user, &out_rk->user,
 			sizeof(CTAP_userEntity) + sizeof(rpEntity));
 
-	state.rk_valid = true;
 	state.rk_idx++;
 	ctap_close_rk_file();
 	return 0;
@@ -676,7 +694,8 @@ static int resident_key_is_valid(CTAP_residentKey *rk)
 	return (rk->id.count > 0 && rk->id.count != 0xffffffff);
 }
 
-static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode)
+static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode,
+		   CTAP_residentKey *out_rk)
 {
 
 	int nbr_rk = ctap_open_rk_file(rp_id_lookup);
@@ -689,13 +708,13 @@ static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode)
 
 	while (state.rk_idx < nbr_rk) {
 
-		ctap_load_rk(state.rk_idx++, &state.rk);
+		ctap_load_rk(state.rk_idx++, out_rk);
 
-		if (!resident_key_is_valid(&state.rk)) {
+		if (!resident_key_is_valid(out_rk)) {
 			continue;
 		}
 
-		if (memcmp(rp_id_lookup, state.rk.id.rp_id_lookup,
+		if (memcmp(rp_id_lookup, out_rk->id.rp_id_lookup,
 			   CREDENTIAL_TAG_SIZE) != 0) {
 			continue;
 		}
@@ -705,7 +724,7 @@ static int scan_rk(const uint8_t *rp_id_lookup, rk_mode_t mode)
 			ctap_close_rk_file();
 
 			ctap_xcrypt_buf(
-			    state.rk.rk_nonce, &state.rk.user, &state.rk.user,
+			    out_rk->rk_nonce, &out_rk->user, &out_rk->user,
 			    sizeof(CTAP_userEntity) + sizeof(rpEntity));
 
 			return 0;
@@ -825,7 +844,8 @@ static int scan_files_unique_rp(uint8_t *out_file_idx, uint8_t *out_list_len,
 }
 
 static CtapStatus update_credential_user_info(CredentialId *id,
-					      CTAP_userEntity *user)
+					      CTAP_userEntity *user,
+					      CTAP_residentKey *rk_buf)
 {
 	printf1(TAG_CM, "update_user_info\n");
 	int ret;
@@ -834,38 +854,38 @@ static CtapStatus update_credential_user_info(CredentialId *id,
 	clear_state();
 	while (1) {
 
-		ret = scan_rk(id->rp_id_lookup, RK_MODE_GET_NEXT);
+		ret = scan_rk(id->rp_id_lookup, RK_MODE_GET_NEXT, rk_buf);
 		if (ret < 0) {
 			return (CtapStatus){CTAP2_ERR_NO_CREDENTIALS};
 		}
 
-		if (!memcmp(id->tag, state.rk.id.tag, CREDENTIAL_TAG_SIZE)) {
+		if (!memcmp(id->tag, rk_buf->id.tag, CREDENTIAL_TAG_SIZE)) {
 			printf1(TAG_CM, "update_user_info: credid found\n");
 			break;
 		}
 	}
 
 	// Update user info, if id is same
-	if (memcmp(state.rk.user.id, user->id, state.rk.user.id_size)) {
+	if (memcmp(rk_buf->user.id, user->id, rk_buf->user.id_size)) {
 		return (CtapStatus){CTAP1_ERR_INVALID_PARAMETER};
 	}
 
-	memmove(state.rk.user.name, user->name, USER_NAME_LIMIT);
-	memmove(state.rk.user.displayName, user->displayName,
+	memmove(rk_buf->user.name, user->name, USER_NAME_LIMIT);
+	memmove(rk_buf->user.displayName, user->displayName,
 		DISPLAY_NAME_LIMIT);
 
 	// Encrypt sensitive data (userEntity and rpEntity) (new nonce)
-	ctap_generate_rng(state.rk.rk_nonce, CREDENTIAL_NONCE_SIZE);
-	ctap_xcrypt_buf(state.rk.rk_nonce, &state.rk.user, &state.rk.user,
+	ctap_generate_rng(rk_buf->rk_nonce, CREDENTIAL_NONCE_SIZE);
+	ctap_xcrypt_buf(rk_buf->rk_nonce, &rk_buf->user, &rk_buf->user,
 			sizeof(CTAP_userEntity) + sizeof(rpEntity));
 
 	// Make hmac over the reset of the rk, that we can later
 	// verify
-	ctap_compute_mac(&state.rk.user, RK_HMAC_SIZE, state.rk.rk_tag,
+	ctap_compute_mac(&rk_buf->user, RK_HMAC_SIZE, rk_buf->rk_tag,
 			 CREDENTIAL_TAG_SIZE);
 
 	// overwrite in flash
-	ret = ctap_overwrite_rk(&state.rk);
+	ret = ctap_overwrite_rk(rk_buf);
 	clear_state();
 	if (ret < 0) {
 		return (CtapStatus){CTAP1_ERR_OTHER};
