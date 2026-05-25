@@ -52,7 +52,10 @@ typedef struct {
 	int subCommand;
 	struct {
 		uint8_t rpIdHash[32];
+        bool rpIdHash_present;
 		CTAP_credentialDescriptor credentialDescriptor;
+        bool credentialId_present;
+        bool credentialUser_present;
 	} subCommandParams;
 
 	struct {

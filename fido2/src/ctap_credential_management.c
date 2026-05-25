@@ -78,6 +78,7 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 	int count = 0;
 	CtapStatus ctap_ret;
 	CTAP_credMgmt CM;
+	CTAP_residentKey enumerated_rk = {0x00};
 
 	ctap_ret = parse_credential_management_request(&CM, request, length);
 	if (ctap_ret.value != CTAP2_OK) {
@@ -86,17 +87,13 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 		    "Error, parse_credential_management_request() failed\n");
 		return ctap_ret;
 	}
+
 	ctap_ret = verify_pin_auth_for_credential_management(&CM);
 	ctap_check_retr(ctap_ret);
-
-	// TODO: check parse for each subcommand and return
-	// CTAP2_ERR_MISSING_PARAMETER
-	CTAP_residentKey enumerated_rk = {0x00};
 
 	switch (CM.subCommand) {
 	case CM_SubCmd_getCredsMetadata:
 		printf1(TAG_CM, "CM_SubCmd_getCredsMetadata\n");
-		// TODO: verify number of keys stored by counting
 		ctap_ret = cbor_encode_credential_metadata(encoder);
 		ctap_check_retr(ctap_ret);
 		break;
@@ -148,7 +145,9 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 		printf1(TAG_CM, "CM_SubCmd_enumerateCredentialsBegin\n");
 		init_state(CM_SubCmd_enumerateCredentialsBegin);
 
-		// TODO: check rpid hash is present
+		if (!CM.subCommandParams.rpIdHash_present) {
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
+		}
 
 		// Store RP ID hash for GetNext request
 		memcpy(state.rp_id_hash, CM.subCommandParams.rpIdHash, 32);
@@ -195,6 +194,10 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 	case CM_SubCmd_deleteCredential:
 		printf1(TAG_CM, "CM_SubCmd_deleteCredential\n");
 
+		if (!CM.subCommandParams.credentialId_present) {
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
+		}
+
 		ret = ctap_delete_rk(
 		    &CM.subCommandParams.credentialDescriptor.credential.id);
 		if (ret < 0) {
@@ -206,6 +209,11 @@ CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
 
 	case CM_SubCmd_updateUserInformation:
 		printf1(TAG_CM, "cm_subcmd_updateuserinformation\n");
+
+		if (!CM.subCommandParams.credentialId_present ||
+		    !CM.subCommandParams.credentialUser_present) {
+			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
+		}
 
 		ctap_ret = update_credential_user_info(
 		    &CM.subCommandParams.credentialDescriptor.credential.id,
@@ -653,12 +661,14 @@ parse_credential_management_subcommandparams(CborValue *val, CTAP_credMgmt *CM)
 				return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
 			}
 			cbor_check_ret(cbor_ret);
+			CM->subCommandParams.rpIdHash_present = true;
 			break;
 
 		case CM_SubCmdParam_credentialID:
 			ctap_ret = ctap_parse_pubkey_credential_descriptor(
 			    &map, &CM->subCommandParams.credentialDescriptor);
 			ctap_check_retr(ctap_ret);
+			CM->subCommandParams.credentialId_present = true;
 			break;
 
 		case CM_SubCmdParam_user:
@@ -667,6 +677,7 @@ parse_credential_management_subcommandparams(CborValue *val, CTAP_credMgmt *CM)
 				 .credential.user,
 			    &map);
 			ctap_check_retr(ctap_ret);
+			CM->subCommandParams.credentialUser_present = true;
 			break;
 		}
 		cbor_ret = cbor_value_advance(&map);
@@ -900,6 +911,14 @@ static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM)
 	    CM->subCommand == CM_SubCmd_enumerateCredentialsGetNextCredential) {
 		// pinUvAuthParam is not required for these commands
 		return (CtapStatus){CTAP2_OK};
+	}
+
+	if (!CM->pinUvAuthParam_present) {
+		return (CtapStatus){CTAP2_ERR_PUAT_REQUIRED};
+	}
+
+	if (CM->pinProtocol != 1 && CM->pinProtocol != 2) {
+		return (CtapStatus){CTAP1_ERR_INVALID_PARAMETER};
 	}
 
 	CtapStatus ctap_ret = ctap_client_pin_verify_auth_ex(
