@@ -34,7 +34,7 @@ int attestation_read_key(att_key_t *key_buf)
 		return -1;
 	}
 
-	ret = fs_read(&f, key_buf, file_size);
+	ret = fs_read(&f, key_buf, (size_t)file_size);
 	fs_close_file(&f);
 	if (ret < 0) {
 		return ret;
@@ -128,14 +128,13 @@ int attestation_read_cert(uint8_t *cert_buf, size_t cert_buf_size,
 		return file_size;
 	}
 
-	memcpy(cert_size, &file_size, sizeof(size_t));
-
-	if (file_size > cert_buf_size) {
+	if ((size_t)file_size > cert_buf_size) {
 		fs_close_file(&f);
 		return -1;
 	}
+	*cert_size = (size_t)file_size;
 
-	ret = fs_read(&f, cert_buf, file_size);
+	ret = fs_read(&f, cert_buf, (size_t)file_size);
 
 	fs_close_file(&f);
 	if (ret < 0) {

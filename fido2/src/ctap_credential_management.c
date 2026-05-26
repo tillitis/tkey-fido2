@@ -768,8 +768,14 @@ static int scan_file_unique_rp(uint8_t file_idx, uint8_t *out_list_len,
 		return -1;
 	}
 
-	size_t nbr_rk = (size_t)ret;
-	size_t index = 0;
+	if (ret > (int)ctap_max_number_of_rks()) {
+		*out_list_len = 0;
+		ctap_close_rk_file();
+		return -1;
+	}
+
+	uint8_t nbr_rk = (uint8_t)ret;
+	uint8_t index = 0;
 
 	while (index < nbr_rk) {
 

@@ -180,7 +180,7 @@ int ctap_close_rk_file(void);
  *
  * *Optional*, if not implemented, operates on non-persistant RK's.
  */
-void ctap_load_rk(int index, CTAP_residentKey *dst_rk);
+void ctap_load_rk(uint8_t index, CTAP_residentKey *dst_rk);
 
 /** Read the next resident key from already open file into memory
  * @param dst_rk pointer to resident key structure to write into with RK.

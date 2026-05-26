@@ -11,9 +11,9 @@
 #define MSG_SIZE 64
 #define NR_OF_MSG 10
 
-int hidmsg_write_ptr = 0;
-int hidmsg_read_ptr = 0;
-int hidmsg_size = 0;
+uint32_t hidmsg_write_ptr = 0;
+uint32_t hidmsg_read_ptr = 0;
+uint32_t hidmsg_size = 0;
 static uint8_t hidmsg_write_buf[MSG_SIZE * NR_OF_MSG];
 
 int fifo_hidmsg_add(uint8_t *msg);

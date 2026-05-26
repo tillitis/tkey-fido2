@@ -137,12 +137,12 @@ int fs_read_open(const char *name, void *buf, size_t len, size_t offset)
 	}
 
 	lfs_soff_t size = lfs_file_size(&lfs, &file);
-	if (size < offset) {
+	if (size < (int)offset) {
 		// Record does not exist
 		return 0;
 	}
 
-	lfs_file_seek(&lfs, &file, offset, LFS_SEEK_SET);
+	lfs_file_seek(&lfs, &file, (lfs_soff_t)offset, LFS_SEEK_SET);
 
 	ret = lfs_file_read(&lfs, &file, buf, len);
 	lfs_file_close(&lfs, &file);
@@ -164,7 +164,7 @@ int fs_write_open(const char *name, const void *buf, size_t len, size_t offset)
 
 	int ret = 0;
 	lfs_file_opencfg(&lfs, &file, name, LFS_O_RDWR | LFS_O_CREAT, &config);
-	lfs_file_seek(&lfs, &file, offset, LFS_SEEK_SET);
+	lfs_file_seek(&lfs, &file, (lfs_soff_t)offset, LFS_SEEK_SET);
 	ret = lfs_file_write(&lfs, &file, buf, len);
 	lfs_file_close(&lfs, &file);
 
@@ -266,7 +266,7 @@ int fs_read_at(fs_file_t *f, void *buf, size_t len, size_t offset)
 		return -1;
 	}
 
-	lfs_file_seek(&lfs, &f->file, offset, LFS_SEEK_SET);
+	lfs_file_seek(&lfs, &f->file, (lfs_soff_t)offset, LFS_SEEK_SET);
 	return lfs_file_read(&lfs, &f->file, buf, len);
 }
 
@@ -282,7 +282,7 @@ int fs_write_at(fs_file_t *f, const void *buf, size_t len, size_t offset)
 		return -1;
 	}
 
-	lfs_file_seek(&lfs, &f->file, offset, LFS_SEEK_SET);
+	lfs_file_seek(&lfs, &f->file, (lfs_soff_t)offset, LFS_SEEK_SET);
 	return lfs_file_write(&lfs, &f->file, buf, len);
 }
 

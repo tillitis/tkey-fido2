@@ -281,7 +281,7 @@ int ctap_overwrite_rk(const CTAP_residentKey *rk)
 		return -1;
 	}
 
-	uint16_t count = ret;
+	size_t count = (size_t)ret;
 	CTAP_residentKey read_rk;
 	size_t offset = 0;
 
@@ -351,8 +351,8 @@ int ctap_delete_rk(CredentialId *id)
 		return -1;
 	}
 
-	uint16_t count = ret;
-	for (uint16_t i = 0; i < count; i++) {
+	size_t count = (size_t)ret;
+	for (size_t i = 0; i < count; i++) {
 
 		// read next rk
 		ret = fs_read(&_f_rk, &rk, sizeof(CTAP_residentKey));
@@ -377,11 +377,12 @@ int ctap_delete_rk(CredentialId *id)
 
 		// re-write file without this key to avoid gaps
 		CTAP_residentKey temp_rks[10];
-		int remaining = count - (i + 1); // keys after the one to delete
-		int processed = 0;
+		size_t remaining =
+		    count - (i + 1); // keys after the one to delete
+		size_t processed = 0;
 
 		while (remaining > 0) {
-			int to_read = remaining;
+			size_t to_read = remaining;
 			if (to_read > 10)
 				to_read = 10;
 
@@ -397,7 +398,7 @@ int ctap_delete_rk(CredentialId *id)
 			}
 
 			// Write back at position i + processed
-			ret = fs_write_at(&_f_rk, temp_rks, ret,
+			ret = fs_write_at(&_f_rk, temp_rks, (size_t)ret,
 					  (i + processed) *
 					      sizeof(CTAP_residentKey));
 			if (ret <= 0) {
@@ -445,8 +446,11 @@ int ctap_open_rk_file(const uint8_t *rpid_hash)
 	}
 
 	ret = fs_file_size(&_f_rk);
+	if (ret < 0) {
+		return -1;
+	}
 	// Calculate number of credentials stored
-	ret = ret / sizeof(CTAP_residentKey);
+	ret = ret / (int)sizeof(CTAP_residentKey);
 	printf1(TAG_GREEN, "ctap_open_rk_file: %d (%s)\n", ret, path);
 	return ret;
 }
@@ -465,10 +469,10 @@ void ctap_load_next_rk(CTAP_residentKey *dst_rk)
 	printf1(TAG_GREEN, "Load next RK\n");
 }
 
-void ctap_load_rk(int index, CTAP_residentKey *dst_rk)
+void ctap_load_rk(uint8_t index, CTAP_residentKey *dst_rk)
 {
 	fs_read_at(&_f_rk, dst_rk, sizeof(CTAP_residentKey),
-		   index * sizeof(CTAP_residentKey));
+			(size_t)index * sizeof(CTAP_residentKey));
 
 	printf1(TAG_GREEN, "Load RK: %d\n", index);
 }
