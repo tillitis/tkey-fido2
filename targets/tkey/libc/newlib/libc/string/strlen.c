@@ -35,5 +35,5 @@ strlen (const char *str)
 
   while (*str)
     str++;
-  return str - start;
+  return (size_t)(str - start);
 }

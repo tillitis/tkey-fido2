@@ -33,7 +33,7 @@ int vprintf(const char *format, va_list ap)
 	}
 
 	n_out = nc;
-	if (n_out >= sizeof(buf)) {
+	if ((size_t)n_out >= sizeof(buf)) {
 		overflow = 1;
 		buf[sizeof(buf) - 1] = 0;
 	}

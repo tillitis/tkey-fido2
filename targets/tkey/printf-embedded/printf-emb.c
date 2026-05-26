@@ -162,7 +162,7 @@ static void     _parse(global_variable_t * p_g_var, const char *fmt);
 static void     _flags(const char **p_fmt, arg_token_t *token);
 static void     _fieldWidth(global_variable_t *p_g_var, const char **p_fmt, arg_token_t *token);
 static void     _precision(global_variable_t *p_g_var, const char **p_fmt, arg_token_t *token);
-static void     _lengthModifier(const char **p_fmt, const arg_token_t *token, arg_type_t *arg_type);
+static void     _lengthModifier(const char **p_fmt, arg_type_t *arg_type);
 static void     _conversionSpecifier(const char **p_fmt, arg_token_t *token, conversion_type_t *conv_type);
 static void     _convertDec(arg_token_t *token);
 static void     _convertBin(arg_token_t *token, conversion_type_t radix);
@@ -430,7 +430,7 @@ static void _parse(global_variable_t *p_g_var, const char *fmt) {
         _flags(&fmt, &token);
         _fieldWidth(p_g_var, &fmt, &token);
         _precision(p_g_var, &fmt, &token);
-        _lengthModifier(&fmt, &token, &arg_type);
+        _lengthModifier(&fmt, &arg_type);
         _conversionSpecifier(&fmt, &token, &conv_type);
 
         // reconcile conflicting flags
@@ -643,11 +643,10 @@ static void _precision(global_variable_t * p_g_var, const char **p_fmt, arg_toke
  * character of the modifier (if present) on entry.
  *
  *****************************************************************************/
-static void _lengthModifier(const char **p_fmt, const arg_token_t *token, arg_type_t *arg_type) {
+static void _lengthModifier(const char **p_fmt, arg_type_t *arg_type) {
 
     REQUIRE (p_fmt);
     REQUIRE (*p_fmt);
-    REQUIRE (token);
     REQUIRE (arg_type);
 
     *arg_type = ARG_INT;

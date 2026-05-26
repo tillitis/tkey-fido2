@@ -78,15 +78,15 @@ typedef int		 cmp_t(const void *, const void *, void *);
 typedef int		 cmp_t(const void *, const void *);
 #endif
 static inline char	*med3 (char *, char *, char *, cmp_t *, void *);
-static inline void	 swapfunc (char *, char *, int, int);
+static inline void	 swapfunc (char *, char *, size_t, int);
 
-#define min(a, b)	(a) < (b) ? a : b
+#define min(a, b)	(((a) < (b)) ? a : b)
 
 /*
  * Qsort routine from Bentley & McIlroy's "Engineering a Sort Function".
  */
 #define swapcode(TYPE, parmi, parmj, n) { 		\
-	long i = (n) / sizeof (TYPE); 			\
+	size_t i = (size_t)(n) / sizeof (TYPE); 	\
 	TYPE *pi = (TYPE *) (parmi); 		\
 	TYPE *pj = (TYPE *) (parmj); 		\
 	do { 						\
@@ -96,13 +96,13 @@ static inline void	 swapfunc (char *, char *, int, int);
         } while (--i > 0);				\
 }
 
-#define SWAPINIT(a, es) swaptype = ((char *)a - (char *)0) % sizeof(long) || \
+#define SWAPINIT(a, es) swaptype = ((uintptr_t)(char *)a) % sizeof(long) || \
 	es % sizeof(long) ? 2 : es == sizeof(long)? 0 : 1;
 
 static inline void
 swapfunc (char *a,
 	char *b,
-	int n,
+	size_t n,
 	int swaptype)
 {
 	if(swaptype <= 1)
@@ -265,12 +265,12 @@ loop:	swap_cnt = 0;
 	 * { elements < pivot, elements == pivot, elements > pivot }
 	 */
 	pn = (char *) a + n * es;
-	r = min(pa - (char *)a, pb - pa);
+	r = min((size_t)(pa - (char *)a), (size_t)(pb - pa));
 	vecswap(a, pb - r, r);
-	r = min(pd - pc, pn - pd - es);
+	r = min((size_t)(pd - pc), (size_t)(pn - pd - (ptrdiff_t)es));
 	vecswap(pb, pn - r, r);
-	d = pb - pa; /* d = Size of left part. */
-	r = pd - pc; /* r = Size of right part. */
+	d = (size_t)(pb - pa); /* d = Size of left part. */
+	r = (size_t)(pd - pc); /* r = Size of right part. */
 	pn -= r;     /* pn = Base of right part. */
 
 	/*
