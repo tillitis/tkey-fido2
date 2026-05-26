@@ -182,11 +182,11 @@ static void KeyExpansion(uint8_t* RoundKey, const uint8_t* Key)
 
       // Function RotWord()
       {
-        k = tempa[0];
+        uint8_t t = tempa[0];
         tempa[0] = tempa[1];
         tempa[1] = tempa[2];
         tempa[2] = tempa[3];
-        tempa[3] = k;
+        tempa[3] = t;
       }
 
       // SubWord() is a function that takes a four-byte input word and 
@@ -299,7 +299,7 @@ static void ShiftRows(state_t* state)
 
 static uint8_t xtime(uint8_t x)
 {
-  return ((x<<1) ^ (((x>>7) & 1) * 0x1b));
+  return (uint8_t)((x << 1) ^ (((x >> 7) & 1) * 0x1b));
 }
 
 // MixColumns function mixes the columns of the state matrix
