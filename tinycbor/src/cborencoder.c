@@ -257,7 +257,7 @@ static inline CborError append_to_buffer(CborEncoder *encoder, const void *data,
 {
     if (would_overflow(encoder, len)) {
         if (encoder->end != NULL) {
-            len -= encoder->end - encoder->data.ptr;
+            len -= (size_t)(encoder->end - encoder->data.ptr);
             encoder->end = NULL;
             encoder->data.bytes_needed = 0;
         }
@@ -302,7 +302,7 @@ static inline CborError encode_number_no_update(CborEncoder *encoder, uint64_t u
         *bufstart = shiftedMajorType + Value8Bit + more;
     }
 
-    return append_to_buffer(encoder, bufstart, bufend - bufstart);
+    return append_to_buffer(encoder, bufstart, (size_t)(bufend - bufstart));
 }
 
 static inline void saturated_decrement(CborEncoder *encoder)
@@ -350,9 +350,9 @@ CborError cbor_encode_negative_int(CborEncoder *encoder, uint64_t absolute_value
 CborError cbor_encode_int(CborEncoder *encoder, int64_t value)
 {
     /* adapted from code in RFC 7049 appendix C (pseudocode) */
-    uint64_t ui = value >> 63;              /* extend sign to whole length */
+    uint64_t ui = (uint64_t)(value >> 63);  /* extend sign to whole length */
     uint8_t majorType = ui & 0x20;          /* extract major type */
-    ui ^= value;                            /* complement negatives */
+    ui ^= (uint64_t)value;                  /* complement negatives */
     return encode_number(encoder, ui, majorType);
 }
 
@@ -389,7 +389,7 @@ CborError cbor_encode_floating_point(CborEncoder *encoder, CborType fpType, cons
     unsigned size;
     uint8_t buf[1 + sizeof(uint64_t)];
     cbor_assert(fpType == CborHalfFloatType || fpType == CborFloatType || fpType == CborDoubleType);
-    buf[0] = fpType;
+    buf[0] = (uint8_t)fpType;
 
     size = 2U << (fpType - CborHalfFloatType);
     if (size == 8)

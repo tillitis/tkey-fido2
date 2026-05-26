@@ -52,9 +52,10 @@ static inline double decode_half(unsigned short half)
 static inline unsigned short encode_half(double val)
 {
     uint64_t v;
-    int sign, exp, mant;
+    uint16_t sign;
+    int exp, mant;
     memcpy(&v, &val, sizeof(v));
-    sign = v >> 63 << 15;
+    sign = (uint16_t)(v >> 63 << 15);
     exp = (v >> 52) & 0x7ff;
     mant = v << 12 >> 12 >> (53-11);    /* keep only the 11 most significant bits of the mantissa */
     exp -= 1023;
@@ -90,7 +91,17 @@ static inline double decode_half(unsigned short half)
     double val;
     if (exp == 0) val = ldexp(mant, -24);
     else if (exp != 31) val = ldexp(mant + 1024, exp - 25);
-    else val = mant == 0 ? INFINITY : NAN;
+    /* else val = mant == 0 ? INFINITY : NAN; */
+    else {
+        /* Construct infinity or NaN directly from bit patterns,
+           avoiding __builtin_inff/nanf which are UB under -ffinite-math-only */
+        uint32_t bits = mant == 0
+            ? UINT32_C(0x7F800000)   /* +infinity */
+            : UINT32_C(0x7FC00000);  /* quiet NaN */
+        float f;
+        memcpy(&f, &bits, sizeof(f));
+        val = (double)f;
+    }
     return half & 0x8000 ? -val : val;
 }
 #  endif

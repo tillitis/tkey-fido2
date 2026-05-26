@@ -350,8 +350,8 @@ static CborError advance_internal(CborValue *it)
  */
 uint64_t _cbor_value_decode_int64_internal(const CborValue *value)
 {
-    cbor_assert(value->flags & CborIteratorFlag_IntegerValueTooLarge ||
-                value->type == CborFloatType || value->type == CborDoubleType);
+    cbor_assert((value->flags & CborIteratorFlag_IntegerValueTooLarge) ||
+                (value->type == CborFloatType) || (value->type == CborDoubleType));
 
     /* since the additional information can only be Value32Bit or Value64Bit,
      * we just need to test for the one bit those two options differ */
@@ -834,7 +834,7 @@ CborError cbor_value_get_int64_checked(const CborValue *value, int64_t *result)
     if (unlikely(v > (uint64_t)INT64_MAX))
         return CborErrorDataTooLarge;
 
-    *result = v;
+    *result = (int64_t)v;
     if (value->flags & CborIteratorFlag_NegativeInteger)
         *result = -*result - 1;
     return CborNoError;
