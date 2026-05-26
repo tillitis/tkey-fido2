@@ -51,19 +51,19 @@ static inline uint64_t rotl64(uint64_t x, unsigned n)
 /** Read 4 bytes from buf, as a 32-bit big endian quantity. */
 static inline uint32_t read32_be(const uint8_t buf[4])
 {
-  return (buf[0] << 24) |
-         (buf[1] << 16) |
-         (buf[2] << 8) |
-         (buf[3]);
+  return ((uint32_t)buf[0] << 24) |
+         ((uint32_t)buf[1] << 16) |
+         ((uint32_t)buf[2] <<  8) |
+         ((uint32_t)buf[3] <<  0);
 }
 
 /** Read 4 bytes from buf, as a 32-bit little endian quantity. */
 static inline uint32_t read32_le(const uint8_t buf[4])
 {
-  return (buf[3] << 24) |
-         (buf[2] << 16) |
-         (buf[1] << 8) |
-         (buf[0]);
+  return ((uint32_t)buf[3] << 24) |
+         ((uint32_t)buf[2] << 16) |
+         ((uint32_t)buf[1] <<  8) |
+         ((uint32_t)buf[0] <<  0);
 }
 
 /** Read 8 bytes from buf, as a 64-bit big endian quantity. */
@@ -164,8 +164,8 @@ static inline uint32_t mask_u32(uint32_t x, uint32_t y)
 static inline uint8_t mask_u8(uint32_t x, uint32_t y)
 {
   uint32_t diff = x ^ y;
-  uint8_t diff_is_zero = ~diff & (diff - 1);
-  return - (diff_is_zero >> 7);
+  uint32_t diff_is_zero = ~diff & (diff - 1);
+  return (uint8_t)( - (diff_is_zero >> 7) );
 }
 
 /** Select the ith entry from the given table of n values, in a side channel-silent
@@ -276,8 +276,8 @@ static inline void copy_bytes_unaligned(uint8_t *out, const uint8_t *in, size_t 
 {
   uint8_t byte_off = offset / 8;
   uint8_t bit_off = offset & 7;
-  uint8_t rmask = (1 << bit_off) - 1;
-  uint8_t lmask = ~rmask;
+  uint8_t rmask = (uint8_t)((1 << bit_off) - 1);
+  uint8_t lmask = (uint8_t)~rmask;
 
   for (size_t i = 0; i < len; i++)
   {
