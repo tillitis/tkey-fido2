@@ -90,7 +90,9 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw);
 
 void ctaphid_check_timeouts();
 
-void ctaphid_update_status(int8_t status);
+void ctaphid_update_status(uint8_t status);
+
+const char *ctap_hid_string(uint8_t cmd);
 
 #define ctaphid_packet_len(pkt)                                                \
 	((uint16_t)((pkt)->pkt.init.bcnth << 8) | ((pkt)->pkt.init.bcntl))

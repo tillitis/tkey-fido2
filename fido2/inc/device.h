@@ -69,7 +69,7 @@ void authenticator_write_state(AuthenticatorState *s);
  * *Optional* to compile and run, but will be required to be used for proper
  FIDO2 operation with some platforms.
 */
-void device_set_status(uint32_t status);
+void device_set_status(uint8_t status);
 
 /** Returns true if button is currently pressed.  Debouncing does not need to be
  * handled.  Should not block.

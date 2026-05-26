@@ -38,7 +38,7 @@ typedef struct {
 	uint8_t cmd;
 	uint32_t cid;
 	uint16_t bcnt;
-	int offset;
+	size_t offset;
 	int bytes_written;
 	uint8_t seq;
 	uint8_t buf[HID_MESSAGE_SIZE];
@@ -62,9 +62,9 @@ static uint64_t active_cid_timestamp;
 
 static uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
 static uint32_t ctap_buffer_cid;
-static int ctap_buffer_cmd;
+static uint8_t ctap_buffer_cmd;
 static uint16_t ctap_buffer_bcnt;
-static int ctap_buffer_offset;
+static size_t ctap_buffer_offset;
 static int ctap_packet_seq;
 
 static void buffer_reset();
@@ -74,7 +74,7 @@ static void buffer_reset();
 #define CTAPHID_WRITE_RESET 0x04
 
 #define ctaphid_write_buffer_init(x) memset(x, 0, sizeof(CTAPHID_WRITE_BUFFER))
-static void ctaphid_write(CTAPHID_WRITE_BUFFER *wb, void *_data, int len);
+static void ctaphid_write(CTAPHID_WRITE_BUFFER *wb, void *_data, size_t len);
 
 void ctaphid_init()
 {
@@ -161,17 +161,29 @@ static int buffer_packet(CTAPHID_PACKET *pkt)
 {
 	if (pkt->pkt.init.cmd & TYPE_INIT) {
 		ctap_buffer_bcnt = ctaphid_packet_len(pkt);
-		int pkt_len = (ctap_buffer_bcnt < CTAPHID_INIT_PAYLOAD_SIZE)
-				  ? ctap_buffer_bcnt
-				  : CTAPHID_INIT_PAYLOAD_SIZE;
+		size_t pkt_len = (ctap_buffer_bcnt < CTAPHID_INIT_PAYLOAD_SIZE)
+				     ? ctap_buffer_bcnt
+				     : CTAPHID_INIT_PAYLOAD_SIZE;
 		ctap_buffer_cmd = pkt->pkt.init.cmd;
 		ctap_buffer_cid = pkt->cid;
 		ctap_buffer_offset = pkt_len;
 		ctap_packet_seq = -1;
 		memmove(ctap_buffer, pkt->pkt.init.payload, pkt_len);
 	} else {
-		int leftover = ctap_buffer_bcnt - ctap_buffer_offset;
-		int diff = leftover - CTAPHID_CONT_PAYLOAD_SIZE;
+
+		if (ctap_buffer_offset > ctap_buffer_bcnt) {
+			printf2(TAG_HID,
+				"Error, invalid ctap_buffer_offset size!\n");
+			return SEQUENCE_ERROR;
+		}
+		size_t leftover =
+		    ctap_buffer_bcnt -
+		    ctap_buffer_offset; // No wrap around, checked above
+
+		// Safe to cast since leftover can't be larger than uint16_t
+		int32_t diff =
+		    (int32_t)leftover - (int32_t)CTAPHID_CONT_PAYLOAD_SIZE;
+
 		ctap_packet_seq++;
 		if (ctap_packet_seq != pkt->pkt.cont.seq) {
 			return SEQUENCE_ERROR;
@@ -211,7 +223,7 @@ static int buffer_status()
 	}
 }
 
-static int buffer_cmd()
+static uint8_t buffer_cmd()
 {
 	return ctap_buffer_cmd;
 }
@@ -221,14 +233,14 @@ static uint32_t buffer_cid()
 	return ctap_buffer_cid;
 }
 
-static int buffer_len()
+static uint16_t buffer_len()
 {
 	return ctap_buffer_bcnt;
 }
 
 // Buffer data and send in HID_MESSAGE_SIZE chunks
 // if len == 0, FLUSH
-static void ctaphid_write(CTAPHID_WRITE_BUFFER *wb, void *_data, int len)
+static void ctaphid_write(CTAPHID_WRITE_BUFFER *wb, void *_data, size_t len)
 {
 	uint8_t *data = (uint8_t *)_data;
 	if (_data == NULL) {
@@ -249,7 +261,7 @@ static void ctaphid_write(CTAPHID_WRITE_BUFFER *wb, void *_data, int len)
 		}
 		return;
 	}
-	int i;
+	size_t i;
 	for (i = 0; i < len; i++) {
 		if (wb->offset == 0) {
 			memmove(wb->buf, &wb->cid, 4);
@@ -324,7 +336,7 @@ void ctaphid_check_timeouts()
 	}
 }
 
-void ctaphid_update_status(int8_t status)
+void ctaphid_update_status(uint8_t status)
 {
 	CTAPHID_WRITE_BUFFER wb;
 	printf1(TAG_HID, "Send device update %d!\n", status);
@@ -339,13 +351,14 @@ void ctaphid_update_status(int8_t status)
 }
 
 static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
-				 int *len)
+				 uint16_t *len)
 {
 	CTAPHID_PACKET *pkt = (CTAPHID_PACKET *)(pkt_raw);
 
 	printf1(TAG_HID, "Recv packet\n");
-	printf1(TAG_HID, "  CID: %08x\n", pkt->cid);
-	printf1(TAG_HID, "  cmd: %02x\n", pkt->pkt.init.cmd);
+	printf1(TAG_HID, "  CID: 0x%08x (%d)\n", pkt->cid, pkt->cid);
+	printf1(TAG_HID, "  cmd: 0x%02x (%d) %s\n", pkt->pkt.init.cmd,
+		pkt->pkt.init.cmd, ctap_hid_string(pkt->pkt.init.cmd));
 	if (!is_cont_pkt(pkt)) {
 		printf1(TAG_HID, "  length: %d\n", ctaphid_packet_len(pkt));
 	}
@@ -422,14 +435,14 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 				} else if (pkt->cid != buffer_cid()) {
 					if (!is_cont_pkt(pkt)) {
 						printf2(TAG_ERR,
-							"BUSY with %08x\n",
+							"BUSY with 0x%08x\n",
 							buffer_cid());
 						*cmd = CTAP1_ERR_CHANNEL_BUSY;
 						return HID_ERROR;
 					} else {
 						printf2(TAG_ERR,
 							"Ignoring random cont "
-							"packet from %04x\n",
+							"packet from 0x%04x\n",
 							pkt->cid);
 						return HID_IGNORE;
 					}
@@ -447,7 +460,7 @@ static int ctaphid_buffer_packet(uint8_t *pkt_raw, uint8_t *cmd, uint32_t *cid,
 				    pkt->cid != buffer_cid()) {
 					printf2(TAG_ERR,
 						"Ignoring random cont packet "
-						"from %04x\n",
+						"from 0x%04x\n",
 						pkt->cid);
 					return HID_IGNORE;
 				}
@@ -486,7 +499,7 @@ extern void _cbor_check_ret(CborError ret, int line, const char *filename);
 	if ((r) != CborNoError)                                                \
 		exit(1);
 
-uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
+uint8_t ctaphid_custom_command(size_t len, CTAP_RESPONSE *ctap_resp,
 			       CTAPHID_WRITE_BUFFER *wb);
 
 extern void solo_lock_if_not_already();
@@ -495,7 +508,7 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 {
 	uint8_t cmd = 0;
 	uint32_t cid;
-	int len = 0;
+	uint16_t len = 0;
 #ifndef DISABLE_CTAPHID_CBOR
 	int status;
 	CtapStatus ctap_ret;
@@ -577,8 +590,14 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 		is_busy = 1;
 		ctap_response_init(&ctap_resp);
 		ctap_ret = ctap_request(ctap_buffer, len, &ctap_resp);
-		status = ctap_ret.value;
-		wb.bcnt = (ctap_resp.length + 1);
+		status = (int)ctap_ret.value;
+		if ((ctap_resp.length + 1) > UINT16_MAX) {
+			printf2(TAG_ERR, "Error, invalid response length for "
+					 "return packet\n");
+			ctaphid_send_error(cid, CTAP1_ERR_INVALID_LENGTH);
+			return 0;
+		}
+		wb.bcnt = (uint16_t)(ctap_resp.length + 1);
 		wb.cid = cid;
 		wb.cmd = cmd;
 
@@ -607,8 +626,13 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 		is_busy = 1;
 		ctap_response_init(&ctap_resp);
 		u2f_request((struct u2f_request_apdu *)ctap_buffer, &ctap_resp);
-
-		wb.bcnt = (ctap_resp.length);
+		if (ctap_resp.length > UINT16_MAX) {
+			printf2(TAG_ERR,
+				"Error, invalid length for return packet\n");
+			ctaphid_send_error(cid, CTAP1_ERR_INVALID_LENGTH);
+			return 0;
+		}
+		wb.bcnt = (uint16_t)(ctap_resp.length);
 		wb.cid = cid;
 		wb.cmd = cmd;
 
@@ -625,8 +649,9 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 		if (ctaphid_custom_command(len, &ctap_resp, &wb) != 0) {
 			is_busy = 0;
 		} else {
-			printf2(TAG_ERR, "Error, unimplemented HID cmd: %02x\n",
-				buffer_cmd());
+			printf2(TAG_ERR,
+				"Error, unimplemented HID cmd: 0x%02x (%d)\n",
+				buffer_cmd(), buffer_cmd());
 			ctaphid_send_error(cid, CTAP1_ERR_INVALID_COMMAND);
 		}
 	}
@@ -640,7 +665,7 @@ uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 		return 0;
 }
 
-uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
+uint8_t ctaphid_custom_command(size_t len, CTAP_RESPONSE *ctap_resp,
 			       CTAPHID_WRITE_BUFFER *wb)
 {
 	int8_t status;
@@ -731,4 +756,44 @@ uint8_t ctaphid_custom_command(int len, CTAP_RESPONSE *ctap_resp,
 	}
 
 	return 0;
+}
+
+const char *ctap_hid_string(uint8_t cmd)
+{
+	if (cmd & TYPE_INIT) {
+		switch (cmd) {
+		case CTAPHID_PING:
+			return "CTAPHID_PING";
+		case CTAPHID_MSG:
+			return "CTAPHID_MSG";
+		case CTAPHID_LOCK:
+			return "CTAPHID_LOCK";
+		case CTAPHID_INIT:
+			return "CTAPHID_INIT";
+		case CTAPHID_WINK:
+			return "CTAPHID_WINK";
+		case CTAPHID_CBOR:
+			return "CTAPHID_CBOR";
+		case CTAPHID_CANCEL:
+			return "CTAPHID_CANCEL";
+		case CTAPHID_ERROR:
+			return "CTAPHID_ERROR";
+		case CTAPHID_KEEPALIVE:
+			return "CTAPHID_KEEPALIVE";
+		case CTAPHID_WRITE_CERT:
+			return "CTAPHID_WRITE_CERT";
+		case CTAPHID_WRITE_KEY:
+			return "CTAPHID_WRITE_KEY";
+		case CTAPHID_REBOOT:
+			return "CTAPHID_REBOOT";
+		case CTAPHID_GETRNG:
+			return "CTAPHID_GETRNG";
+		case CTAPHID_GETVERSION:
+			return "CTAPHID_GETVERSION";
+		default:
+			return "Unknown command";
+		}
+	} else {
+		return "Continuation packet";
+	}
 }

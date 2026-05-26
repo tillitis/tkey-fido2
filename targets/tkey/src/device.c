@@ -34,7 +34,7 @@ static volatile uint32_t const *cdi   = (volatile uint32_t *)TK1_MMIO_TK1_CDI_FI
 
 #define HID_PACKET_SIZE 64
 
-uint32_t __device_status = 0;
+uint8_t __device_status = 0;
 static bool _up_disabled = false;
 
 static fs_file_t _f_rk = {0};
@@ -58,7 +58,7 @@ uint32_t millis(void)
 	return TIMER_MAX - timer_val;
 }
 
-void device_set_status(uint32_t status)
+void device_set_status(uint8_t status)
 {
 	if (status != CTAPHID_STATUS_IDLE && __device_status != status) {
 		ctaphid_update_status(status);
