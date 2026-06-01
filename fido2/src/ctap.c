@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Tillitis AB <tillitis.se>
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -27,6 +28,7 @@
 #include "extensions.h"
 #include "log.h"
 #include "storage.h"
+#include "tkey/led.h"
 #include "u2f.h"
 #include "util.h"
 #include "version.h"
@@ -319,19 +321,11 @@ void ctap_increment_rk_store(void)
 //  Run ctap related power-up procedures (init pinToken, generate shared secret)
 void ctap_init(void)
 {
-	printf1(TAG_GREEN, "Current firmware version address: %p\n",
-		&firmware_version);
-	printf1(TAG_GREEN,
-		"Current firmware version: %d.%d.%d.%d (%02x.%02x.%02x.%02x)\n",
-		firmware_version.major, firmware_version.minor,
-		firmware_version.patch, firmware_version.reserved,
-		firmware_version.major, firmware_version.minor,
-		firmware_version.patch, firmware_version.reserved);
-	crypto_ecc256_init();
+	app_version_t app_version = version_get_version();
+	printf1(TAG_GREEN, "Current app version: %d.%d.%d\n", app_version.major,
+		app_version.minor, app_version.patch);
 
 	int is_init = authenticator_read_state(&STATE);
-
-	device_set_status(CTAPHID_STATUS_IDLE);
 
 	if (is_init) {
 		printf1(TAG_STOR, "Auth state is initialized\n");
@@ -340,6 +334,31 @@ void ctap_init(void)
 		authenticator_write_state(&STATE);
 	}
 
+	printf1(TAG_GREEN, "Last started app version: %d.%d.%d\n",
+		STATE.app_version.major, STATE.app_version.minor,
+		STATE.app_version.patch);
+
+	// Verify that app is allowed to start
+	int ret = version_compare(&app_version, &STATE.app_version);
+
+	if (ret < 0) {
+		printf1(TAG_ERR, "App version not allowed to start\n");
+		// TODO: Asses the right response
+		led_set(LED_RED);
+		while (1) {
+			;
+		}
+	} else if (ret > 0) {
+		printf1(TAG_GREEN, "App version update\n");
+		// If any data migration is needed, it should typically be
+		// performed here.
+
+		STATE.app_version.raw = app_version.raw;
+		authenticator_write_state(&STATE);
+	}
+
+	device_set_status(CTAPHID_STATUS_IDLE);
+	crypto_ecc256_init();
 	crypto_derive_device_keys(STATE.key_salt, KEY_SALT_BYTES);
 
 	if (ctap_client_pin_is_set()) {
@@ -722,11 +741,12 @@ void ctap_state_init(void)
 	// Fresh RNG for key
 	ctap_generate_rng(STATE.key_salt, KEY_SALT_BYTES);
 
+	STATE.version = STATE_VERSION;
 	STATE.is_initialized = INITIALIZED_MARKER;
 	STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
 	STATE.is_pin_set = 0;
 	STATE.rk_stored = 0;
-	STATE.data_version = STATE_VERSION;
+	STATE.app_version = version_get_version();
 
 	ctap_reset_rk();
 

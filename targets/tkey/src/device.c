@@ -139,6 +139,11 @@ int authenticator_read_state(AuthenticatorState *a)
 		return 0;
 	}
 
+	if (a->version != STATE_VERSION) {
+		// Unkown version
+		return 0;
+	}
+
 	return 1;
 }
 

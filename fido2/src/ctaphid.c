@@ -311,9 +311,9 @@ static void send_init_response(uint32_t oldcid, uint32_t newcid, uint8_t *nonce)
 	memmove(init_resp.nonce, nonce, 8);
 	init_resp.cid = newcid;
 	init_resp.protocol_version = CTAPHID_PROTOCOL_VERSION;
-	init_resp.version_major = 0; //?
-	init_resp.version_minor = 0; //?
-	init_resp.build_version = 0; //?
+	init_resp.version_major = APP_VERSION_MAJ;
+	init_resp.version_minor = APP_VERSION_MIN;
+	init_resp.build_version = APP_VERSION_PATCH;
 	init_resp.capabilities = CTAP_CAPABILITIES;
 
 	ctaphid_write(&wb, &init_resp, sizeof(CTAPHID_INIT_RESPONSE));
@@ -744,9 +744,9 @@ uint8_t ctaphid_custom_command(size_t len, CTAP_RESPONSE *ctap_resp,
 	case CTAPHID_GETVERSION:
 		printf1(TAG_HID, "CTAPHID_GETVERSION\n");
 		wb->bcnt = 4;
-		ctap_buffer[0] = SOLO_VERSION_MAJ;
-		ctap_buffer[1] = SOLO_VERSION_MIN;
-		ctap_buffer[2] = SOLO_VERSION_PATCH;
+		ctap_buffer[0] = APP_VERSION_MAJ;
+		ctap_buffer[1] = APP_VERSION_MIN;
+		ctap_buffer[2] = APP_VERSION_PATCH;
 		ctap_buffer[3] = 0;
 
 		ctaphid_write(wb, ctap_buffer, 4);

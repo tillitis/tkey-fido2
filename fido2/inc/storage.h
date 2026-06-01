@@ -5,6 +5,8 @@
 #ifndef _STORAGE_H
 #define _STORAGE_H
 
+#include "version.h"
+#include <assert.h>
 #include <stdint.h>
 
 #define KEY_SALT_BYTES 64
@@ -15,19 +17,24 @@
 #define INITIALIZED_MARKER 0xA5
 
 typedef struct {
-	// Pin information
+	uint8_t version;
 	uint8_t is_initialized;
+	uint8_t _reserved[2]; // padding
+
+	app_version_t app_version;
+
 	uint8_t is_pin_set;
+	int8_t remaining_tries;
 	uint8_t PIN_CODE_HASH[32];
 	uint8_t PIN_SALT[PIN_SALT_LEN];
-	int _reserved;
-	int8_t remaining_tries;
 
 	uint16_t rk_stored;
-
 	uint8_t key_salt[KEY_SALT_BYTES];
-	uint8_t data_version;
 } AuthenticatorState_0x01;
+
+// No accidental change to size of struct
+static_assert(sizeof(AuthenticatorState_0x01) == 140,
+	      "sizeof(AuthenticatorState_0x01) == 140");
 
 typedef AuthenticatorState_0x01 AuthenticatorState;
 
