@@ -79,6 +79,7 @@ void crypto_aes256_reset_iv(const uint8_t *nonce);
 void crypto_aes256_decrypt(uint8_t *buf, uint32_t length);
 void crypto_aes256_encrypt(uint8_t *buf, uint32_t length);
 
-void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size);
+void crypto_derive_device_keys(void);
+void crypto_derive_session_keys(uint8_t *salt, uint8_t salt_size);
 
 #endif

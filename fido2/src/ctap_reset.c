@@ -6,7 +6,6 @@
 #include "crypto.h"
 #include "ctap_client_pin.h"
 #include "device.h"
-#include "log.h"
 
 extern struct _getAssertionState getAssertionState;
 
@@ -19,7 +18,7 @@ void ctap_reset(void)
 	ctap_reset_state();
 	ctap_client_pin_initialize();
 
-	crypto_derive_device_keys(STATE.key_salt, KEY_SALT_BYTES);
+	crypto_derive_session_keys(STATE.key_salt, STATE_KEY_SALT_BYTES);
 }
 
 void ctap_reset_state(void)

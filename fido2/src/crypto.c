@@ -105,11 +105,41 @@ void fido2_crypto_sha512_init(void)
 	cf_sha512_init(&sha512_ctx);
 }
 
-void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size)
+// Derives the keys with HKDF-SHA256-expand, based on the device bound hardware
+// secret and domain separation.
+void crypto_derive_device_keys(void)
 {
-	// Derives the keys with HKDF-SHA256 based on a non-secret salt, a
-	// device bound hardware secret and domain separation.
+	const uint8_t *device_secret = device_get_bound_secret();
+	// Generate device bound encryption key
+	static const uint8_t info_device_enc[] = "device_enc";
+	crypto_hkdf_expand_sha256(device_secret, info_device_enc,
+				  sizeof(info_device_enc), key_device_enc,
+				  sizeof(key_device_enc));
 
+	// Generate device bound mac key
+	static const uint8_t info_device_mac[] = "device_mac";
+	crypto_hkdf_expand_sha256(device_secret, info_device_mac,
+				  sizeof(info_device_mac), key_device_mac,
+				  sizeof(key_device_mac));
+
+	printf1(TAG_CTAP, "mac_key\n");
+	dump_hex1(TAG_CTAP, key_device_mac, sizeof(key_device_mac));
+
+	// Load attestation key
+	int ret = attestation_read_key(&key_attest);
+
+	if (ret < 0) {
+		printf2(TAG_GREEN, "attestation_read_key() failed\n");
+		return;
+	}
+
+	attestation_available = true;
+}
+
+// Derives the keys with HKDF-SHA256 based on a non-secret salt, a
+// device bound hardware secret and domain separation.
+void crypto_derive_session_keys(uint8_t *salt, uint8_t salt_size)
+{
 	const uint8_t *device_secret = device_get_bound_secret();
 	uint8_t prk[32] = {0x00};
 
@@ -133,28 +163,6 @@ void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size)
 				  key_hmac_ext, sizeof(key_hmac_ext));
 
 	secure_wipe(prk, sizeof(prk));
-
-	// Generate device bound encryption key
-	static const uint8_t info_device_enc[] = "device_enc";
-	crypto_hkdf_expand_sha256(device_secret, info_device_enc,
-				  sizeof(info_device_enc), key_device_enc,
-				  sizeof(key_device_enc));
-
-	// Generate device bound mac key
-	static const uint8_t info_device_mac[] = "device_mac";
-	crypto_hkdf_expand_sha256(device_secret, info_device_mac,
-				  sizeof(info_device_mac), key_device_mac,
-				  sizeof(key_device_mac));
-
-	// Load attestation key
-	int ret = attestation_read_key(&key_attest);
-
-	if (ret < 0) {
-		printf2(TAG_GREEN, "attestation_read_key() failed\n");
-		return;
-	}
-
-	attestation_available = true;
 }
 
 void crypto_sha256_update(const uint8_t *data, size_t len)
