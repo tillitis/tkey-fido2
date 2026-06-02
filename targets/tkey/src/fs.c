@@ -120,52 +120,56 @@ int fs_init(void)
 	return err;
 }
 
-// Opens and reads the file *name, if it exists, from start offset, and then
-// closes it. Returns number of bytes read or negative on error.
-int fs_read_open(const char *name, void *buf, size_t len, size_t offset)
+// Opens and reads the file *name, if it exists, from the beginning. Reads the
+// entire file, if it fits in buf[buf_len]. Closes the file once done. Returns
+// number of bytes read or negative on error.
+int fs_read_open(const char *name, void *buf, size_t buf_len)
 {
 	lfs_file_t file;
-	struct lfs_file_config config = {0x00};
+	struct lfs_file_config config = {0};
 	uint8_t file_buf[LFS_CACHE_SIZE];
 	config.buffer = file_buf;
 
-	int ret;
-
-	ret = lfs_file_opencfg(&lfs, &file, name, LFS_O_RDONLY, &config);
+	int ret = lfs_file_opencfg(&lfs, &file, name, LFS_O_RDONLY, &config);
 	if (ret < 0) {
 		return ret;
 	}
 
 	lfs_soff_t size = lfs_file_size(&lfs, &file);
-	if (size < (int)offset) {
-		// Record does not exist
-		return 0;
+	if (size < 0) {
+		lfs_file_close(&lfs, &file);
+		return (int)size;
 	}
 
-	lfs_file_seek(&lfs, &file, (lfs_soff_t)offset, LFS_SEEK_SET);
+	if ((size_t)size > buf_len) {
+		lfs_file_close(&lfs, &file);
+		return LFS_ERR_NOSPC;
+	}
 
-	ret = lfs_file_read(&lfs, &file, buf, len);
+	ret = lfs_file_read(&lfs, &file, buf, (size_t)size);
 	lfs_file_close(&lfs, &file);
 
 	return ret;
 }
 
-// Opens and writes to the file *name, from start offset. Creates the file if it
-// does not exists. Closes the file once done. Returns number of bytes written
-// or negative on error.
-int fs_write_open(const char *name, const void *buf, size_t len, size_t offset)
+// Opens and overwrites the file *name, from buf length buf_len.
+// Creates the file if it does not exists. Truncates and closes the file once
+// done. Returns number of bytes written or negative on error.
+int fs_write_open(const char *name, const void *buf, size_t buf_len)
 {
 
 	lfs_file_t file;
-	struct lfs_file_config config = {0x00};
+	struct lfs_file_config config = {0};
 	uint8_t file_buf[LFS_CACHE_SIZE];
-
 	config.buffer = file_buf;
 
-	int ret = 0;
-	lfs_file_opencfg(&lfs, &file, name, LFS_O_RDWR | LFS_O_CREAT, &config);
-	lfs_file_seek(&lfs, &file, (lfs_soff_t)offset, LFS_SEEK_SET);
-	ret = lfs_file_write(&lfs, &file, buf, len);
+	int ret = lfs_file_opencfg(
+	    &lfs, &file, name, LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC, &config);
+	if (ret < 0) {
+		return ret;
+	}
+
+	ret = lfs_file_write(&lfs, &file, buf, buf_len);
 	lfs_file_close(&lfs, &file);
 
 	return ret;
