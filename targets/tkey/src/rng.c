@@ -30,7 +30,7 @@ typedef struct {
 static rng_ctx ctx;
 static uint8_t rng_initialized = 0;
 
-static uint32_t entropy_get()
+static uint32_t entropy_get(void)
 {
 	while ((*trng_status & (1 << TK1_MMIO_TRNG_STATUS_READY_BIT)) == 0) {
 	}

@@ -92,9 +92,9 @@ int8_t u2f_authenticate_credential(struct u2f_key_handle *kh,
 				   uint8_t key_handle_len, uint8_t *appid);
 
 int8_t u2f_response_writeback(const uint8_t *buf, uint16_t len);
-void u2f_reset_response();
+void u2f_reset_response(void);
 void u2f_set_writeback_buffer(CTAP_RESPONSE *resp);
 
-int16_t u2f_version();
+int16_t u2f_version(void);
 
 #endif /* U2F_H_ */

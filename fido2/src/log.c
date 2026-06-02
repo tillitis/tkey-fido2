@@ -97,7 +97,7 @@ void LOG_HEX(uint32_t tag, const uint8_t *data, int length)
 	dump_hex(data, length, 2, true, 0, true);
 }
 
-uint32_t timestamp()
+uint32_t timestamp(void)
 {
 	static uint32_t t1 = 0;
 	uint32_t t2 = millis();

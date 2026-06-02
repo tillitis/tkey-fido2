@@ -18,9 +18,9 @@ static uint8_t hidmsg_write_buf[MSG_SIZE * NR_OF_MSG];
 
 int fifo_hidmsg_add(uint8_t *msg);
 int fifo_hidmsg_take(uint8_t *msg);
-uint32_t fifo_hidmsg_size();
-uint32_t fifo_hidmsg_rhead();
-uint32_t fifo_hidmsg_whead();
+uint32_t fifo_hidmsg_size(void);
+uint32_t fifo_hidmsg_rhead(void);
+uint32_t fifo_hidmsg_whead(void);
 
 int fifo_hidmsg_add(uint8_t *msg)
 {
@@ -49,15 +49,15 @@ int fifo_hidmsg_take(uint8_t *msg)
 	return -1;
 }
 
-uint32_t fifo_hidmsg_size()
+uint32_t fifo_hidmsg_size(void)
 {
 	return (hidmsg_size);
 }
-uint32_t fifo_hidmsg_rhead()
+uint32_t fifo_hidmsg_rhead(void)
 {
 	return (hidmsg_read_ptr);
 }
-uint32_t fifo_hidmsg_whead()
+uint32_t fifo_hidmsg_whead(void)
 {
 	return (hidmsg_write_ptr);
 }

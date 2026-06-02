@@ -20,7 +20,7 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
 				uint8_t control);
 #endif
 int8_t u2f_response_writeback(const uint8_t *buf, uint16_t len);
-void u2f_reset_response();
+void u2f_reset_response(void);
 
 static CTAP_RESPONSE *_u2f_resp = NULL;
 
@@ -127,7 +127,7 @@ int8_t u2f_response_writeback(const uint8_t *buf, uint16_t len)
 	return 0;
 }
 
-void u2f_reset_response()
+void u2f_reset_response(void)
 {
 	ctap_response_init(_u2f_resp);
 }
@@ -344,7 +344,7 @@ static int16_t u2f_register(struct u2f_register_request *req)
 }
 #endif
 
-int16_t u2f_version()
+int16_t u2f_version(void)
 {
 	const char version[] = "U2F_V2";
 	u2f_response_writeback((uint8_t *)version, sizeof(version) - 1);

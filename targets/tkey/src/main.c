@@ -27,7 +27,7 @@ static volatile uint32_t *app_addr      = (volatile uint32_t *) TK1_MMIO_TK1_APP
 static volatile uint32_t *app_size      = (volatile uint32_t *) TK1_MMIO_TK1_APP_SIZE;
 // clang-format on
 
-int main()
+int main(void)
 {
 	uint8_t hidmsg[HID_PACKET_SIZE];
 	uint8_t data[HID_PACKET_SIZE];

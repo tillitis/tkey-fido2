@@ -11,15 +11,15 @@
 
 #define CRYPTO_KEY_LEN 32
 
-const uint8_t *crypto_get_key_mac();
-const uint8_t *crypto_get_key_meta();
-const uint8_t *crypto_get_key_hmac();
-const uint8_t *crypto_get_key_device_enc();
-const uint8_t *crypto_get_key_device_mac();
+const uint8_t *crypto_get_key_mac(void);
+const uint8_t *crypto_get_key_meta(void);
+const uint8_t *crypto_get_key_hmac(void);
+const uint8_t *crypto_get_key_device_enc(void);
+const uint8_t *crypto_get_key_device_mac(void);
 
 int secure_memeq(const void *a, const void *b, size_t n);
 
-void crypto_sha256_init();
+void crypto_sha256_init(void);
 void crypto_sha256_update(const uint8_t *data, size_t len);
 void crypto_sha256_final(uint8_t *hash);
 void crypto_sha256(uint8_t *digest, const uint8_t *data, size_t len);
@@ -38,11 +38,11 @@ void crypto_hkdf_extract_sha256(const uint8_t *salt, uint8_t salt_len,
 void crypto_hkdf_expand_sha256(const uint8_t prk[32], const uint8_t *info,
 			       uint8_t info_len, uint8_t *out, uint8_t out_len);
 
-void fido2_crypto_sha512_init();
+void fido2_crypto_sha512_init(void);
 void fido2_crypto_sha512_update(const uint8_t *data, size_t len);
 void fido2_crypto_sha512_final(uint8_t *hash);
 
-void crypto_ecc256_init();
+void crypto_ecc256_init(void);
 int crypto_ecc256_is_valid_scalar(const uint8_t *buf);
 void crypto_ecc256_derive_public_key(uint8_t *data, int len, uint8_t *x,
 				     uint8_t *y);
@@ -51,9 +51,9 @@ void crypto_ecc256_compute_public_key(uint8_t *privkey, uint8_t *pubkey);
 void crypto_ecc256_load_key(uint8_t *data, size_t len, uint8_t *data2,
 			    size_t len2);
 bool crypto_attestation_available(void);
-void crypto_ecc256_load_attestation_key();
 void crypto_load_external_key(uint8_t *key, int len);
 void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig);
+void crypto_ecc256_load_attestation_key(void);
 void crypto_ecdsa_sign(uint8_t *data, int len, uint8_t *sig,
 		       int MBEDTLS_ECP_ID);
 

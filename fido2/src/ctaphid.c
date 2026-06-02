@@ -67,7 +67,7 @@ static uint16_t ctap_buffer_bcnt;
 static size_t ctap_buffer_offset;
 static int ctap_packet_seq;
 
-static void buffer_reset();
+static void buffer_reset(void);
 
 #define CTAPHID_WRITE_INIT 0x01
 #define CTAPHID_WRITE_FLUSH 0x02
@@ -76,14 +76,14 @@ static void buffer_reset();
 #define ctaphid_write_buffer_init(x) memset(x, 0, sizeof(CTAPHID_WRITE_BUFFER))
 static void ctaphid_write(CTAPHID_WRITE_BUFFER *wb, void *_data, size_t len);
 
-void ctaphid_init()
+void ctaphid_init(void)
 {
 	state = IDLE;
 	buffer_reset();
 	// ctap_reset_state();
 }
 
-static uint32_t get_new_cid()
+static uint32_t get_new_cid(void)
 {
 	static uint32_t cid = 1;
 	do {
@@ -204,7 +204,7 @@ static int buffer_packet(CTAPHID_PACKET *pkt)
 	return SUCESS;
 }
 
-static void buffer_reset()
+static void buffer_reset(void)
 {
 	ctap_buffer_bcnt = 0;
 	ctap_buffer_offset = 0;
@@ -212,7 +212,7 @@ static void buffer_reset()
 	ctap_buffer_cid = 0;
 }
 
-static int buffer_status()
+static int buffer_status(void)
 {
 	if (ctap_buffer_bcnt == 0) {
 		return EMPTY;
@@ -223,17 +223,17 @@ static int buffer_status()
 	}
 }
 
-static uint8_t buffer_cmd()
+static uint8_t buffer_cmd(void)
 {
 	return ctap_buffer_cmd;
 }
 
-static uint32_t buffer_cid()
+static uint32_t buffer_cid(void)
 {
 	return ctap_buffer_cid;
 }
 
-static uint16_t buffer_len()
+static uint16_t buffer_len(void)
 {
 	return ctap_buffer_bcnt;
 }
@@ -320,7 +320,7 @@ static void send_init_response(uint32_t oldcid, uint32_t newcid, uint8_t *nonce)
 	ctaphid_write(&wb, NULL, 0);
 }
 
-void ctaphid_check_timeouts()
+void ctaphid_check_timeouts(void)
 {
 	uint8_t i;
 	for (i = 0; i < CID_MAX; i++) {
@@ -502,7 +502,7 @@ extern void _cbor_check_ret(CborError ret, int line, const char *filename);
 uint8_t ctaphid_custom_command(size_t len, CTAP_RESPONSE *ctap_resp,
 			       CTAPHID_WRITE_BUFFER *wb);
 
-extern void solo_lock_if_not_already();
+extern void solo_lock_if_not_already(void);
 
 uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 {

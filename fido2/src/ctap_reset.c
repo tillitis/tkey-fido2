@@ -10,7 +10,7 @@
 
 extern struct _getAssertionState getAssertionState;
 
-void ctap_reset()
+void ctap_reset(void)
 {
 	ctap_state_init();
 
@@ -22,7 +22,7 @@ void ctap_reset()
 	crypto_derive_device_keys(STATE.key_salt, KEY_SALT_BYTES);
 }
 
-void ctap_reset_state()
+void ctap_reset_state(void)
 {
 	memset(&getAssertionState, 0, sizeof(getAssertionState));
 }

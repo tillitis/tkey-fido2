@@ -79,7 +79,7 @@ void device_reboot(void)
 	assert(1 == 2);
 }
 
-void device_init()
+void device_init(void)
 {
 	hw_init();
 	// usbhid_init();

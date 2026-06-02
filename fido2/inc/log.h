@@ -61,7 +61,7 @@ void set_logging_mask(uint32_t mask);
 
 #define dump_hex1(tag, data, len) LOG_HEX(tag, data, len)
 
-uint32_t timestamp();
+uint32_t timestamp(void);
 
 extern uint32_t fido2_log_profile_indent_level;
 /**

@@ -47,7 +47,7 @@ static CtapStatus cbor_encode_enumerate_rp(CborEncoder *encoder,
 					   CTAP_residentKey *enumerated_rk,
 					   int rp_count);
 static int check_state(uint8_t subCmd);
-static void clear_state();
+static void clear_state(void);
 static int get_count_unique_relying_parties(void);
 static int count_rk(const uint8_t *rp_id_hash, CTAP_residentKey *out_rk);
 static uint8_t extract_cred_protect_from_metadata(CredentialId *credential);
@@ -422,7 +422,7 @@ static int check_state(uint8_t subCmd)
 	return -1;
 }
 
-static void clear_state()
+static void clear_state(void)
 {
 	memset(&state, 0x00, sizeof(state));
 }

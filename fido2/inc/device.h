@@ -19,7 +19,7 @@ const uint8_t *device_get_bound_secret(void);
  * anything. *Optional* to compile, but will not calculate delays correctly
  * without a correct implementation.
  */
-uint32_t millis();
+uint32_t millis(void);
 
 /** Called by HIDUSB layer to write bytes to the USB HID interface endpoint.
  *  Will write 64 bytes at a time.
@@ -35,7 +35,7 @@ void usbhid_send(uint8_t *msg);
  *  **Optional** this is not used for FIDO2, and simply won't do anything if not
  * implemented.
  */
-void device_reboot();
+void device_reboot(void);
 
 /** Read AuthenticatorState from nonvolatile memory.
  *  @param s pointer to AuthenticatorState buffer to be overwritten with
@@ -77,7 +77,7 @@ void device_set_status(uint8_t status);
  *
  * *Optional* to compile and run, but just returns one by default.
  */
-int device_is_button_pressed();
+int device_is_button_pressed(void);
 
 //
 // Return 2 for disabled, 1 for user is present, 0 user not present, -1 if
@@ -136,14 +136,14 @@ uint32_t ctap_atomic_count(uint32_t amount);
  *
  * *Optional*, if not implemented, operates on non-persistant RK's.
  */
-void ctap_reset_rk();
+void ctap_reset_rk(void);
 
 /** Return the maximum amount of resident keys that can be stored.
  * @return max number of resident keys that can be stored, including already
  * stored RK's.
  *
  */
-uint32_t ctap_max_number_of_rks();
+uint32_t ctap_max_number_of_rks(void);
 
 /** Store a resident key. Will be appended to the file detemened by the first
  * nibble in the rpid hash. Storage should be in non-volatile memory.
@@ -201,11 +201,11 @@ int ctap_overwrite_rk(const CTAP_residentKey *rk);
  *
  * *Optional*.
  */
-void device_wink();
+void device_wink(void);
 
-void device_init();
-void usbhid_init();
-void usbhid_close();
+void device_init(void);
+void usbhid_init(void);
+void usbhid_close(void);
 int usbhid_recv(uint8_t *msg);
 void delay(uint32_t ms);
 

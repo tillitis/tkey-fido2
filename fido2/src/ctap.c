@@ -42,7 +42,7 @@ static int is_cred_id_matching_rk(const CredentialId *credId,
 static void truncate_rpid(uint8_t *stored_rpid, uint8_t *stored_len,
 			  const uint8_t *rpid, size_t rpid_len);
 
-CtapStatus ctap2_user_presence_test()
+CtapStatus ctap2_user_presence_test(void)
 {
 	device_set_status(CTAPHID_STATUS_UPNEEDED);
 	int ret = ctap_user_presence_test(CTAP2_UP_DELAY_MS);
@@ -218,7 +218,7 @@ int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 	return 0;
 }
 
-void ctap_decrement_rk_store()
+void ctap_decrement_rk_store(void)
 {
 	STATE.rk_stored--;
 	ctap_flush_state();
@@ -292,7 +292,7 @@ int ctap_encode_der_sig(const uint8_t *const in_sigbuf,
 	return 0x46 + pad_s + pad_r - lead_r - lead_s;
 }
 
-void ctap_flush_state()
+void ctap_flush_state(void)
 {
 	authenticator_write_state(&STATE);
 }
@@ -305,14 +305,14 @@ size_t ctap_get_credential_id_size(int type)
 	return sizeof(CredentialId);
 }
 
-void ctap_increment_rk_store()
+void ctap_increment_rk_store(void)
 {
 	STATE.rk_stored++;
 	ctap_flush_state();
 }
 
 //  Run ctap related power-up procedures (init pinToken, generate shared secret)
-void ctap_init()
+void ctap_init(void)
 {
 	printf1(TAG_GREEN, "Current firmware version address: %p\n",
 		&firmware_version);
@@ -709,7 +709,7 @@ int ctap_sign_data(uint8_t *data, int datalen, uint8_t *clientDataHash,
 	}
 }
 
-void ctap_state_init()
+void ctap_state_init(void)
 {
 	// Set to 0xff instead of 0x00 to be easier on flash
 	memset(&STATE, 0xff, sizeof(AuthenticatorState));

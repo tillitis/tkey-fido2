@@ -61,9 +61,9 @@
 #define FIFO_CREATE_H(NAME)                                                    \
 	int fifo_##NAME##_add(uint8_t *c);                                     \
 	int fifo_##NAME##_take(uint8_t *c);                                    \
-	uint32_t fifo_##NAME##_size();                                         \
-	uint32_t fifo_##NAME##_rhead();                                        \
-	uint32_t fifo_##NAME##_whead();
+	uint32_t fifo_##NAME##_size(void);                                     \
+	uint32_t fifo_##NAME##_rhead(void);                                    \
+	uint32_t fifo_##NAME##_whead(void);
 
 FIFO_CREATE_H(hidmsg)
 

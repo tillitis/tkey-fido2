@@ -12,7 +12,7 @@
 
 extern struct _getAssertionState getAssertionState;
 
-static CTAP_credentialDescriptor *get_next_credential();
+static CTAP_credentialDescriptor *get_next_credential(void);
 
 CtapStatus ctap_get_next_assertion(CborEncoder *encoder)
 {
@@ -78,7 +78,7 @@ CtapStatus ctap_get_next_assertion(CborEncoder *encoder)
 	return (CtapStatus){CTAP2_OK};
 }
 
-static CTAP_credentialDescriptor *get_next_credential()
+static CTAP_credentialDescriptor *get_next_credential(void)
 {
 	if (getAssertionState.count > 0 &&
 	    getAssertionState.index < getAssertionState.count) {

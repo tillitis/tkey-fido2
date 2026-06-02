@@ -51,27 +51,27 @@ static uint8_t key_cred_mac[CRYPTO_KEY_LEN];
 static uint8_t key_meta_enc[CRYPTO_KEY_LEN];
 static uint8_t key_hmac_ext[CRYPTO_KEY_LEN];
 
-const uint8_t *crypto_get_key_mac()
+const uint8_t *crypto_get_key_mac(void)
 {
 	return key_cred_mac;
 }
 
-const uint8_t *crypto_get_key_meta()
+const uint8_t *crypto_get_key_meta(void)
 {
 	return key_meta_enc;
 }
 
-const uint8_t *crypto_get_key_hmac()
+const uint8_t *crypto_get_key_hmac(void)
 {
 	return key_hmac_ext;
 }
 
-const uint8_t *crypto_get_key_device_enc()
+const uint8_t *crypto_get_key_device_enc(void)
 {
 	return key_device_enc;
 }
 
-const uint8_t *crypto_get_key_device_mac()
+const uint8_t *crypto_get_key_device_mac(void)
 {
 	return key_device_mac;
 }

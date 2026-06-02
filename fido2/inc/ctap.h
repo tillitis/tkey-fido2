@@ -230,7 +230,7 @@ struct _getAssertionState {
 	uint8_t customCredIdSize;
 };
 
-CtapStatus ctap2_user_presence_test();
+CtapStatus ctap2_user_presence_test(void);
 uint32_t ctap_auth_data_update_count(CTAP_authDataHeader *authData);
 CtapStatus ctap_cbor_encode_credential_descriptor(CborEncoder *map,
 						  struct Credential *cred,
@@ -246,15 +246,15 @@ void ctap_compute_mac(const void *data, size_t data_len, uint8_t *mac,
 		      size_t mac_len);
 int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 				  CTAP_credentialDescriptor *desc);
-void ctap_decrement_rk_store();
+void ctap_decrement_rk_store(void);
 void ctap_derive_rp_id_info(const uint8_t *rp_id, size_t size,
 			    uint8_t *rp_id_hash, uint8_t *rp_id_lookup);
 int ctap_encode_der_sig(uint8_t const *const in_sigbuf,
 			uint8_t *const out_sigder);
-void ctap_flush_state();
+void ctap_flush_state(void);
 size_t ctap_get_credential_id_size(int type);
-void ctap_increment_rk_store();
-void ctap_init();
+void ctap_increment_rk_store(void);
+void ctap_init(void);
 CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 			       uint8_t *rp_id_lookup, CborEncoder *map,
 			       uint8_t *auth_data_buf, uint32_t *len,
@@ -268,7 +268,7 @@ int32_t ctap_restore_metadata_cose_alg(CredentialId *credential);
 int ctap_sign_data(uint8_t *data, int datalen, uint8_t *clientDataHash,
 		   uint8_t *hashbuf, uint8_t *sigbuf, uint8_t *sigder,
 		   int32_t alg);
-void ctap_state_init();
+void ctap_state_init(void);
 int ctap_verify_mac(const uint8_t *mac, const void *data, size_t data_len);
 int ctap_verify_rk_exists(const CredentialId *input_cred);
 void ctap_xcrypt_buf(const uint8_t *iv, const void *in, void *out,

@@ -5,7 +5,7 @@
 #ifndef _CTAP_RESET_H_
 #define _CTAP_RESET_H_
 
-void ctap_reset();
-void ctap_reset_state();
+void ctap_reset(void);
+void ctap_reset_state(void);
 
 #endif

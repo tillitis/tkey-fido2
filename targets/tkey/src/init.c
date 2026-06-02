@@ -19,7 +19,7 @@ static volatile uint32_t *timer_ctrl =      (volatile uint32_t *)TK1_MMIO_TIMER_
 // clang-format on
 #define CPUFREQ 24000000
 
-void hw_init()
+void hw_init(void)
 {
 	init_millisecond_timer();
 #ifndef QEMU_DEBUG
@@ -32,7 +32,7 @@ void hw_init()
 	}
 }
 
-void init_millisecond_timer()
+void init_millisecond_timer(void)
 {
 	*timer_prescaler =
 	    CPUFREQ / 1000; // Divide CPUFREQ by 1000 to get 1 tick every ms.
