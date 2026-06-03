@@ -74,8 +74,11 @@ const char *cbor_value_get_type_string(const CborValue *value)
 	case CborDoubleType:
 		return "CborDoubleType";
 		break;
+	case CborInvalidType:
+		return "CborInvalidType";
+		break;
 	default:
-		return "Invalid type";
+		return "Unknown type";
 	}
 }
 
