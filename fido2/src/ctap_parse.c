@@ -262,7 +262,8 @@ CtapStatus ctap_parse_rp_id(struct rpId *rp, CborValue *val)
 
 CtapStatus ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 {
-	size_t sz, map_length;
+	size_t sz;
+	size_t map_length;
 	uint8_t key[24];
 	CborError cbor_ret;
 	unsigned int i;
@@ -319,8 +320,12 @@ CtapStatus ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 					"Error, USER_ID is too large\n");
 				return (CtapStatus){CTAP2_ERR_LIMIT_EXCEEDED};
 			}
-			user->id_size = sz;
 			cbor_check_ret(cbor_ret);
+			if (sz > UINT8_MAX) {
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+			}
+			user->id_size = (uint8_t)sz;
+
 		} else if (strcmp((const char *)key, "name") == 0) {
 			if (cbor_value_get_type(&map) != CborTextStringType) {
 				printf2(TAG_ERR, "Error, expecting text string "
@@ -336,6 +341,7 @@ CtapStatus ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 				cbor_check_ret(cbor_ret);
 			}
 			user->name[USER_NAME_LIMIT - 1] = 0;
+
 		} else if (strcmp((const char *)key, "displayName") == 0) {
 			if (cbor_value_get_type(&map) != CborTextStringType) {
 				printf2(TAG_ERR,
@@ -352,6 +358,7 @@ CtapStatus ctap_parse_user_entity(CTAP_userEntity *user, CborValue *val)
 				cbor_check_ret(cbor_ret);
 			}
 			user->displayName[DISPLAY_NAME_LIMIT - 1] = 0;
+
 		} else if (strcmp((const char *)key, "icon") == 0) {
 			// Icon is deprecated, don't store it.
 			// Still need to parse it and return error if it is
