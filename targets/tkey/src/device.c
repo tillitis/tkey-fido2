@@ -7,24 +7,23 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "device.h"
-#include "storage.h"
-
 #include "assert.h"
+#include "cbor.h"
+#include "crypto.h"
+#include "ctap.h"
 #include "ctaphid.h"
 #include "device.h"
 #include "fifo.h"
-#include "frame.h"
+#include "fs.h"
 #include "init.h"
 #include "log.h"
+#include "printf-emb.h"
 #include "rng.h"
+#include "state.h"
 #include "timer.h"
 #include "tkey/io.h"
 #include "tkey/led.h"
 #include "tkey/tk1_mem.h"
-
-#include "fs.h"
-#include "printf-emb.h"
 
 // clang-format off
 static volatile uint32_t *timer = (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
@@ -130,26 +129,66 @@ void device_wink(void)
 
 int authenticator_read_state(AuthenticatorState *a)
 {
-	if (fs_read_open("state", a, sizeof(AuthenticatorState), 0) <= 0) {
+	uint8_t tmp_buf[STATE_ENVELOPE_BUF_SIZE];
+	uint8_t *magic = tmp_buf;
+	uint8_t *mac = tmp_buf + STATE_MAGIC_SIZE;
+	uint8_t *cbor = mac + STATE_MAC_SIZE;
+
+	int ret = fs_read_open("state", tmp_buf, sizeof(tmp_buf));
+	if (ret <= 0) {
 		// Either new file (read size 0) or error.
 		return 0;
 	}
 
-	if (a->is_initialized != INITIALIZED_MARKER) {
+	// The envelope for the state is [magic(1)][mac(16)][cbor]
+	// Check magic
+	if (*magic != STATE_MAGIC) {
+		printf1(TAG_ERR, "auth_read_state: magic failed\n");
+		return 0;
+	}
+	// Validate mac
+	size_t cbor_size = (size_t)ret - STATE_MAGIC_SIZE - STATE_MAC_SIZE;
+
+	if (!crypto_verify_device_mac(cbor, cbor_size, mac, STATE_MAC_SIZE)) {
+		printf1(TAG_ERR, "auth_read_state: mac failed\n");
 		return 0;
 	}
 
-	if (a->version != STATE_VERSION) {
-		// Unkown version
+	// Deserialize
+	if (state_cbor_decode(a, cbor, cbor_size) != 0) {
+		printf1(TAG_ERR, "auth_read_state: deserialize failed\n");
 		return 0;
 	}
-
 	return 1;
 }
 
 void authenticator_write_state(AuthenticatorState *a)
 {
-	fs_write_open("state", a, sizeof(AuthenticatorState), 0);
+	// The envelope for the state is [magic(1)][mac(16)][cbor]
+	uint8_t write_buf[STATE_ENVELOPE_BUF_SIZE] = {0};
+	uint8_t *magic = write_buf;
+	uint8_t *mac = write_buf + STATE_MAGIC_SIZE;
+	uint8_t *cbor = mac + STATE_MAC_SIZE;
+
+	*magic = STATE_MAGIC;
+
+	size_t cbor_max_size =
+	    sizeof(write_buf) - STATE_MAGIC_SIZE - STATE_MAC_SIZE;
+
+	size_t cbor_size;
+	CborError cbor_ret =
+	    state_cbor_encode(cbor, cbor_max_size, a, &cbor_size);
+	if (cbor_ret != CborNoError) {
+		assert(1 == 2);
+	}
+
+	crypto_compute_device_mac(cbor, cbor_size, mac, STATE_MAC_SIZE);
+
+	size_t write_size = cbor_size + STATE_MAGIC_SIZE + STATE_MAC_SIZE;
+	int ret = fs_write_open("state", write_buf, write_size);
+	if (ret != write_size) {
+		assert(1 == 2);
+	}
 }
 
 uint32_t ctap_atomic_count(uint32_t amount)

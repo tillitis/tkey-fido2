@@ -13,7 +13,7 @@
 #include "ctap_parse.h"
 #include "device.h"
 #include "log.h"
-#include "storage.h"
+#include "state.h"
 
 #define CTAP_STATEFUL_TIMEOUT_MS 30000
 #define MAX_UNIQUE_RP 50

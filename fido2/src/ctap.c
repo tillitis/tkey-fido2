@@ -27,13 +27,13 @@
 #include "device.h"
 #include "extensions.h"
 #include "log.h"
-#include "storage.h"
+#include "state.h"
 #include "tkey/led.h"
 #include "u2f.h"
 #include "util.h"
 #include "version.h"
 
-AuthenticatorState STATE;
+AuthenticatorState STATE = {0};
 
 struct _getAssertionState getAssertionState;
 
@@ -325,6 +325,9 @@ void ctap_init(void)
 	printf1(TAG_GREEN, "Current app version: %d.%d.%d\n", app_version.major,
 		app_version.minor, app_version.patch);
 
+	// Need to derive device bound keys before reading state.
+	crypto_derive_device_keys();
+
 	int is_init = authenticator_read_state(&STATE);
 
 	if (is_init) {
@@ -359,7 +362,7 @@ void ctap_init(void)
 
 	device_set_status(CTAPHID_STATUS_IDLE);
 	crypto_ecc256_init();
-	crypto_derive_device_keys(STATE.key_salt, KEY_SALT_BYTES);
+	crypto_derive_session_keys(STATE.key_salt, STATE_KEY_SALT_BYTES);
 
 	if (ctap_client_pin_is_set()) {
 		printf1(TAG_STOR, "attempts_left: %d\n", STATE.remaining_tries);
@@ -736,13 +739,11 @@ size_t ctap_sign_data(uint8_t *data, size_t datalen, uint8_t *clientDataHash,
 
 void ctap_state_init(void)
 {
-	// Set to 0xff instead of 0x00 to be easier on flash
-	memset(&STATE, 0xff, sizeof(AuthenticatorState));
+	memset(&STATE, 0x00, sizeof(AuthenticatorState));
 	// Fresh RNG for key
-	ctap_generate_rng(STATE.key_salt, KEY_SALT_BYTES);
+	ctap_generate_rng(STATE.key_salt, STATE_KEY_SALT_BYTES);
 
 	STATE.version = STATE_VERSION;
-	STATE.is_initialized = INITIALIZED_MARKER;
 	STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
 	STATE.is_pin_set = 0;
 	STATE.rk_stored = 0;

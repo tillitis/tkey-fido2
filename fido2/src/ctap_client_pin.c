@@ -16,7 +16,7 @@
 #include "ctap_parse.h"
 #include "device.h"
 #include "log.h"
-#include "storage.h"
+#include "state.h"
 #include "tkey/lib.h"
 #include "uECC.h"
 

@@ -11,9 +11,22 @@
 #include "ctap.h"
 #include "ctap_errors.h"
 
+/**
+ * Check the return value of a CBOR operation.
+ *
+ * If @p r indicates a failure, logs error (if debug enabled) and returns
+ * CTAP2_ERR_INVALID_CBOR from the calling function. Supposed to be used to mask
+ * CBOR errors into a CTAP error.
+ *
+ * @param[in] r Return value from a CBOR operation.
+ */
 #define cbor_check_ret(r)                                                      \
 	if (_cbor_check_ret_failed(r, __LINE__, __FILE__))                     \
 		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+
+#define cbor_check_retr(r)                                                     \
+	if (_cbor_check_ret_failed(r, __LINE__, __FILE__))                     \
+		return r;
 
 #define ctap_check_retr(r)                                                     \
 	if (_ctap_check_ret_failed(r, __LINE__, __FILE__))                     \

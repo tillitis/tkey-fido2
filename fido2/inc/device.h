@@ -6,7 +6,7 @@
 #define _DEVICE_H
 
 #include "ctap.h"
-#include "storage.h"
+#include "state.h"
 
 #include <stddef.h>
 #include <stdint.h>

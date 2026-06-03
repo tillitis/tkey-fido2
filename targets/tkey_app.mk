@@ -38,6 +38,7 @@ TARGET_SRCS := \
                fido2/src/ctap_reset.c                             \
                fido2/src/ctaphid.c                                \
                fido2/src/log.c                                    \
+               fido2/src/state.c                                  \
                fido2/src/u2f.c                                    \
                fido2/src/util.c                                   \
                fido2/src/version.c                                \
