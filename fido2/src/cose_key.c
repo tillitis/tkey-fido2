@@ -11,7 +11,6 @@
 #include "log.h"
 
 CtapStatus cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
-			PublicKeyCredentialType credtype,
 			COSEAlgorithmIdentifier algtype)
 {
 	CborError cbor_ret;
@@ -67,7 +66,7 @@ CtapStatus cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
 }
 
 CtapStatus cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input,
-			     int len, PublicKeyCredentialType credtype,
+			     size_t len, PublicKeyCredentialType credtype,
 			     COSEAlgorithmIdentifier algtype)
 {
 	uint8_t x[32], y[32];
@@ -92,7 +91,7 @@ CtapStatus cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input,
 		printf2(TAG_ERR, "Error, COSE alg %d not supported\n", algtype);
 		return (CtapStatus){CTAP2_ERR_UNSUPPORTED_ALGORITHM};
 	}
-	CtapStatus ctap_ret = cose_key_add(cose_key, x, y, credtype, algtype);
+	CtapStatus ctap_ret = cose_key_add(cose_key, x, y, algtype);
 	ctap_check_retr(ctap_ret);
 
 	return (CtapStatus){CTAP2_OK};

@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 
-int dump_hex(const uint8_t *buf, int size, int indent_pos,
+#include "util.h"
+
+int dump_hex(const uint8_t *buf, size_t size, int indent_pos,
 	     bool indent_first_line, int start_pos, bool add_newline)
 {
 	int pos = (start_pos > 0) ? start_pos : 1;
@@ -18,7 +21,7 @@ int dump_hex(const uint8_t *buf, int size, int indent_pos,
 		}
 	}
 
-	for (int i = 0; i < size; i++) {
+	for (size_t i = 0; i < size; i++) {
 		printf("%02X ", *buf++);
 		if ((pos % 16) == 0) {
 			printf("\n");

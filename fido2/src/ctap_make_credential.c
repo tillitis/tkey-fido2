@@ -14,7 +14,8 @@
 #include "log.h"
 
 static CtapStatus cbor_encode_attestation_statement(CborEncoder *map,
-						    uint8_t *sigder, int len);
+						    uint8_t *sigder,
+						    size_t len);
 static CtapStatus
 find_supported_pubkey_credential_param(CTAP_makeCredential *MC, CborValue *val);
 static int
@@ -22,8 +23,7 @@ is_pubkey_credential_param_supported(PublicKeyCredentialType credtype,
 				     COSEAlgorithmIdentifier algtype);
 static CtapStatus parse_exclude_list(CborValue *val);
 static CtapStatus parse_make_credential(CTAP_makeCredential *MC,
-					CborEncoder *encoder, uint8_t *request,
-					int length);
+					uint8_t *request, size_t length);
 static CtapStatus
 parse_pubkey_credential_params(CborValue *val,
 			       PublicKeyCredentialType *credtype,
@@ -31,7 +31,7 @@ parse_pubkey_credential_params(CborValue *val,
 static CtapStatus parse_relying_party_entity(struct rpId *rp, CborValue *val);
 
 CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
-				int length)
+				size_t length)
 {
 	CTAP_makeCredential MC;
 	CborError cbor_ret;
@@ -43,7 +43,7 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 	uint8_t *sigbuf = auth_data_buf + 32;
 	uint8_t *sigder = auth_data_buf + 32 + 64;
 
-	ctap_ret = parse_make_credential(&MC, encoder, request, length);
+	ctap_ret = parse_make_credential(&MC, request, length);
 	if (ctap_ret.value != CTAP2_OK) {
 		printf2(TAG_ERR, "Error, parse_make_credential() failed\n");
 		return ctap_ret;
@@ -102,8 +102,8 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 
 	if (ctap_client_pin_is_set()) {
 		// We need to calculate rp id hash first.
-		if (!ctap_client_pin_verify_permissions_rp_id(
-			MC.pinProtocol, rp_id_hash) != CTAP2_OK) {
+		if (false == ctap_client_pin_verify_permissions_rp_id(
+				 MC.pinProtocol, rp_id_hash)) {
 			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 		}
 	}
@@ -167,11 +167,11 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 
 	cbor_check_ret(cbor_ret);
 
-	uint32_t auth_data_sz = sizeof(auth_data_buf);
+	size_t auth_data_sz = sizeof(auth_data_buf);
 
-	ctap_ret = ctap_make_auth_data(&MC.rp, rp_id_hash, rp_id_lookup, &map,
-				       auth_data_buf, &auth_data_sz,
-				       &MC.credInfo, &MC.extensions);
+	ctap_ret =
+	    ctap_make_auth_data(&MC.rp, rp_id_hash, rp_id_lookup, auth_data_buf,
+				&auth_data_sz, &MC.credInfo, &MC.extensions);
 	ctap_check_retr(ctap_ret);
 
 	// TODO: Should be done in collaboration with the user presence. Should
@@ -206,13 +206,13 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 		cbor_check_ret(cbor_ret);
 	}
 
-	int sigder_sz = 0;
+	size_t sigder_sz = 0;
 
 	if (crypto_attestation_available()) {
 		crypto_ecc256_load_attestation_key();
 		sigder_sz = ctap_sign_data(auth_data_buf, auth_data_sz,
-					   MC.clientDataHash, auth_data_buf,
-					   sigbuf, sigder, COSE_ALG_ES256);
+					   MC.clientDataHash, sigbuf, sigder,
+					   COSE_ALG_ES256);
 		printf1(TAG_MC, "der sig [%d]:\n", sigder_sz);
 		dump_hex1(TAG_MC, sigder, sigder_sz);
 	} else {
@@ -229,7 +229,7 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 }
 
 static CtapStatus cbor_encode_attestation_statement(CborEncoder *map,
-						    uint8_t *sigder, int len)
+						    uint8_t *sigder, size_t len)
 {
 	int ret;
 	CborError cbor_ret;
@@ -391,8 +391,7 @@ static CtapStatus parse_exclude_list(CborValue *val)
 }
 
 static CtapStatus parse_make_credential(CTAP_makeCredential *MC,
-					CborEncoder *encoder, uint8_t *request,
-					int length)
+					uint8_t *request, size_t length)
 {
 	CborError cbor_ret;
 	CtapStatus ctap_ret = (CtapStatus){CTAP2_OK};
@@ -547,14 +546,18 @@ static CtapStatus parse_make_credential(CTAP_makeCredential *MC,
 
 		case MC_Cmd_pinUvAuthProtocol:
 			printf1(TAG_MC, "MC_Cmd_pinUvAuthProtocol\n");
-			if (cbor_value_get_type(&map) == CborIntegerType) {
-				cbor_ret = cbor_value_get_int_checked(
-				    &map, &MC->pinProtocol);
-				cbor_check_ret(cbor_ret);
-				printf1(TAG_MC, " == %d\n", MC->pinProtocol);
-			} else {
+			if (cbor_value_get_type(&map) != CborIntegerType) {
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
+			int tmp;
+			cbor_ret = cbor_value_get_int_checked(&map, &tmp);
+			cbor_check_ret(cbor_ret);
+			if (tmp < 0 || tmp > (int)UINT8_MAX) {
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+			}
+			MC->pinProtocol = (uint8_t)tmp;
+
+			printf1(TAG_MC, " == %d\n", MC->pinProtocol);
 			break;
 
 		default:

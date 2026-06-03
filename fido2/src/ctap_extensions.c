@@ -17,7 +17,7 @@ static CtapStatus ctap_extensions_parse_hmac_secret(CborValue *val,
 
 CtapStatus ctap_extensions_encode_output(CTAP_extensions *ext,
 					 uint8_t *ext_encoder_buf,
-					 unsigned int *ext_encoder_buf_size)
+					 size_t *ext_encoder_buf_size)
 {
 	CborEncoder extensions;
 	CborError cbor_ret;
@@ -307,7 +307,7 @@ static CtapStatus ctap_extensions_parse_hmac_secret(CborValue *val,
 				return (CtapStatus){CTAP1_ERR_INVALID_LENGTH};
 			}
 			cbor_check_ret(cbor_ret);
-			hs->saltLen = salt_len;
+			hs->saltLen = (uint8_t)salt_len;
 			parsed_count++;
 			break;
 

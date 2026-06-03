@@ -37,7 +37,7 @@ static SHA256_CTX sha256_ctx;
 static cf_sha512_context sha512_ctx;
 static uECC_Curve _es256_curve = NULL;
 static const uint8_t *_signing_key = NULL;
-static int _key_len = 0;
+static size_t _key_len = 0;
 
 static att_key_t key_attest = {0};
 static bool attestation_available = false;
@@ -291,7 +291,7 @@ void crypto_ecc256_load_attestation_key(void)
 	_key_len = ATTESTATION_SIGN_KEY_SIZE;
 }
 
-void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig)
+void crypto_ecc256_sign(uint8_t *data, size_t len, uint8_t *sig)
 {
 	if (uECC_sign(_signing_key, data, len, sig, _es256_curve) == 0) {
 		printf2(TAG_ERR, "Error, uECC_sign() failed\n");
@@ -391,7 +391,7 @@ void crypto_derive_credential_key(uint8_t *data, size_t len, uint8_t *data2,
 
 /*int uECC_compute_public_key(const uint8_t *private_key, uint8_t
  * *public_key, uECC_Curve curve);*/
-void crypto_ecc256_derive_public_key(uint8_t *data, int len, uint8_t *x,
+void crypto_ecc256_derive_public_key(uint8_t *data, size_t len, uint8_t *x,
 				     uint8_t *y)
 {
 	uint8_t privkey[32];
@@ -404,12 +404,13 @@ void crypto_ecc256_derive_public_key(uint8_t *data, int len, uint8_t *x,
 	memmove(x, pubkey, 32);
 	memmove(y, pubkey + 32, 32);
 }
+
 void crypto_ecc256_compute_public_key(uint8_t *privkey, uint8_t *pubkey)
 {
 	uECC_compute_public_key(privkey, pubkey, _es256_curve);
 }
 
-void crypto_load_external_key(uint8_t *key, int len)
+void crypto_load_external_key(uint8_t *key, size_t len)
 {
 	_signing_key = key;
 	_key_len = len;
@@ -465,17 +466,18 @@ void crypto_aes256_reset_iv(const uint8_t *nonce)
 	}
 }
 
-void crypto_aes256_decrypt(uint8_t *buf, int length)
+void crypto_aes256_decrypt(uint8_t *buf, uint32_t length)
 {
 	AES_CBC_decrypt_buffer(&aes_ctx, buf, length);
 }
 
-void crypto_aes256_encrypt(uint8_t *buf, int length)
+void crypto_aes256_encrypt(uint8_t *buf, uint32_t length)
 {
 	AES_CBC_encrypt_buffer(&aes_ctx, buf, length);
 }
 
-void fido2_crypto_ed25519_derive_public_key(uint8_t *data, int len, uint8_t *x)
+void fido2_crypto_ed25519_derive_public_key(uint8_t *data, size_t len,
+					    uint8_t *x)
 {
 	uint8_t seed[crypto_sign_ed25519_SEEDBYTES];
 	uint8_t sk[crypto_sign_ed25519_SECRETKEYBYTES];
@@ -497,20 +499,20 @@ void fido2_crypto_ed25519_load_key(uint8_t *data, size_t len)
 	_key_len = crypto_sign_ed25519_SECRETKEYBYTES;
 }
 
-void fido2_crypto_ed25519_sign(uint8_t *data1, int len1, uint8_t *data2,
-			       int len2, uint8_t *sig)
+void fido2_crypto_ed25519_sign(uint8_t *data1, size_t len1, uint8_t *data2,
+			       size_t len2, uint8_t *sig)
 {
 	// ed25519 signature APIs need the message at once (by design!) and in
 	// one contiguous buffer (could be changed).
 
 	// 512 is an arbitrary sanity limit, could be less
-	if (len1 < 0 || len2 < 0 || len1 > 512 || len2 > 512) {
+	if (len1 > 512 || len2 > 512) {
 		memset(sig, 0, 64); // ed25519 signature len is 64 bytes
 		return;
 	}
 	// XXX: dynamically sized allocation on the stack
-	const int len = len1 + len2; // 0 <= len <= 1024
-	uint8_t data[len1 + len2];
+	const size_t len = len1 + len2; // 0 <= len <= 1024
+	uint8_t data[len];
 
 	memcpy(data, data1, len1);
 	memcpy(data + len1, data2, len2);

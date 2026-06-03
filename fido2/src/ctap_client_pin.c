@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "assert.h"
 #include "cbor.h"
 #include "cose_key.h"
 #include "crypto.h"
@@ -52,55 +53,56 @@ int8_t PIN_BOOT_ATTEMPTS_LEFT = PIN_BOOT_ATTEMPTS;
 
 extern AuthenticatorState STATE;
 
-static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
-					 uint8_t *platform_pubkey,
-					 uint8_t *pinHashEnc, int pinProtocol,
-					 uint8_t permissions, uint8_t *rp_id,
-					 size_t rp_id_size);
+static CtapStatus
+add_enc_pinUvAuthToken(uint8_t *pinTokenEnc, uint8_t *platform_pubkey,
+		       uint8_t *pinHashEnc, uint8_t pinProtocol,
+		       uint8_t permissions, uint8_t *rp_id, size_t rp_id_size);
 static void associate_permissions_rp_id(uint8_t *rp_id, size_t rp_id_size,
 					uint8_t pin_protocol);
-static int auth_param_size(int proto);
+static size_t auth_param_size(int proto);
 static uint8_t decrement_pin_attempts(void);
-static void decrypt(uint8_t *buf, int len, const uint8_t *enc_key,
-		    int pin_protocol);
+static void decrypt(uint8_t *buf, uint32_t len, const uint8_t *enc_key,
+		    uint8_t pin_protocol);
 static int ecdh(uint8_t *platform_pubkey, uint8_t pin_protocol,
 		uint8_t *shared_secret_enc_key, uint8_t *shared_secret_mac_key);
 static int encrypt_pinUvAuthToken(uint8_t *out, int *out_len,
-				  const uint8_t *enc_key, int pin_protocol);
+				  const uint8_t *enc_key, uint8_t pin_protocol);
 static pinUvAuthToken_t *get_pin_protocol_state(uint8_t pin_protocol);
 static void kdf(const uint8_t *ikm, int pin_protocol,
 		uint8_t *shared_secret_enc_key, uint8_t *shared_secret_mac_key);
 static uint8_t leftover_pin_attempts(void);
 static void lock_device_permanently(void);
 static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
-					   int length);
+					   size_t length);
 static void regenerate_key_agreement(uint8_t pin_protocol);
 static int reset_pinUvAuthToken(uint8_t pin_protocol);
 static void reset_pin_attempts(void);
 static size_t trailing_zeros(uint8_t *buf, size_t indx);
-static void update_pin(uint8_t *pin, int len);
-static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int len,
+static void update_pin(uint8_t *pin, size_t len);
+static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, uint8_t len,
 					 uint8_t *platform_pubkey,
-					 uint8_t *pinUvAuthParam, uint8_t *pinHashEnc,
-					 int pinProtocol);
+					 uint8_t *pinUvAuthParam,
+					 uint8_t *pinHashEnc,
+					 uint8_t pinProtocol);
 static int verify_against_stored_pin(uint8_t *pinHashEnc);
 /* pinUvAuthToken State Maintenance Functions */
 static void begin_using_pinUvAuthToken(bool user_is_preset,
 				       uint8_t pin_protocol,
 				       uint8_t permissions);
-static bool get_user_present(uint8_t pin_protocol);
+bool get_user_present(uint8_t pin_protocol);
 static void pinUvAuthToken_usage_time_observer(uint8_t pin_protocol);
 static void stop_using_pinUvAuthToken(uint8_t pin_protocol);
 
 /* -------------------------------------------------------------------------
  * Public entry point
  * ---------------------------------------------------------------------- */
-CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
+CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request,
+			   size_t length)
 {
 	CTAP_clientPin CP;
 	CborEncoder map;
 	uint8_t pinTokenEnc[CP_IV_SIZE + PINUVAUTHTOKEN_SIZE];
-	int pinTokenEncLen = 0;
+	size_t pinTokenEncLen = 0;
 	CborError cbor_ret;
 	CtapStatus ctap_ret;
 
@@ -180,10 +182,10 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 
 		/* cose_key_add is equivialent with getPyblicKey() and CBOR
 		 * encoding the result */
-		ctap_ret = cose_key_add(
-		    &map, pinUvAuthToken->key_agreement.pub_key,
-		    pinUvAuthToken->key_agreement.pub_key + 32,
-		    PUB_KEY_CRED_PUB_KEY, COSE_ALG_ECDH_ES_HKDF_256);
+		ctap_ret =
+		    cose_key_add(&map, pinUvAuthToken->key_agreement.pub_key,
+				 pinUvAuthToken->key_agreement.pub_key + 32,
+				 COSE_ALG_ECDH_ES_HKDF_256);
 		ctap_check_retr(ctap_ret);
 
 		cbor_ret = cbor_encoder_close_container(encoder, &map);
@@ -205,10 +207,10 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length)
 			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 		}
 
-		ctap_ret =
-		    update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize,
-					   (uint8_t *)&CP.keyAgreement.pubkey,
-					   CP.pinUvAuthParam, NULL, CP.pinProtocol);
+		ctap_ret = update_pin_if_verified(
+		    CP.newPinEnc, CP.newPinEncSize,
+		    (uint8_t *)&CP.keyAgreement.pubkey, CP.pinUvAuthParam, NULL,
+		    CP.pinProtocol);
 		ctap_check_retr(ctap_ret);
 
 		// Has to return here, or will get stuck in next switch.
@@ -391,7 +393,7 @@ uint8_t ctap_client_pin_is_set(void)
 
 /* verify(key, message, signature) → success | error  */
 int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
-			   uint8_t message_len, const uint8_t *signature,
+			   size_t message_len, const uint8_t *signature,
 			   uint8_t pin_protocol)
 {
 
@@ -400,7 +402,7 @@ int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
 	crypto_sha256_update(message, message_len);
 	crypto_sha256_hmac_final(key, 32, expected);
 
-	int ap_size = auth_param_size(pin_protocol);
+	size_t ap_size = auth_param_size(pin_protocol);
 
 	if (!secure_memeq(signature, expected, ap_size)) {
 		printf2(TAG_ERR, "Error, pin auth failed\n");
@@ -496,11 +498,10 @@ int ctap_client_pin_decapsulate(uint8_t *platform_pubkey, uint8_t pin_protocol,
  * Note: If authenticator is locked or boot locked should already be checked
  * before calling this internal function.
  */
-static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
-					 uint8_t *platform_pubkey,
-					 uint8_t *pinHashEnc, int pinProtocol,
-					 uint8_t permissions, uint8_t *rp_id,
-					 size_t rp_id_size)
+static CtapStatus
+add_enc_pinUvAuthToken(uint8_t *pinTokenEnc, uint8_t *platform_pubkey,
+		       uint8_t *pinHashEnc, uint8_t pinProtocol,
+		       uint8_t permissions, uint8_t *rp_id, size_t rp_id_size)
 {
 	uint8_t enc_key[32];
 	uint8_t mac_key[32];
@@ -510,7 +511,7 @@ static CtapStatus add_enc_pinUvAuthToken(uint8_t *pinTokenEnc,
 	ctap_client_pin_decapsulate(platform_pubkey, pinProtocol, enc_key,
 				    mac_key);
 
-	int hash_enc_size = (pinProtocol == 2) ? 32 : 16;
+	uint32_t hash_enc_size = (pinProtocol == 2) ? 32 : 16;
 	decrypt(pinHashEnc, hash_enc_size, enc_key, pinProtocol);
 	/* pinHashEnc[0..15] now holds left16(SHA-256(PIN)) */
 
@@ -581,7 +582,7 @@ static void associate_permissions_rp_id(uint8_t *rp_id, size_t rp_id_size,
 /*
  * Return the pinUvAuthParam / pinHashEnc size for the given protocol.
  */
-static inline int auth_param_size(int proto)
+static inline size_t auth_param_size(int proto)
 {
 	return (proto == 2) ? 32 : 16;
 }
@@ -613,17 +614,19 @@ static uint8_t decrement_pin_attempts(void)
  * Protocol 1: iv = all-zeros
  * Protocol 2: iv = first 16 bytes of |buf|
  */
-static void decrypt(uint8_t *buf, int len, const uint8_t *enc_key,
-		    int pin_protocol)
+static void decrypt(uint8_t *buf, uint32_t len, const uint8_t *enc_key,
+		    uint8_t pin_protocol)
 {
 	if (pin_protocol == 1) {
 		crypto_aes256_init(enc_key, NULL);
 		crypto_aes256_decrypt(buf, len);
 	} else {
 		/* Extract IV */
+		assert(len > CP_IV_SIZE);
+
 		uint8_t iv[CP_IV_SIZE];
 		memcpy(iv, buf, CP_IV_SIZE);
-		int ciphertext_len = len - CP_IV_SIZE;
+		uint32_t ciphertext_len = len - CP_IV_SIZE;
 		/* Decrypt in-place */
 		crypto_aes256_init(enc_key, iv);
 		crypto_aes256_decrypt(buf + CP_IV_SIZE, ciphertext_len);
@@ -660,7 +663,7 @@ static int ecdh(uint8_t *platform_pubkey, uint8_t pin_protocol,
  * Caller must ensure |out| is large enough: PINUVAUTHTOKEN_SIZE + 16.
  */
 static int encrypt_pinUvAuthToken(uint8_t *out, int *out_len,
-				  const uint8_t *enc_key, int pin_protocol)
+				  const uint8_t *enc_key, uint8_t pin_protocol)
 {
 
 	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
@@ -757,7 +760,7 @@ static void lock_device_permanently(void)
 }
 
 static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
-					   int length)
+					   size_t length)
 {
 	CborError cbor_ret;
 	CtapStatus ctap_ret;
@@ -811,8 +814,14 @@ static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
 
-			cbor_value_get_int_checked(&map, &CP->pinProtocol);
+			int tmp;
+			cbor_ret = cbor_value_get_int_checked(&map, &tmp);
 			cbor_check_ret(cbor_ret);
+			if (tmp < 0 || tmp > (int)UINT8_MAX) {
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+			}
+			CP->pinProtocol = (uint8_t)tmp;
+
 			break;
 
 		case CP_Cmd_subCommand:
@@ -822,7 +831,8 @@ static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 					"Error, expecting int for map key\n");
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
-			cbor_value_get_int_checked(&map, &CP->subCommand);
+			cbor_ret =
+			    cbor_value_get_int_checked(&map, &CP->subCommand);
 			cbor_check_ret(cbor_ret);
 			break;
 
@@ -863,13 +873,12 @@ static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			cbor_ret =
 			    cbor_value_calculate_string_length(&map, &sz);
 			cbor_check_ret(cbor_ret);
-			if (sz > NEW_PIN_ENC_MAX_SIZE ||
-			    sz < NEW_PIN_ENC_MIN_SIZE) {
+			if ((sz > NEW_PIN_ENC_MAX_SIZE) ||
+			    (sz < NEW_PIN_ENC_MIN_SIZE)) {
 				return (CtapStatus){
 				    CTAP2_ERR_PIN_POLICY_VIOLATION};
 			}
-
-			CP->newPinEncSize = (int)sz;
+			CP->newPinEncSize = (uint8_t)sz;
 			sz = NEW_PIN_ENC_MAX_SIZE;
 			cbor_ret = cbor_value_copy_byte_string(
 			    &map, CP->newPinEnc, &sz, NULL);
@@ -900,7 +909,9 @@ static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 			}
 			{
 				int perm = 0;
-				cbor_value_get_int_checked(&map, &perm);
+				cbor_ret =
+				    cbor_value_get_int_checked(&map, &perm);
+				cbor_check_ret(cbor_ret);
 				CP->permissions = (uint8_t)perm;
 				CP->permissionsPresent = 1;
 			}
@@ -1009,7 +1020,7 @@ static size_t trailing_zeros(uint8_t *buf, size_t indx)
  * @param pin new PIN (raw)
  * @param len pin array length
  */
-static void update_pin(uint8_t *pin, int len)
+static void update_pin(uint8_t *pin, size_t len)
 {
 	if (len >= NEW_PIN_MAX_SIZE || len < NEW_PIN_MIN_SIZE) {
 		printf2(TAG_ERR, "Error, invalid pin length\n");
@@ -1038,39 +1049,40 @@ static void update_pin(uint8_t *pin, int len)
 /*
  * Set or update PIN, if one already is set.
  *
- * Verifies pinUvAuthParam over (newPinEnc [|| pinHashEnc]), decrypt the new PIN,
- * optionally verify the current PIN (changePIN), before storing new pin.
+ * Verifies pinUvAuthParam over (newPinEnc [|| pinHashEnc]), decrypt the new
+ * PIN, optionally verify the current PIN (changePIN), before storing new pin.
  *
  * Note: If authenticator is locked or boot locked should already be checked
  * before calling this internal function if applicable.
  */
-static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
-					 uint8_t *platform_pubkey,
-					 uint8_t *pinUvAuthParam, uint8_t *pinHashEnc,
-					 int pinProtocol)
+static CtapStatus
+update_pin_if_verified(uint8_t *newPinEnc, uint8_t newPinEncLen,
+		       uint8_t *platform_pubkey, uint8_t *pinUvAuthParam,
+		       uint8_t *pinHashEnc, uint8_t pinProtocol)
 {
 	uint8_t enc_key[32];
 	uint8_t mac_key[32];
 
-	// newPinEnc is suppsoed to be 64 bytes
-	if (newPinEnc_len < 64) {
+	// newPinEnc is supposed to be 64 bytes
+	if (newPinEncLen < 64) {
 		return (CtapStatus){CTAP1_ERR_INVALID_PARAMETER};
 	}
 
 	ctap_client_pin_decapsulate(platform_pubkey, pinProtocol, enc_key,
 				    mac_key);
 
-	/* Verify pinUvAuthParam = authenticate(mac_key, newPinEnc [|| pinHashEnc]) */
-	int hash_enc_size = (pinProtocol == 2) ? 32 : 16;
+	/* Verify pinUvAuthParam = authenticate(mac_key, newPinEnc [||
+	 * pinHashEnc]) */
+	size_t hash_enc_size = (pinProtocol == 2) ? 32 : 16;
 
-	uint8_t tmp_verify_buf[newPinEnc_len + hash_enc_size];
-	uint8_t tmp_verify_buf_len = newPinEnc_len;
+	uint8_t tmp_verify_buf[newPinEncLen + hash_enc_size];
+	uint8_t tmp_verify_buf_len = newPinEncLen;
 
-	memcpy(tmp_verify_buf, newPinEnc, newPinEnc_len);
+	memcpy(tmp_verify_buf, newPinEnc, newPinEncLen);
 
 	// If we are changing pin
 	if (pinHashEnc != NULL) {
-		memcpy(tmp_verify_buf + newPinEnc_len, pinHashEnc,
+		memcpy(tmp_verify_buf + newPinEncLen, pinHashEnc,
 		       hash_enc_size);
 		tmp_verify_buf_len += hash_enc_size;
 	}
@@ -1081,7 +1093,7 @@ static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 	}
 
 	// Decrypt new PIN with shared secret
-	int dec_len = newPinEnc_len;
+	uint32_t dec_len = newPinEncLen;
 
 	while ((dec_len & 0xf) !=
 	       0) { // Round up to nearest AES block size multiple
@@ -1093,19 +1105,19 @@ static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 	/* Determine actual PIN length by stripping trailing zeros */
 	size_t nbr_trailing_zeros =
 	    trailing_zeros(newPinEnc, NEW_PIN_ENC_MIN_SIZE - 1);
-	size_t newPin_len = NEW_PIN_ENC_MIN_SIZE - nbr_trailing_zeros;
+	size_t newPinLen = NEW_PIN_ENC_MIN_SIZE - nbr_trailing_zeros;
 
-	if (newPin_len < NEW_PIN_MIN_SIZE || newPin_len >= NEW_PIN_MAX_SIZE) {
+	if (newPinLen < NEW_PIN_MIN_SIZE || newPinLen >= NEW_PIN_MAX_SIZE) {
 		printf2(TAG_ERR,
 			"New PIN is too short or too long [%d bytes]\n",
-			newPin_len);
+			newPinLen);
 		secure_wipe(enc_key, sizeof(enc_key));
 		secure_wipe(mac_key, sizeof(mac_key));
 		return (CtapStatus){CTAP2_ERR_PIN_POLICY_VIOLATION};
 	} else {
 		printf1(TAG_CP, "New pin: %s [%d bytes]\n", newPinEnc,
-			newPin_len);
-		dump_hex1(TAG_CP, newPinEnc, newPin_len);
+			newPinLen);
+		dump_hex1(TAG_CP, newPinEnc, newPinLen);
 	}
 
 	// If we are changing the current pin, decrypt and compare pinHashEnc
@@ -1142,7 +1154,7 @@ static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, int newPinEnc_len,
 	secure_wipe(mac_key, sizeof(mac_key));
 
 	// Set new PIN (update and store PIN_CODE_HASH)
-	update_pin(newPinEnc, newPin_len);
+	update_pin(newPinEnc, newPinLen);
 
 	return (CtapStatus){CTAP2_OK};
 }
@@ -1223,7 +1235,7 @@ static void pinUvAuthToken_usage_time_observer(uint8_t pin_protocol)
 	return;
 }
 
-static bool get_user_present(uint8_t pin_protocol)
+bool get_user_present(uint8_t pin_protocol)
 {
 	pinUvAuthToken_t *pinUvAuthToken = get_pin_protocol_state(pin_protocol);
 

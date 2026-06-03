@@ -15,17 +15,17 @@
 
 // void u2f_response_writeback(uint8_t * buf, uint8_t len);
 #ifdef ENABLE_U2F
-static int16_t u2f_register(struct u2f_register_request *req);
-static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
-				uint8_t control);
+static uint16_t u2f_register(struct u2f_register_request *req);
+static uint16_t u2f_authenticate(struct u2f_authenticate_request *req,
+				 uint8_t control);
 #endif
-int8_t u2f_response_writeback(const uint8_t *buf, uint16_t len);
+int8_t u2f_response_writeback(const uint8_t *buf, size_t len);
 void u2f_reset_response(void);
 
 static CTAP_RESPONSE *_u2f_resp = NULL;
 
-void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len,
-		    CTAP_RESPONSE *resp)
+static void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len,
+			   CTAP_RESPONSE *resp)
 {
 	uint16_t rcode = 0;
 	uint8_t byte;
@@ -115,7 +115,7 @@ void u2f_request(struct u2f_request_apdu *req, CTAP_RESPONSE *resp)
 	u2f_request_ex((APDU_HEADER *)req, req->payload, len, resp);
 }
 
-int8_t u2f_response_writeback(const uint8_t *buf, uint16_t len)
+int8_t u2f_response_writeback(const uint8_t *buf, size_t len)
 {
 	if ((_u2f_resp->length + len) > _u2f_resp->data_size) {
 		printf2(TAG_ERR,
@@ -141,12 +141,11 @@ void u2f_set_writeback_buffer(CTAP_RESPONSE *resp)
 static void dump_signature_der(uint8_t *sig)
 {
 	uint8_t sigder[72];
-	int len;
+	size_t len;
 	len = ctap_encode_der_sig(sig, sigder);
 	u2f_response_writeback(sigder, len);
 }
-static int8_t u2f_load_key(struct u2f_key_handle *kh, uint8_t khl,
-			   uint8_t *appid)
+static int8_t u2f_load_key(struct u2f_key_handle *kh, uint8_t khl)
 {
 	crypto_ecc256_load_key((uint8_t *)kh, khl, NULL, 0);
 	return 0;
@@ -166,8 +165,8 @@ static void u2f_make_auth_tag(struct u2f_key_handle *kh, uint8_t *appid,
 	memmove(tag, hashbuf, CREDENTIAL_TAG_SIZE);
 }
 
-int8_t u2f_new_keypair(struct u2f_key_handle *kh, uint8_t *appid,
-		       uint8_t *pubkey)
+static int8_t u2f_new_keypair(struct u2f_key_handle *kh, uint8_t *appid,
+			      uint8_t *pubkey)
 {
 	ctap_generate_rng(kh->key, U2F_KEY_HANDLE_KEY_SIZE);
 	u2f_make_auth_tag(kh, appid, kh->tag);
@@ -216,8 +215,8 @@ int8_t u2f_authenticate_credential(struct u2f_key_handle *kh,
 	return 0;
 }
 
-static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
-				uint8_t control)
+static uint16_t u2f_authenticate(struct u2f_authenticate_request *req,
+				 uint8_t control)
 {
 
 	uint8_t up = 1;
@@ -238,7 +237,7 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
 	    (!u2f_authenticate_credential(
 		&req->kh, req->khl,
 		req->app)) || // Order of checks is important
-	    u2f_load_key(&req->kh, req->khl, req->app) != 0
+	    u2f_load_key(&req->kh, req->khl) != 0
 
 	) {
 		return U2F_SW_WRONG_DATA;
@@ -283,7 +282,7 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request *req,
 	return U2F_SW_NO_ERROR;
 }
 
-static int16_t u2f_register(struct u2f_register_request *req)
+static uint16_t u2f_register(struct u2f_register_request *req)
 {
 	int ret;
 	uint8_t i[] = {0x0, U2F_EC_FMT_UNCOMPRESSED};
@@ -344,7 +343,7 @@ static int16_t u2f_register(struct u2f_register_request *req)
 }
 #endif
 
-int16_t u2f_version(void)
+uint16_t u2f_version(void)
 {
 	const char version[] = "U2F_V2";
 	u2f_response_writeback((uint8_t *)version, sizeof(version) - 1);

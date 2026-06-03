@@ -138,7 +138,8 @@ CtapStatus ctap_get_info(CborEncoder *encoder)
 				    &options, "pinUvAuthToken", 14);
 				cbor_check_ret(cbor_ret);
 				{
-					cbor_ret = cbor_encode_boolean(&options, 1);
+					cbor_ret =
+					    cbor_encode_boolean(&options, 1);
 					cbor_check_ret(cbor_ret);
 				}
 			}

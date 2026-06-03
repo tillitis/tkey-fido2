@@ -53,8 +53,7 @@ CtapStatus ctap_get_next_assertion(CborEncoder *encoder)
 		memset(cred->credential.user.name, 0, USER_NAME_LIMIT);
 	}
 
-	unsigned int ext_encoder_buf_size =
-	    sizeof(getAssertionState.buf.extensions);
+	size_t ext_encoder_buf_size = sizeof(getAssertionState.buf.extensions);
 	ctap_ret = ctap_extensions_encode_output(
 	    &getAssertionState.extensions, getAssertionState.buf.extensions,
 	    &ext_encoder_buf_size);

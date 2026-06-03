@@ -68,7 +68,7 @@
                              CP_pinUvAuthToken_permissions_lbw  | \
                              CP_pinUvAuthToken_permissions_acfg)
 
-#define NEW_PIN_ENC_MAX_SIZE 256 // Includes NULL terminator
+#define NEW_PIN_ENC_MAX_SIZE 80
 #define NEW_PIN_ENC_MIN_SIZE 64
 #define NEW_PIN_MAX_SIZE     64
 #define NEW_PIN_MIN_SIZE     4
@@ -97,7 +97,7 @@
 // clang-format on
 
 typedef struct {
-	int pinProtocol;
+	uint8_t pinProtocol;
 	int subCommand;
 	COSE_key keyAgreement;
 	uint8_t keyAgreementPresent;
@@ -105,7 +105,7 @@ typedef struct {
 	uint8_t pinUvAuthParam[PIN_UV_AUTH_PARAM_MAX_SIZE];
 	uint8_t pinUvAuthParam_present;
 	uint8_t newPinEnc[NEW_PIN_ENC_MAX_SIZE];
-	int newPinEncSize;
+	uint8_t newPinEncSize;
 	uint8_t pinHashEnc[32]; // 16 bytes proto-1, 32 bytes proto-2
 	uint8_t pinHashEncPresent;
 	// Permissions sub-commands
@@ -115,7 +115,8 @@ typedef struct {
 	size_t rpIdSize;
 } CTAP_clientPin;
 
-CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request, int length);
+CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request,
+			   size_t length);
 void ctap_client_pin_clear_user_present(uint8_t pin_protocol);
 void ctap_client_pin_clear_user_verified(uint8_t pin_protocol);
 void ctap_client_pin_clear_PinUvAuthToken_permissions_except_Lbw(
@@ -130,7 +131,7 @@ int8_t ctap_client_pin_is_locked(void);
 uint8_t ctap_client_pin_is_set(void);
 bool ctap_client_pin_permissions_rp_id_present(uint8_t pin_protocol);
 int ctap_client_pin_verify(const uint8_t *key, const uint8_t *message,
-			   uint8_t message_len, const uint8_t *signature,
+			   size_t message_len, const uint8_t *signature,
 			   uint8_t pin_protocol);
 CtapStatus ctap_client_pin_verify_auth(uint8_t *pinUvAuthParam,
 				       uint8_t *clientDataHash,

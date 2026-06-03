@@ -52,7 +52,8 @@ uint16_t apdu_decode(uint8_t *data, size_t len, APDU_STRUCT *apdu)
 
 	// extended length apdu
 	if (len >= 7 && b0 == 0) {
-		uint16_t extlen = (hapdu->lc[1] << 8) + hapdu->lc[2];
+		uint16_t extlen =
+		    (uint16_t)((hapdu->lc[1] << 8) + hapdu->lc[2]);
 
 		if (len - 7 < extlen) {
 			return SW_WRONG_LENGTH;
@@ -79,7 +80,8 @@ uint16_t apdu_decode(uint8_t *data, size_t len, APDU_STRUCT *apdu)
 			apdu->case_type = 0x14;
 			apdu->extended_apdu = true;
 			apdu->lc = extlen;
-			apdu->le = (data[len - 2] << 8) + data[len - 1];
+			apdu->le =
+			    (uint32_t)((data[len - 2] << 8) + data[len - 1]);
 			if (!apdu->le)
 				apdu->le = 0x10000;
 		}
@@ -89,7 +91,8 @@ uint16_t apdu_decode(uint8_t *data, size_t len, APDU_STRUCT *apdu)
 			apdu->case_type = 0x24;
 			apdu->extended_apdu = true;
 			apdu->lc = extlen;
-			apdu->le = (data[len - 2] << 8) + data[len - 1];
+			apdu->le =
+			    (uint32_t)((data[len - 2] << 8) + data[len - 1]);
 			if (!apdu->le)
 				apdu->le = 0x10000;
 		}

@@ -49,13 +49,13 @@
 // clang-format on
 
 typedef struct {
-	int subCommand;
+	uint8_t subCommand;
 	struct {
 		uint8_t rpIdHash[32];
-        bool rpIdHash_present;
+		bool rpIdHash_present;
 		CTAP_credentialDescriptor credentialDescriptor;
-        bool credentialId_present;
-        bool credentialUser_present;
+		bool credentialId_present;
+		bool credentialUser_present;
 	} subCommandParams;
 
 	struct {
@@ -68,10 +68,10 @@ typedef struct {
 
 	uint8_t pinUvAuthParam[PIN_UV_AUTH_PARAM_MAX_SIZE];
 	uint8_t pinUvAuthParam_present;
-	int pinProtocol;
+	uint8_t pinProtocol;
 } CTAP_credMgmt;
 
 CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
-				      int length);
+				      size_t length);
 
 #endif

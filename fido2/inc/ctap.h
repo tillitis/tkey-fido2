@@ -196,7 +196,7 @@ typedef struct {
 typedef struct {
 	uint8_t data[CTAP_RESPONSE_BUFFER_SIZE];
 	uint16_t data_size;
-	uint16_t length;
+	size_t length;
 } CTAP_RESPONSE;
 
 struct rpId {
@@ -249,25 +249,24 @@ int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 void ctap_decrement_rk_store(void);
 void ctap_derive_rp_id_info(const uint8_t *rp_id, size_t size,
 			    uint8_t *rp_id_hash, uint8_t *rp_id_lookup);
-int ctap_encode_der_sig(uint8_t const *const in_sigbuf,
-			uint8_t *const out_sigder);
+size_t ctap_encode_der_sig(uint8_t const *const in_sigbuf,
+			   uint8_t *const out_sigder);
 void ctap_flush_state(void);
 size_t ctap_get_credential_id_size(int type);
 void ctap_increment_rk_store(void);
 void ctap_init(void);
 CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
-			       uint8_t *rp_id_lookup, CborEncoder *map,
-			       uint8_t *auth_data_buf, uint32_t *len,
-			       CTAP_credInfo *credInfo,
+			       uint8_t *rp_id_lookup, uint8_t *auth_data_buf,
+			       size_t *len, CTAP_credInfo *credInfo,
 			       CTAP_extensions *extensions);
 void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
 			uint8_t *metadata, uint32_t count, uint8_t *tag);
 CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp);
 void ctap_response_init(CTAP_RESPONSE *resp);
 int32_t ctap_restore_metadata_cose_alg(CredentialId *credential);
-int ctap_sign_data(uint8_t *data, int datalen, uint8_t *clientDataHash,
-		   uint8_t *hashbuf, uint8_t *sigbuf, uint8_t *sigder,
-		   int32_t alg);
+size_t ctap_sign_data(uint8_t *data, size_t datalen, uint8_t *clientDataHash,
+		      uint8_t *sigbuf, uint8_t *sigder,
+		      COSEAlgorithmIdentifier alg);
 void ctap_state_init(void);
 int ctap_verify_mac(const uint8_t *mac, const void *data, size_t data_len);
 int ctap_verify_rk_exists(const CredentialId *input_cred);

@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-int dump_hex(const uint8_t *buf, int size, int indent_pos,
+int dump_hex(const uint8_t *buf, size_t size, int indent_pos,
 	     bool indent_first_line, int start_pos, bool add_newline);
 
 #ifndef MIN

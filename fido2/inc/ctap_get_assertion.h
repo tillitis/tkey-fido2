@@ -41,7 +41,7 @@ typedef struct {
 
 	struct rpId rp;
 
-	int credLen;
+	size_t credLen;
 
 	uint8_t rk;
 	uint8_t uv;
@@ -55,7 +55,7 @@ typedef struct {
 	// for touch. See
 	// https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#using-pinToken-in-authenticatorGetAssertion
 	uint8_t pinUvAuthParam_empty;
-	int pinProtocol;
+	uint8_t pinProtocol;
 
 	CTAP_credentialDescriptor *creds;
 	uint8_t allowListPresent;
@@ -65,9 +65,9 @@ typedef struct {
 } CTAP_getAssertion;
 
 CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
-			      int length);
+			      size_t length);
 CtapStatus ctap_get_assertion_cbor_encode_assertion_response(
     CborEncoder *map, CTAP_credentialDescriptor *cred, uint8_t *auth_data_buf,
-    unsigned int auth_data_buf_sz, uint8_t *clientDataHash);
+    size_t auth_data_buf_sz, uint8_t *clientDataHash);
 
 #endif

@@ -56,12 +56,12 @@ typedef struct {
 	// for touch. See
 	// https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#using-pinToken-in-authenticatorMakeCredential
 	uint8_t pinUvAuthParam_empty;
-	int pinProtocol;
+	uint8_t pinProtocol;
 	CTAP_extensions extensions;
 
 } CTAP_makeCredential;
 
 CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
-				int length);
+				size_t length);
 
 #endif

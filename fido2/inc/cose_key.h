@@ -47,10 +47,9 @@ typedef struct {
 } COSE_key;
 
 CtapStatus cose_key_add(CborEncoder *cose_key, uint8_t *x, uint8_t *y,
-			PublicKeyCredentialType credtype,
 			COSEAlgorithmIdentifier algtype);
 CtapStatus cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input,
-			     int len, PublicKeyCredentialType credtype,
+			     size_t len, PublicKeyCredentialType credtype,
 			     COSEAlgorithmIdentifier algtype);
 CtapStatus cose_key_parse(CborValue *it, COSE_key *cose);
 

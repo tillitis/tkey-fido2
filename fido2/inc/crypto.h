@@ -44,22 +44,23 @@ void fido2_crypto_sha512_final(uint8_t *hash);
 
 void crypto_ecc256_init(void);
 int crypto_ecc256_is_valid_scalar(const uint8_t *buf);
-void crypto_ecc256_derive_public_key(uint8_t *data, int len, uint8_t *x,
+void crypto_ecc256_derive_public_key(uint8_t *data, size_t len, uint8_t *x,
 				     uint8_t *y);
 void crypto_ecc256_compute_public_key(uint8_t *privkey, uint8_t *pubkey);
 
 void crypto_ecc256_load_key(uint8_t *data, size_t len, uint8_t *data2,
 			    size_t len2);
 bool crypto_attestation_available(void);
-void crypto_load_external_key(uint8_t *key, int len);
-void crypto_ecc256_sign(uint8_t *data, int len, uint8_t *sig);
 void crypto_ecc256_load_attestation_key(void);
+void crypto_load_external_key(uint8_t *key, size_t len);
+void crypto_ecc256_sign(uint8_t *data, size_t len, uint8_t *sig);
 void crypto_ecdsa_sign(uint8_t *data, int len, uint8_t *sig,
 		       int MBEDTLS_ECP_ID);
 
-void fido2_crypto_ed25519_derive_public_key(uint8_t *data, int len, uint8_t *x);
-void fido2_crypto_ed25519_sign(uint8_t *data1, int len1, uint8_t *data2,
-			       int len2, uint8_t *sig);
+void fido2_crypto_ed25519_derive_public_key(uint8_t *data, size_t len,
+					    uint8_t *x);
+void fido2_crypto_ed25519_sign(uint8_t *data1, size_t len1, uint8_t *data2,
+			       size_t len2, uint8_t *sig);
 void fido2_crypto_ed25519_load_key(uint8_t *data, size_t len);
 
 void crypto_derive_credential_key(uint8_t *data, size_t len, uint8_t *data2,
@@ -75,8 +76,8 @@ void crypto_aes256_init(const uint8_t *key, const uint8_t *nonce);
 void crypto_aes256_reset_iv(const uint8_t *nonce);
 
 // buf length must be multiple of 16 bytes
-void crypto_aes256_decrypt(uint8_t *buf, int length);
-void crypto_aes256_encrypt(uint8_t *buf, int length);
+void crypto_aes256_decrypt(uint8_t *buf, uint32_t length);
+void crypto_aes256_encrypt(uint8_t *buf, uint32_t length);
 
 void crypto_derive_device_keys(uint8_t *salt, uint8_t salt_size);
 

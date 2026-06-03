@@ -56,7 +56,7 @@ static int get_next_unique_rp(CTAP_residentKey *out_rk);
 static void init_state(uint8_t cmd);
 static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 						      uint8_t *request,
-						      int length);
+						      size_t length);
 static CtapStatus
 parse_credential_management_subcommandparams(CborValue *val, CTAP_credMgmt *CM);
 static int resident_key_is_valid(CTAP_residentKey *rk);
@@ -72,7 +72,7 @@ static CtapStatus update_credential_user_info(CredentialId *id,
 static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM);
 
 CtapStatus ctap_credential_management(CborEncoder *encoder, uint8_t *request,
-				      int length)
+				      size_t length)
 {
 	int ret;
 	int count = 0;
@@ -249,7 +249,7 @@ static CtapStatus cbor_encode_credential_metadata(CborEncoder *encoder)
 	cbor_check_ret(cbor_ret);
 	cbor_ret = cbor_encode_int(&map, 2);
 	cbor_check_ret(cbor_ret);
-	int remaining_rks = ctap_max_number_of_rks() - STATE.rk_stored;
+	int64_t remaining_rks = ctap_max_number_of_rks() - STATE.rk_stored;
 	cbor_ret = cbor_encode_int(&map, remaining_rks);
 	cbor_check_ret(cbor_ret);
 	cbor_ret = cbor_encoder_close_container(encoder, &map);
@@ -497,7 +497,7 @@ static int get_next_unique_rp(CTAP_residentKey *out_rk)
 		return -1;
 	}
 
-	uint8_t tmp[1] = {state.file_idx << 4};
+	uint8_t tmp[1] = {(uint8_t)(state.file_idx << 4)};
 	int nbr_rk = ctap_open_rk_file(tmp);
 
 	if (nbr_rk <= 0) {
@@ -527,7 +527,7 @@ static void init_state(uint8_t cmd)
 
 static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 						      uint8_t *request,
-						      int length)
+						      size_t length)
 {
 	CborError cbor_ret;
 	CtapStatus ctap_ret;
@@ -566,6 +566,7 @@ static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 		cbor_ret = cbor_value_advance(&map);
 		cbor_check_ret(cbor_ret);
 
+		int tmp;
 		switch (key) {
 		case CM_Cmd_subCommand:
 			printf1(TAG_PARSE, "CM_Cmd_subCommand\n");
@@ -574,9 +575,12 @@ static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 					"Error, expecting int for map key\n");
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
-			cbor_ret =
-			    cbor_value_get_int_checked(&map, &CM->subCommand);
+			cbor_ret = cbor_value_get_int_checked(&map, &tmp);
 			cbor_check_ret(cbor_ret);
+			if (tmp < 0 || tmp > (int)UINT8_MAX) {
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+			}
+			CM->subCommand = (uint8_t)tmp;
 			CM->hashed.subCommand = CM->subCommand;
 			break;
 
@@ -594,9 +598,12 @@ static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 					"Error, expecting int for map key\n");
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
-			cbor_ret =
-			    cbor_value_get_int_checked(&map, &CM->pinProtocol);
+			cbor_ret = cbor_value_get_int_checked(&map, &tmp);
 			cbor_check_ret(cbor_ret);
+			if (tmp < 0 || tmp > (int)UINT8_MAX) {
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+			}
+			CM->pinProtocol = (uint8_t)tmp;
 			break;
 
 		case CM_Cmd_pinUvAuthParam:
@@ -759,7 +766,7 @@ static int scan_file_unique_rp(uint8_t file_idx, uint8_t *out_list_len,
 	uint8_t seen[MAX_UNIQUE_RP][COMPARE_LEN] = {0x00};
 	uint8_t seen_count = 0;
 
-	uint8_t tmp[1] = {file_idx << 4};
+	uint8_t tmp[1] = {(uint8_t)(file_idx << 4)};
 	int ret = ctap_open_rk_file(tmp);
 
 	if (ret < 0) {
@@ -945,7 +952,8 @@ static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM)
 			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 		}
 	} else {
-		if (!ctap_client_pin_verify_permissions_rp_id(
+		if (false ==
+		    ctap_client_pin_verify_permissions_rp_id(
 			CM->pinProtocol, CM->subCommandParams.rpIdHash)) {
 			return (CtapStatus){CTAP2_ERR_PIN_AUTH_INVALID};
 		}

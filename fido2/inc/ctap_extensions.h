@@ -38,7 +38,7 @@ typedef struct {
 
 CtapStatus ctap_extensions_encode_output(CTAP_extensions *ext,
 					 uint8_t *ext_encoder_buf,
-					 unsigned int *ext_encoder_buf_size);
+					 size_t *ext_encoder_buf_size);
 CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext);
 
 #endif

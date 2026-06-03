@@ -86,9 +86,9 @@ CtapStatus ctap_cbor_encode_credential_descriptor(CborEncoder *map,
 		cbor_ret = cbor_encode_text_string(&desc, "id", 2);
 		cbor_check_ret(cbor_ret);
 
-		cbor_ret =
-		    cbor_encode_byte_string(&desc, (uint8_t *)&cred->id,
-					    ctap_get_credential_id_size(type));
+		cbor_ret = cbor_encode_byte_string(
+		    &desc, (uint8_t *)&cred->id,
+		    ctap_get_credential_id_size((int)type));
 		cbor_check_ret(cbor_ret);
 	}
 
@@ -113,7 +113,7 @@ CtapStatus ctap_cbor_encode_user_entity(CborEncoder *map, CTAP_userEntity *user,
 	CborError cbor_ret;
 
 	/* Always include id */
-	int map_size = 1;
+	size_t map_size = 1;
 
 	int dispname = (user->name[0] != 0) && is_verified;
 
@@ -246,8 +246,8 @@ void ctap_derive_rp_id_info(const uint8_t *rp_id, size_t size,
  * @return length of der signature
  * // FIXME add tests for maximum and minimum length of the input and output
  */
-int ctap_encode_der_sig(const uint8_t *const in_sigbuf,
-			uint8_t *const out_sigder)
+size_t ctap_encode_der_sig(const uint8_t *const in_sigbuf,
+			   uint8_t *const out_sigder)
 {
 	// Need to caress into dumb der format ..
 	uint8_t i;
@@ -274,22 +274,27 @@ int ctap_encode_der_sig(const uint8_t *const in_sigbuf,
 
 	memset(out_sigder, 0, 72);
 	out_sigder[0] = 0x30;
-	out_sigder[1] = 0x44 + pad_s + pad_r - lead_s - lead_r;
+	out_sigder[1] = (uint8_t)(0x44 + pad_s + pad_r - lead_s - lead_r);
 
 	// R ingredient
 	out_sigder[2] = 0x02;
 	out_sigder[3 + pad_r] = 0;
-	out_sigder[3] = 0x20 + pad_r - lead_r;
+	out_sigder[3] = (uint8_t)(0x20 + pad_r - lead_r);
 	memmove(out_sigder + 4 + pad_r, in_sigbuf + lead_r, 32u - lead_r);
 
 	// S ingredient
 	out_sigder[4 + 32 + pad_r - lead_r] = 0x02;
 	out_sigder[5 + 32 + pad_r + pad_s - lead_r] = 0;
-	out_sigder[5 + 32 + pad_r - lead_r] = 0x20 + pad_s - lead_s;
+	out_sigder[5 + 32 + pad_r - lead_r] = (uint8_t)(0x20 + pad_s - lead_s);
 	memmove(out_sigder + 6 + 32 + pad_r + pad_s - lead_r,
 		in_sigbuf + 32u + lead_s, 32u - lead_s);
 
-	return 0x46 + pad_s + pad_r - lead_r - lead_s;
+	int tmp = (0x46 + pad_s + pad_r - lead_r - lead_s);
+	if (tmp < 0) {
+		printf1(TAG_ERR, "Negative length of der cert signature!\n");
+		tmp = 0;
+	}
+	return (size_t)tmp;
 }
 
 void ctap_flush_state(void)
@@ -350,14 +355,13 @@ void ctap_init(void)
 }
 
 CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
-			       uint8_t *rp_id_lookup, CborEncoder *map,
-			       uint8_t *auth_data_buf, uint32_t *len,
-			       CTAP_credInfo *credInfo,
+			       uint8_t *rp_id_lookup, uint8_t *auth_data_buf,
+			       size_t *len, CTAP_credInfo *credInfo,
 			       CTAP_extensions *extensions)
 {
 	CborEncoder cose_key;
 
-	unsigned int auth_data_sz = sizeof(CTAP_authDataHeader);
+	size_t auth_data_sz = sizeof(CTAP_authDataHeader);
 	uint32_t count;
 	CTAP_residentKey rk = {0x00};
 	CTAP_authData *authData = (CTAP_authData *)auth_data_buf;
@@ -684,13 +688,12 @@ int32_t ctap_restore_metadata_cose_alg(CredentialId *credential)
 // @data data to hash before signature, MUST have room to append clientDataHash
 // for ED25519
 // @clientDataHash for signature
-// @tmp buffer for hash.  (can be same as data if data >= 32 bytes)
 // @sigbuf OUT location to deposit signature (must be 64 bytes)
 // @sigder OUT location to deposit der signature (must be 72 bytes)
 // @return length of der signature
-int ctap_sign_data(uint8_t *data, int datalen, uint8_t *clientDataHash,
-		   uint8_t *hashbuf, uint8_t *sigbuf, uint8_t *sigder,
-		   int32_t alg)
+size_t ctap_sign_data(uint8_t *data, size_t datalen, uint8_t *clientDataHash,
+		      uint8_t *sigbuf, uint8_t *sigder,
+		      COSEAlgorithmIdentifier alg)
 {
 	// calculate attestation sig
 	if (alg == COSE_ALG_EDDSA) {
@@ -699,6 +702,9 @@ int ctap_sign_data(uint8_t *data, int datalen, uint8_t *clientDataHash,
 		    sigder); // not DER, just plain binary!
 		return 64;
 	} else {
+		uint8_t hashbuf[32];
+		memset(hashbuf, 0, sizeof(hashbuf));
+
 		crypto_sha256_init();
 		crypto_sha256_update(data, datalen);
 		crypto_sha256_update(clientDataHash, CLIENT_DATA_HASH_SIZE);
@@ -864,14 +870,14 @@ static void truncate_rpid(uint8_t *stored_rpid, uint8_t *stored_len,
 {
 	if (rpid_len <= CREDENTIAL_RP_ID_SIZE) {
 		memcpy(stored_rpid, rpid, rpid_len);
-		*stored_len = rpid_len;
+		*stored_len = (uint8_t)rpid_len;
 		return;
 	}
 
 	size_t used = 0;
 	const uint8_t *colon_position = memchr(rpid, ':', rpid_len);
 	if (colon_position != NULL) {
-		const size_t protocol_len = colon_position - rpid + 1;
+		const size_t protocol_len = (size_t)(colon_position - rpid + 1);
 		const size_t to_copy = protocol_len <= CREDENTIAL_RP_ID_SIZE
 					   ? protocol_len
 					   : CREDENTIAL_RP_ID_SIZE;
@@ -880,7 +886,7 @@ static void truncate_rpid(uint8_t *stored_rpid, uint8_t *stored_len,
 	}
 
 	if (CREDENTIAL_RP_ID_SIZE - used < 3) {
-		*stored_len = used;
+		*stored_len = (uint8_t)used;
 		return;
 	}
 

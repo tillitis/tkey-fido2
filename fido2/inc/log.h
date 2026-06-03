@@ -5,6 +5,7 @@
 #ifndef _LOG_H
 #define _LOG_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifndef DEBUG_LEVEL
@@ -14,7 +15,7 @@
 #define ENABLE_FILE_LOGGING
 
 void LOG(uint32_t tag, const char *filename, int num, const char *fmt, ...);
-void LOG_HEX(uint32_t tag, const uint8_t *data, int length);
+void LOG_HEX(uint32_t tag, const uint8_t *data, size_t length);
 
 void set_logging_tag(uint32_t tag);
 
