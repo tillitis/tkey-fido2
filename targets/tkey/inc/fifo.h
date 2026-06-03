@@ -71,6 +71,4 @@ FIFO_CREATE_H(debug)
 
 FIFO_CREATE_H(test)
 
-void fifo_test();
-
 #endif

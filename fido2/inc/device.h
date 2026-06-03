@@ -161,8 +161,7 @@ int ctap_store_rk(const CTAP_residentKey *rk);
  */
 int ctap_delete_rk(CredentialId *id);
 
-
-# define MAX_RK_FILES 16
+#define MAX_RK_FILES 16
 /** Opens the file where the resident key with corresponding rpid hash should
  * be.
  * @param rpid hash.

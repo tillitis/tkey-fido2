@@ -472,7 +472,7 @@ void ctap_load_next_rk(CTAP_residentKey *dst_rk)
 void ctap_load_rk(uint8_t index, CTAP_residentKey *dst_rk)
 {
 	fs_read_at(&_f_rk, dst_rk, sizeof(CTAP_residentKey),
-			(size_t)index * sizeof(CTAP_residentKey));
+		   (size_t)index * sizeof(CTAP_residentKey));
 
 	printf1(TAG_GREEN, "Load RK: %d\n", index);
 }

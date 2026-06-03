@@ -115,8 +115,3 @@ int rng_get_bytes(uint8_t *dst, size_t sz)
 	}
 	return 0;
 }
-
-void randombytes(uint8_t *dst, size_t sz)
-{
-	rng_get_bytes(dst, sz);
-}
