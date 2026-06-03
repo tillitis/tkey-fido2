@@ -447,9 +447,14 @@ static size_t build_filtered_credential_list(CTAP_getAssertion *GA,
 
 static int cred_cmp_func(const void *_a, const void *_b)
 {
-	CTAP_credentialDescriptor *a = (CTAP_credentialDescriptor *)_a;
-	CTAP_credentialDescriptor *b = (CTAP_credentialDescriptor *)_b;
-	return b->credential.id.count - a->credential.id.count;
+	const CTAP_credentialDescriptor *a =
+	    (const CTAP_credentialDescriptor *)_a;
+	const CTAP_credentialDescriptor *b =
+	    (const CTAP_credentialDescriptor *)_b;
+
+	return (b->credential.id.count > a->credential.id.count)   ? 1
+	       : (b->credential.id.count < a->credential.id.count) ? -1
+								   : 0;
 }
 
 static CtapStatus parse_get_assertion_request(CTAP_getAssertion *GA,
