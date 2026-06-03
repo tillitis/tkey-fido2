@@ -37,25 +37,25 @@ static uint32_t entropy_get(void)
 	return *trng_entropy;
 }
 
-static void rng_update(rng_ctx *ctx)
+static void rng_update(rng_ctx *rng)
 {
 	for (size_t i = 0; i < 8; i++) {
-		ctx->state[i] = ctx->digest[i];
+		rng->state[i] = rng->digest[i];
 	}
 
-	ctx->state_ctr_lsb += 1;
-	if (ctx->state_ctr_lsb == 0) {
-		ctx->state_ctr_msb += 1;
+	rng->state_ctr_lsb += 1;
+	if (rng->state_ctr_lsb == 0) {
+		rng->state_ctr_msb += 1;
 	}
-	ctx->state[14] += ctx->state_ctr_msb;
-	ctx->state[15] += ctx->state_ctr_lsb;
+	rng->state[14] += rng->state_ctr_msb;
+	rng->state[15] += rng->state_ctr_lsb;
 
-	ctx->reseed_ctr += 1;
-	if (ctx->reseed_ctr == RESEED_TIME) {
+	rng->reseed_ctr += 1;
+	if (rng->reseed_ctr == RESEED_TIME) {
 		for (size_t i = 0; i < 8; i++) {
-			ctx->state[i + 8] = entropy_get();
+			rng->state[i + 8] = entropy_get();
 		}
-		ctx->reseed_ctr = 0;
+		rng->reseed_ctr = 0;
 	}
 }
 
