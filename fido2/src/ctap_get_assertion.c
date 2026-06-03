@@ -146,17 +146,6 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 
 	size_t auth_data_buf_sz = sizeof(CTAP_authDataHeader);
 
-#ifdef ENABLE_U2F_EXTENSIONS
-	if (is_extension_request((uint8_t *)&GA.creds[0].credential.id,
-				 sizeof(CredentialId))) {
-		crypto_sha256_init();
-		crypto_sha256_update(GA.rp.id, GA.rp.size);
-		crypto_sha256_final(getAssertionState.buf.authData.rpIdHash);
-
-		getAssertionState.buf.authData.flags = (1 << 0);
-		getAssertionState.buf.authData.flags |= (1 << 2);
-	} else
-#endif
 	{
 		device_disable_up(GA.up == 0);
 		ctap_ret = ctap_make_auth_data(
@@ -258,11 +247,6 @@ CtapStatus ctap_get_assertion_cbor_encode_assertion_response(
 				       cred_size, NULL, 0);
 	}
 
-#ifdef ENABLE_U2F_EXTENSIONS
-	if (extend_fido2(&cred->credential.id, sigder)) {
-		sigder_sz = 72;
-	} else
-#endif
 	{
 		sigder_sz =
 		    ctap_sign_data(auth_data_buf, auth_data_buf_sz,
@@ -311,15 +295,6 @@ static size_t build_filtered_credential_list(CTAP_getAssertion *GA,
 
 		if (!ctap_credential_belongs_to_rp(rp_id_lookup, rp_id_hash,
 						   cred)) {
-#ifdef ENABLE_U2F_EXTENSIONS
-			if (is_extension_request(
-				(uint8_t *)&cred->credential.id,
-				sizeof(CredentialId))) {
-				printf1(TAG_EXT, "CRED #%d is extension\n",
-					cred->credential.id.count);
-				count++;
-			} else
-#endif
 			{
 
 				printf1(TAG_GA,

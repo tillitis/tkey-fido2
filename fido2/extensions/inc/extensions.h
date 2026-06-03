@@ -6,17 +6,7 @@
 #include "apdu.h"
 #include "u2f.h"
 
-int16_t bridge_u2f_to_extensions(uint8_t *chal, uint8_t *appid, uint8_t klen,
-				 uint8_t *keyh);
-
-int is_extension_request(uint8_t *req, int len);
-
-int16_t extend_u2f(APDU_HEADER *req, uint8_t *payload, uint32_t len);
-
-int16_t extend_fido2(CredentialId *credid, uint8_t *output);
-
-int is_extension_request(uint8_t *kh, int len);
-
+uint16_t extend_u2f(APDU_HEADER *req, uint8_t *payload, uint32_t len);
 void extension_writeback_init(uint8_t *buffer, uint8_t size);
 void extension_writeback(uint8_t *buf, uint8_t size);
 
