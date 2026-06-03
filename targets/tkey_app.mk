@@ -105,8 +105,31 @@ TARGET_CFLAGS := \
                  -fno-common \
                  -mno-relax \
                  -Wall \
+                 -Waddress-of-packed-member \
+                 -Wconversion \
+                 -Wdouble-promotion \
                  -Wenum-conversion \
-                 -Werror=implicit-function-declaration
+                 -Werror=implicit-function-declaration \
+                 -Wextra \
+                 -Wmissing-declarations \
+                 -Wmissing-prototypes \
+                 -Wnull-dereference \
+                 -Wpointer-arith \
+                 -Wshadow \
+                 -Wsign-conversion \
+                 -Wstrict-prototypes \
+                 -Wswitch-enum \
+                 -Wundef \
+                 -Wuninitialized \
+                 -Wwrite-strings
+
+#TARGET_CFLAGS += -ftrivial-auto-var-init=pattern # Testing. Initialize uninitialized local stack variables with a pattern
+#TARGET_CFLAGS += -Wimplicit-fallthrough          # Testing. Catches where fallthrough wasn't intended
+#TARGET_CFLAGS += -Wvla                           # Testing. Finds variable length arrays
+
+#TARGET_CFLAGS += -Wcast-align # Can reveal alignment faults
+#TARGET_CFLAGS += -Wcast-qual  # Finds accidental loss of const
+#TARGET_CFLAGS += -Wformat=2   # Warn about suspicious or incorrect printf format string usage
 
 #TARGET_CFLAGS += -Wextra         # Gives lots of new warnings
 #TARGET_CFLAGS += -pedantic       # Gives lots of new warnings
