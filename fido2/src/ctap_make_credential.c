@@ -398,13 +398,12 @@ static CtapStatus parse_make_credential(CTAP_makeCredential *MC,
 	unsigned int i;
 	int key;
 	size_t map_length;
-	CborParser parser;
 	CborValue it, map;
 
 	memset(MC, 0, sizeof(CTAP_makeCredential));
 	MC->up = 1; // Default is true, register if platform sends 0
-	cbor_ret = cbor_parser_init(request, length,
-				    CborValidateCanonicalFormat, &parser, &it);
+	cbor_ret = cbor_parser_init(
+	    request, length, CborValidateCanonicalFormat, &MC->parser, &it);
 	cbor_check_ret(cbor_ret);
 
 	if (cbor_value_get_type(&it) != CborMapType) {

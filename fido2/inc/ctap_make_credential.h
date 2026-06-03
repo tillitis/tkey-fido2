@@ -58,6 +58,7 @@ typedef struct {
 	uint8_t pinUvAuthParam_empty;
 	uint8_t pinProtocol;
 	CTAP_extensions extensions;
+	CborParser parser;
 
 } CTAP_makeCredential;
 
