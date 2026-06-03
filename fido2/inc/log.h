@@ -17,38 +17,35 @@
 void LOG(uint32_t tag, const char *filename, int num, const char *fmt, ...);
 void LOG_HEX(uint32_t tag, const uint8_t *data, size_t length);
 
-void set_logging_tag(uint32_t tag);
-
+// clang-format off
 typedef enum {
-	TAG_GEN = (1 << 0),
-	TAG_MC = (1 << 1),
-	TAG_GA = (1 << 2),
-	TAG_CP = (1 << 3),
-	TAG_ERR = (1 << 4),
-	TAG_PARSE = (1 << 5),
-	TAG_CTAP = (1 << 6),
-	TAG_U2F = (1 << 7),
-	TAG_DUMP = (1 << 8),
-	TAG_GREEN = (1 << 9),
-	TAG_RED = (1 << 10),
-	TAG_TIME = (1 << 11),
-	TAG_HID = (1 << 12),
-	TAG_USB = (1 << 13),
-	TAG_WALLET = (1 << 14), // Wallet is removed, can be reused
-	TAG_STOR = (1 << 15),
-	TAG_DUMP2 = (1 << 16),
-	TAG_BOOT = (1 << 17),
-	TAG_EXT = (1 << 18),
-	TAG_NFC = (1 << 19),	  // Removed, can be reused
-	TAG_NFC_APDU = (1 << 20), // Removed, can be reused
-	TAG_CCID = (1 << 21),
-	TAG_CM = (1 << 22),
-	TAG_COUNT = (1 << 23),
-	TAG_PROF = (1 << 24),
+	TAG_GEN      = (1 <<  0),  /* Generic                     */
+	TAG_MC       = (1 <<  1),  /* Make Credential             */
+	TAG_GA       = (1 <<  2),  /* Get Assertion               */
+	TAG_CP       = (1 <<  3),  /* Client Pin                  */
+	TAG_ERR      = (1 <<  4),  /* Error                       */
+	TAG_PARSE    = (1 <<  5),  /* Parsing                     */
+	TAG_CTAP     = (1 <<  6),  /* CTAP data                   */
+	TAG_U2F      = (1 <<  7),  /* U2F data                    */
+	TAG_DUMP     = (1 <<  8),  /* Dump data                   */
+	TAG_GREEN    = (1 <<  9),  /* Information                 */
+	TAG_RED      = (1 << 10),  /* Warnings                    */
+	TAG_TIME     = (1 << 11),  /* Timestamps                  */
+	TAG_HID      = (1 << 12),  /* Human Interface Device      */
+	TAG_BE       = (1 << 13),  /* Bio Enrollment              */
+	TAG_STOR     = (1 << 15),  /* Storage status              */
+	TAG_DUMP2    = (1 << 16),  /* Unused                      */
+	TAG_BOOT     = (1 << 17),  /* Unused                      */
+	TAG_EXT      = (1 << 18),  /* Extension (U2F)             */
+	TAG_CCID     = (1 << 21),  /* Unused                      */
+	TAG_CM       = (1 << 22),  /* Credential Management       */
+	TAG_COUNT    = (1 << 23),
+	TAG_PROF     = (1 << 24),
 
-	TAG_NO_TAG = (1UL << 30),
-	TAG_FILENO = (1UL << 31)
+	TAG_NO_TAG   = (1UL << 30),
+	TAG_FILENO   = (1UL << 31)
 } LOG_TAG;
+// clang-format on
 
 #if defined(DEBUG_LEVEL) && DEBUG_LEVEL > 0
 

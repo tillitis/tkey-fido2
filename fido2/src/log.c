@@ -36,26 +36,17 @@ struct logtag tagtable[] = {
     {TAG_DUMP, "DUMP"},
     {TAG_DUMP2, "DUMP2"},
     {TAG_HID, "HID"},
-    {TAG_USB, "USB"},
     {TAG_GREEN, "[1;32mDEBUG[0m"},
     {TAG_RED, "[1;31mDEBUG[0m"},
     {TAG_TIME, "[1;33mTIME[0m"},
-    {TAG_WALLET, "[1;34mWALLET[0m"},
     {TAG_STOR, "[1;35mSTOR[0m"},
     {TAG_BOOT, "[1;36mBOOT[0m"},
     {TAG_EXT, "[1;37mEXT[0m"},
-    {TAG_NFC, "[1;38mNFC[0m"},
-    {TAG_NFC_APDU, "NAPDU"},
     {TAG_CCID, "CCID"},
     {TAG_CM, "CRED_MGMT"},
     {TAG_COUNT, "COUNT"},
     {TAG_PROF, "PROF"},
 };
-
-__attribute__((weak)) void set_logging_tag(uint32_t tag)
-{
-	// nothing
-}
 
 void LOG(uint32_t tag, const char *filename, int num, const char *fmt, ...)
 {
@@ -76,7 +67,7 @@ void LOG(uint32_t tag, const char *filename, int num, const char *fmt, ...)
 		printf2(TAG_ERR, "INVALID LOG TAG\n");
 		exit(1);
 	}
-	set_logging_tag(tag);
+
 #ifdef ENABLE_FILE_LOGGING
 	if (tag & TAG_FILENO) {
 		printf("%s:%d: ", filename, num);
@@ -93,7 +84,7 @@ void LOG_HEX(uint32_t tag, const uint8_t *data, size_t length)
 	if (((tag & 0x7fffffff) & LOGMASK) == 0) {
 		return;
 	}
-	set_logging_tag(tag);
+
 	dump_hex(data, length, 2, true, 0, true);
 }
 
