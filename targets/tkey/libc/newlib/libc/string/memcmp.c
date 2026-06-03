@@ -37,8 +37,8 @@ memcmp (const void *m1,
 	const void *m2,
 	size_t n)
 {
-  unsigned char *s1 = (unsigned char *) m1;
-  unsigned char *s2 = (unsigned char *) m2;
+  const unsigned char *s1 = (const unsigned char *) m1;
+  const unsigned char *s2 = (const unsigned char *) m2;
 
   while (n--)
     {

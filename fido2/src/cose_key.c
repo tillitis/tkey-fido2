@@ -87,6 +87,9 @@ CtapStatus cose_key_generate(CborEncoder *cose_key, uint8_t *hmac_input,
 		fido2_crypto_ed25519_derive_public_key(hmac_input, len, x);
 		break;
 
+	case COSE_ALG_ECDH_ES_HKDF_256:
+		return (CtapStatus){CTAP2_ERR_UNSUPPORTED_ALGORITHM};
+
 	default:
 		printf2(TAG_ERR, "Error, COSE alg %d not supported\n", algtype);
 		return (CtapStatus){CTAP2_ERR_UNSUPPORTED_ALGORITHM};

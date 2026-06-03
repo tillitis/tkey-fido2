@@ -35,7 +35,7 @@ memcpy (void *__restrict dst0,
 	size_t len0)
 {
   char *dst = (char *) dst0;
-  char *src = (char *) src0;
+  const char *src = (const char *) src0;
 
   void *save = dst0;
 
