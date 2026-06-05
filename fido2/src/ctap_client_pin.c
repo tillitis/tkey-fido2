@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -18,7 +19,6 @@
 #include "log.h"
 #include "state.h"
 #include "tkey/lib.h"
-#include "uECC.h"
 
 typedef struct {
 	uint8_t priv_key[32];
@@ -78,13 +78,13 @@ static void regenerate_key_agreement(uint8_t pin_protocol);
 static int reset_pinUvAuthToken(uint8_t pin_protocol);
 static void reset_pin_attempts(void);
 static size_t trailing_zeros(uint8_t *buf, size_t indx);
-static void update_pin(uint8_t *pin, size_t len);
+static void store_pin(uint8_t *pin, size_t len);
 static CtapStatus update_pin_if_verified(uint8_t *newPinEnc, uint8_t len,
 					 uint8_t *platform_pubkey,
 					 uint8_t *pinUvAuthParam,
 					 uint8_t *pinHashEnc,
 					 uint8_t pinProtocol);
-static int verify_against_stored_pin(uint8_t *pinHashEnc);
+static int verify_against_stored_pin(uint8_t *pin_hash);
 /* pinUvAuthToken State Maintenance Functions */
 static void begin_using_pinUvAuthToken(bool user_is_preset,
 				       uint8_t pin_protocol,
@@ -517,8 +517,8 @@ add_enc_pinUvAuthToken(uint8_t *pinTokenEnc, uint8_t *platform_pubkey,
 
 	if (!verify_against_stored_pin(pinHashEnc)) {
 		printf2(TAG_ERR, "Pin does not match!\n");
-		memset(enc_key, 0, sizeof(enc_key));
-		memset(mac_key, 0, sizeof(mac_key));
+		secure_wipe(enc_key, sizeof(enc_key));
+		secure_wipe(mac_key, sizeof(mac_key));
 
 		// Generate new keyAgreement pair
 		regenerate_key_agreement(pinProtocol);
@@ -750,9 +750,10 @@ static uint8_t leftover_pin_attempts(void)
 
 static void lock_device_permanently(void)
 {
-	memset(pinUvAuthToken_p1.token, 0, PINUVAUTHTOKEN_SIZE);
-	memset(pinUvAuthToken_p2.token, 0, PINUVAUTHTOKEN_SIZE);
-	memset(STATE.PIN_CODE_HASH, 0, sizeof(STATE.PIN_CODE_HASH));
+	secure_wipe(pinUvAuthToken_p1.token, PINUVAUTHTOKEN_SIZE);
+	secure_wipe(pinUvAuthToken_p2.token, PINUVAUTHTOKEN_SIZE);
+	secure_wipe(STATE.pin_hash_enc, STATE_PIN_HASH_SIZE);
+	secure_wipe(STATE.pin_hash_iv, STATE_PIN_HASH_IV_SIZE);
 
 	printf1(TAG_CP, "Device permanently locked!\n");
 
@@ -1015,39 +1016,40 @@ static size_t trailing_zeros(uint8_t *buf, size_t indx)
 }
 
 /**
- * Set new PIN, by updating PIN hash. Save state.
- * Globals: STATE
- * @param pin new PIN (raw)
- * @param len pin array length
+ * Encrypt and persist the new PIN hash, LEFT(SHA-256(pin), 16), into
+ * authenticator state. Encrypts using AES-256 CBC-mode with a freshly generated
+ * random IV,
+ *
+ * The caller must  validated that @p len beforehand.
+ *
+ * Globals:     STATE
+ * @param pin   Pointer to the raw UTF-8 PIN.
+ * @param len   Length of the PIN in bytes.
  */
-static void update_pin(uint8_t *pin, size_t len)
+static void store_pin(uint8_t *pin, size_t len)
 {
-	if (len >= NEW_PIN_MAX_SIZE || len < NEW_PIN_MIN_SIZE) {
-		printf2(TAG_ERR, "Error, invalid pin length\n");
-		exit(1);
-	}
-
-	/* Store SHA-256(left16(SHA-256(pin)) || salt) */
+	// Calcualte LEFT(SHA-256(pin), 16)
+	uint8_t pin_hash[32];
 	crypto_sha256_init();
 	crypto_sha256_update(pin, len);
-	uint8_t intermediateHash[32];
-	crypto_sha256_final(intermediateHash);
+	crypto_sha256_final(pin_hash);
 
-	crypto_sha256_init();
-	crypto_sha256_update(intermediateHash, 16);
-	memset(intermediateHash, 0, sizeof(intermediateHash));
-	crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
-	crypto_sha256_final(STATE.PIN_CODE_HASH);
+	// Update IV in state
+	ctap_generate_rng(STATE.pin_hash_iv, STATE_PIN_HASH_IV_SIZE);
+
+	// Encrypt and store in state
+	const uint8_t *key = crypto_get_key_device_enc();
+	crypto_aes256_init(key, STATE.pin_hash_iv);
+	crypto_aes256_encrypt(pin_hash, STATE_PIN_HASH_SIZE);
+	memcpy(STATE.pin_hash_enc, pin_hash, STATE_PIN_HASH_SIZE);
+	secure_wipe(pin_hash, sizeof(pin_hash));
 
 	STATE.is_pin_set = 1;
 	authenticator_write_state(&STATE);
-
-	printf1(TAG_CTAP, "New pin set: %s [%d]\n", pin, len);
-	dump_hex1(TAG_CTAP, STATE.PIN_CODE_HASH, sizeof(STATE.PIN_CODE_HASH));
 }
 
 /*
- * Set or update PIN, if one already is set.
+ * Set or update PIN, if one is already set.
  *
  * Verifies pinUvAuthParam over (newPinEnc [|| pinHashEnc]), decrypt the new
  * PIN, optionally verify the current PIN (changePIN), before storing new pin.
@@ -1101,10 +1103,12 @@ update_pin_if_verified(uint8_t *newPinEnc, uint8_t newPinEncLen,
 	}
 
 	decrypt(newPinEnc, dec_len, enc_key, pinProtocol);
+	// From now on the new pin is decrypted
+	uint8_t *newPin = newPinEnc;
 
 	/* Determine actual PIN length by stripping trailing zeros */
 	size_t nbr_trailing_zeros =
-	    trailing_zeros(newPinEnc, NEW_PIN_ENC_MIN_SIZE - 1);
+	    trailing_zeros(newPin, NEW_PIN_ENC_MIN_SIZE - 1);
 	size_t newPinLen = NEW_PIN_ENC_MIN_SIZE - nbr_trailing_zeros;
 
 	if (newPinLen < NEW_PIN_MIN_SIZE || newPinLen >= NEW_PIN_MAX_SIZE) {
@@ -1115,9 +1119,8 @@ update_pin_if_verified(uint8_t *newPinEnc, uint8_t newPinEncLen,
 		secure_wipe(mac_key, sizeof(mac_key));
 		return (CtapStatus){CTAP2_ERR_PIN_POLICY_VIOLATION};
 	} else {
-		printf1(TAG_CP, "New pin: %s [%d bytes]\n", newPinEnc,
-			newPinLen);
-		dump_hex1(TAG_CP, newPinEnc, newPinLen);
+		printf1(TAG_CP, "New pin: %s [%d bytes]\n", newPin, newPinLen);
+		dump_hex1(TAG_CP, newPin, newPinLen);
 	}
 
 	// If we are changing the current pin, decrypt and compare pinHashEnc
@@ -1153,24 +1156,26 @@ update_pin_if_verified(uint8_t *newPinEnc, uint8_t newPinEncLen,
 	secure_wipe(enc_key, sizeof(enc_key));
 	secure_wipe(mac_key, sizeof(mac_key));
 
-	// Set new PIN (update and store PIN_CODE_HASH)
-	update_pin(newPinEnc, newPinLen);
+	store_pin(newPin, newPinLen);
+	secure_wipe(newPin, newPinEncLen);
 
 	return (CtapStatus){CTAP2_OK};
 }
 
-// Verifies the pinHashEnc from the platform,  pinHashEnc =
-// LEFT(SHA-256(curPin), 16)).
+// Verifies the pin_hash from the platform, pin_Hash =
+// LEFT(SHA-256(user_supplied_pin), 16)).
 // Returns 1 for successful verification, otherwise zero
-static int verify_against_stored_pin(uint8_t *pinHashEnc)
+static int verify_against_stored_pin(uint8_t *pin_hash)
 {
-	uint8_t pinHashSalted[32];
-	crypto_sha256_init();
-	crypto_sha256_update(pinHashEnc, 16);
-	crypto_sha256_update(STATE.PIN_SALT, sizeof(STATE.PIN_SALT));
-	crypto_sha256_final(pinHashSalted);
+	uint8_t stored_pin[STATE_PIN_HASH_SIZE];
+	memcpy(stored_pin, STATE.pin_hash_enc, STATE_PIN_HASH_SIZE);
 
-	return memcmp(pinHashSalted, STATE.PIN_CODE_HASH, 16) == 0;
+	const uint8_t *key = crypto_get_key_device_enc();
+	crypto_aes256_init(key, STATE.pin_hash_iv);
+	crypto_aes256_decrypt(stored_pin, STATE_PIN_HASH_SIZE);
+	int ret = secure_memeq(pin_hash, stored_pin, STATE_PIN_HASH_SIZE);
+	secure_wipe(stored_pin, STATE_PIN_HASH_SIZE);
+	return ret;
 }
 
 /* pinUvAuthToken State Maintenance Functions */

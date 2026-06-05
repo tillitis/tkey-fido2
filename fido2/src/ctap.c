@@ -748,16 +748,9 @@ void ctap_state_init(void)
 	STATE.is_pin_set = 0;
 	STATE.rk_stored = 0;
 	STATE.app_version = version_get_version();
+	// pin_iv is set by client_pin when a pin is stored
 
 	ctap_reset_rk();
-
-	if (ctap_generate_rng(STATE.PIN_SALT, sizeof(STATE.PIN_SALT)) != 1) {
-		printf2(TAG_ERR, "Error, ctap_generate_rng() failed\n");
-		exit(1);
-	}
-
-	printf1(TAG_STOR, "Generated PIN SALT:\n");
-	dump_hex1(TAG_STOR, STATE.PIN_SALT, sizeof STATE.PIN_SALT);
 }
 
 // Returns 1 if the mac matches the input data, otherwise zero.
