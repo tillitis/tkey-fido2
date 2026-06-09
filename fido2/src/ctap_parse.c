@@ -12,8 +12,6 @@
 #include "u2f.h"
 #include "util.h"
 
-extern struct _getAssertionState getAssertionState;
-
 void _cbor_check_ret(CborError ret, int line, const char *filename)
 {
 	if (ret != CborNoError) {
