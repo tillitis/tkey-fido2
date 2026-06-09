@@ -150,21 +150,21 @@ CtapStatus ctap_parse_fixed_length_byte_string(CborValue *map, uint8_t *dst,
 {
 	size_t sz;
 	CborError cbor_ret;
-	if (cbor_value_get_type(map) == CborByteStringType) {
-		sz = len;
-		cbor_ret = cbor_value_copy_byte_string(map, dst, &sz, NULL);
-		cbor_check_ret(cbor_ret);
-		if (sz != len) {
-			printf2(TAG_ERR,
-				"Error, byte string is different length (%d vs "
-				"%d)\n",
-				len, sz);
-			return (CtapStatus){CTAP1_ERR_INVALID_LENGTH};
-		}
-	} else {
-		printf2(TAG_ERR, "Error, CborByteStringType expected\n");
+	if (cbor_value_get_type(map) != CborByteStringType) {
+		printf2(TAG_ERR, "Error, expecting byte string\n");
 		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 	}
+	sz = len;
+	cbor_ret = cbor_value_copy_byte_string(map, dst, &sz, NULL);
+	cbor_check_ret(cbor_ret);
+	if (sz != len) {
+		printf2(TAG_ERR,
+			"Error, byte string is different length (%d vs "
+			"%d)\n",
+			len, sz);
+		return (CtapStatus){CTAP1_ERR_INVALID_LENGTH};
+	}
+
 	return (CtapStatus){CTAP2_OK};
 }
 
