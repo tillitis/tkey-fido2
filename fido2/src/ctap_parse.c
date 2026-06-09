@@ -132,7 +132,8 @@ ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 		cbor_check_ret(cbor_ret);
 	}
 
-	if (strncmp(keytype, "public-key", 11) == 0) {
+	if ((strncmp(keytype, "public-key", 10) == 0) &&
+	    (keytype[10] == '\0')) {
 		if (0 == cred->type) {
 			cred->type = PUB_KEY_CRED_PUB_KEY;
 		}
@@ -215,17 +216,17 @@ CtapStatus ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
 			return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 		}
 
-		if (strncmp(key, "rk", 2) == 0) {
+		if ((strncmp(key, "rk", 2) == 0) && (key[2] == '\0')) {
 			cbor_ret = cbor_value_get_boolean(&map, &b);
 			cbor_check_ret(cbor_ret);
 			printf1(TAG_GA, "rk: %d\n", b);
 			*rk = b;
-		} else if (strncmp(key, "uv", 2) == 0) {
+		} else if ((strncmp(key, "uv", 2) == 0) && (key[2] == '\0')) {
 			cbor_ret = cbor_value_get_boolean(&map, &b);
 			cbor_check_ret(cbor_ret);
 			printf1(TAG_GA, "uv: %d\n", b);
 			*uv = b;
-		} else if (strncmp(key, "up", 2) == 0) {
+		} else if ((strncmp(key, "up", 2) == 0) && (key[2] == '\0')) {
 			cbor_ret = cbor_value_get_boolean(&map, &b);
 			cbor_check_ret(cbor_ret);
 			printf1(TAG_GA, "up: %d\n", b);

@@ -207,7 +207,8 @@ CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext,
 		cbor_ret = cbor_value_advance(&map);
 		cbor_check_ret(cbor_ret);
 
-		if (strncmp(key, "hmac-secret", 11) == 0) {
+		if ((strncmp(key, "hmac-secret", 11) == 0) &&
+		    (key[11] == '\0')) {
 			if (REQ_TYPE_MC == request) {
 				if (cbor_value_get_type(&map) !=
 				    CborBooleanType) {
@@ -237,7 +238,8 @@ CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext,
 				printf1(TAG_CTAP,
 					"parsed hmac_secret request\n");
 			}
-		} else if (strncmp(key, "credProtect", 11) == 0) {
+		} else if ((strncmp(key, "credProtect", 11) == 0) &&
+			   (key[11] == '\0')) {
 			if (REQ_TYPE_MC != request) {
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
