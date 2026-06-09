@@ -22,6 +22,11 @@
 #define EXT_CRED_PROTECT_OPTIONAL_WITH_CREDID 0x02
 #define EXT_CRED_PROTECT_REQUIRED 0x03
 
+typedef enum {
+	REQ_TYPE_MC = 0x01,
+	REQ_TYPE_GA = 0x02,
+} ReqType;
+
 typedef struct {
 	uint8_t saltLen;
 	uint8_t saltEnc[64];
@@ -39,6 +44,7 @@ typedef struct {
 CtapStatus ctap_extensions_encode_output(CTAP_extensions *ext,
 					 uint8_t *ext_encoder_buf,
 					 size_t *ext_encoder_buf_size);
-CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext);
+CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext,
+				       ReqType request);
 
 #endif

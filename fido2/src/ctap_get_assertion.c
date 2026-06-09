@@ -508,8 +508,8 @@ static CtapStatus parse_get_assertion_request(CTAP_getAssertion *GA,
 
 		case GA_Cmd_extensions:
 			printf1(TAG_GA, "GA_Cmd_extensions\n");
-			ctap_ret =
-			    ctap_extensions_parse_input(&map, &GA->extensions);
+			ctap_ret = ctap_extensions_parse_input(
+			    &map, &GA->extensions, REQ_TYPE_GA);
 			ctap_check_retr(ctap_ret);
 			break;
 

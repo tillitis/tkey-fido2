@@ -506,8 +506,8 @@ static CtapStatus parse_make_credential(CTAP_makeCredential *MC,
 				printf2(TAG_ERR, "Error, expecting cbor map\n");
 				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
 			}
-			ctap_ret =
-			    ctap_extensions_parse_input(&map, &MC->extensions);
+			ctap_ret = ctap_extensions_parse_input(
+			    &map, &MC->extensions, REQ_TYPE_MC);
 			ctap_check_retr(ctap_ret);
 			break;
 

@@ -159,7 +159,8 @@ CtapStatus ctap_extensions_encode_output(CTAP_extensions *ext,
 	return (CtapStatus){CTAP2_OK};
 }
 
-CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
+CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext,
+				       ReqType request)
 {
 	CborValue map;
 	size_t sz, map_length;
@@ -168,6 +169,8 @@ CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 	CtapStatus ctap_ret;
 	unsigned int i;
 	bool b;
+
+	assert((REQ_TYPE_MC == request) || (REQ_TYPE_GA == request));
 
 	if (cbor_value_get_type(val) != CborMapType) {
 		printf2(TAG_ERR, "Error, expecting cbor map\n");
@@ -205,15 +208,27 @@ CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 		cbor_check_ret(cbor_ret);
 
 		if (strncmp(key, "hmac-secret", 11) == 0) {
-			if (cbor_value_get_type(&map) == CborBooleanType) {
+			if (REQ_TYPE_MC == request) {
+				if (cbor_value_get_type(&map) !=
+				    CborBooleanType) {
+					return (CtapStatus){
+					    CTAP2_ERR_INVALID_CBOR};
+				}
 				cbor_ret = cbor_value_get_boolean(&map, &b);
 				cbor_check_ret(cbor_ret);
-				if (b)
+				if (b) {
 					ext->hmac_secret_present =
 					    EXT_HMAC_SECRET_REQUESTED;
-				printf1(TAG_CTAP,
-					"Set hmac_secret_present to %d\n", b);
-			} else if (cbor_value_get_type(&map) == CborMapType) {
+					printf1(
+					    TAG_CTAP,
+					    "Set hmac_secret_present to %d\n",
+					    b);
+				}
+			} else if (REQ_TYPE_GA == request) {
+				if (cbor_value_get_type(&map) != CborMapType) {
+					return (CtapStatus){
+					    CTAP2_ERR_INVALID_CBOR};
+				}
 				ctap_ret = ctap_extensions_parse_hmac_secret(
 				    &map, &ext->hmac_secret);
 				ctap_check_retr(ctap_ret);
@@ -221,29 +236,28 @@ CtapStatus ctap_extensions_parse_input(CborValue *val, CTAP_extensions *ext)
 				    EXT_HMAC_SECRET_PARSED;
 				printf1(TAG_CTAP,
 					"parsed hmac_secret request\n");
-			} else {
-				printf1(TAG_RED,
-					"Warning: hmac_secret request ignored "
-					"for being wrong type\n");
 			}
 		} else if (strncmp(key, "credProtect", 11) == 0) {
-			if (cbor_value_get_type(&map) == CborIntegerType) {
-				int value;
-				cbor_ret = cbor_value_get_int(&map, &value);
-				cbor_check_ret(cbor_ret);
+			if (REQ_TYPE_MC != request) {
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+			}
+			if (cbor_value_get_type(&map) != CborIntegerType) {
+				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+			}
 
-				if (value >= 1 && value <= 3) {
-					ext->cred_protect = (uint8_t)value;
-				} else {
-					printf1(TAG_RED,
-						"Warning: invalid credProtect "
-						"value %d\n",
-						value);
-				}
+			int value;
+			cbor_ret = cbor_value_get_int(&map, &value);
+			cbor_check_ret(cbor_ret);
+
+			if ((value >= 1) && (value <= 3)) {
+				ext->cred_protect = (uint8_t)value;
 			} else {
-				printf1(TAG_RED,
-					"warning: credProtect request ignored "
-					"for being wrong type\n");
+				printf1(
+				    TAG_RED,
+				    "Warning: invalid credProtect value %d\n",
+				    value);
+				return (CtapStatus){
+				    CTAP1_ERR_INVALID_PARAMETER};
 			}
 		}
 
