@@ -25,6 +25,7 @@ path = [
      "targets/solokeys_linux.mk",
      "targets/tkey_app.mk",
      "targets/tkey_uecc.mk",
+     "targets/tkey_uecc_debug.mk",
      "targets/tkey/libc/newlib/README.md",
      "tinycbor/README.md",
      "tools/sca/infer_exceptions.txt",
