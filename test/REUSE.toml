@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Tillitis AB <tillitis.se>
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = [
+    "Pipfile",
+    "Pipfile.lock",
+    "README.md",
+    "pyproject.toml",
+]
+SPDX-FileCopyrightText = "2026 Tillitis AB <tillitis.se>"
+SPDX-License-Identifier = "BSD-2-Clause"
