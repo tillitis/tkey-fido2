@@ -617,10 +617,7 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 
 	case CTAP_RESET:
 		printf1(TAG_CTAP, "CTAP_RESET\n");
-		status = ctap2_user_presence_test();
-		if (status.value == CTAP2_OK) {
-			ctap_reset();
-		}
+		status = ctap_reset();
 		break;
 
 	case CTAP_GET_NEXT_ASSERTION:

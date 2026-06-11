@@ -5,12 +5,26 @@
 #include "ctap_reset.h"
 #include "crypto.h"
 #include "ctap_client_pin.h"
+#include "ctap_errors.h"
 #include "device.h"
 
 extern struct _getAssertionState getAssertionState;
 
-void ctap_reset(void)
+#define AUTHENTICATOR_RESET_TIME_MS (10 * 1000) // 10 seconds
+
+CtapStatus ctap_reset(void)
 {
+#if !(defined(DEBUG_LEVEL) && (DEBUG_LEVEL > 0))
+	if (millis() > AUTHENTICATOR_RESET_TIME_MS) {
+		return (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
+	}
+#endif
+
+	CtapStatus ret = ctap2_user_presence_test();
+	if (ret.value != CTAP2_OK) {
+		return (CtapStatus){ret.value};
+	}
+
 	ctap_state_init();
 
 	authenticator_write_state(&STATE);
@@ -19,6 +33,8 @@ void ctap_reset(void)
 	ctap_client_pin_initialize();
 
 	crypto_derive_session_keys(STATE.key_salt, STATE_KEY_SALT_BYTES);
+
+	return (CtapStatus){CTAP2_OK};
 }
 
 void ctap_reset_state(void)
