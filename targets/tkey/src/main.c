@@ -72,7 +72,7 @@ int main(void)
 
 		led_set(LED_BLUE);
 
-		if (readselect(IO_CDC | IO_FIDO, &ep, &available) != 0) {
+		if (readselect(IO_CDC | IO_FIDO, false, &ep, &available) != 0) {
 			assert(1 == 2);
 		}
 
