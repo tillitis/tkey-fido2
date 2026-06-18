@@ -11,6 +11,7 @@
 #include "log.h"
 #include "u2f.h"
 #include "util.h"
+#include <ctap_client_pin.h>
 
 void _cbor_check_ret(CborError ret, int line, const char *filename)
 {
@@ -236,6 +237,57 @@ CtapStatus ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
 		cbor_ret = cbor_value_advance(&map);
 		cbor_check_ret(cbor_ret);
 	}
+
+	return (CtapStatus){CTAP2_OK};
+}
+
+/*
+ * ctap_parse_pinUvAuthParam - Parse pinUvAuthParam from a CBOR map value.
+ *
+ * Validates that @map is a CBOR byte string, copies its contents into
+ * @pinUvAuthParam, and verifies the length matches either
+ * PIN_UV_AUTH_PARAM_V1_SIZE or PIN_UV_AUTH_PARAM_V2_SIZE.
+ * The parsed length is written to @len, and has to be furhter validated at a
+ * later stage when the protocol version is known.
+ *
+ * @pinUvAuthParam should be at least PIN_UV_AUTH_PARAM_MAX_SIZE bytes.
+ *
+ * Returns a CtapStatus indicating success or the appropriate CTAP error.
+ */
+CtapStatus ctap_parse_pinUvAuthParam(CborValue *map, bool *empty,
+				     uint8_t *pinUvAuthParam, uint8_t *len)
+{
+	/*
+	 * We don't yet know the protocol when parsing (it may
+	 * appear later in the map), so we accept both sizes.
+	 */
+	size_t sz = 0;
+	CborError cbor_ret;
+	*len = 0;
+
+	if (cbor_value_get_type(map) != CborByteStringType) {
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+	}
+	if (cbor_value_get_string_length(map, &sz) != CborNoError) {
+		printf2(TAG_ERR, "Error, invalid map data\n");
+		return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+	}
+	if (sz == 0) {
+		*empty = true;
+		return (CtapStatus){CTAP2_OK};
+	}
+
+	sz = PIN_UV_AUTH_PARAM_MAX_SIZE;
+	cbor_ret = cbor_value_copy_byte_string(map, pinUvAuthParam, &sz, NULL);
+	cbor_check_ret(cbor_ret);
+	*len = (uint8_t)sz;
+
+	if (sz != PIN_UV_AUTH_PARAM_V2_SIZE &&
+	    sz != PIN_UV_AUTH_PARAM_V1_SIZE) {
+		return (CtapStatus){CTAP1_ERR_INVALID_LENGTH};
+	}
+	// TODO: Previously a comment said "Damn Microsoft" and
+	// masked the CTAP1_ERR_INVALID_LENGTH error.
 
 	return (CtapStatus){CTAP2_OK};
 }

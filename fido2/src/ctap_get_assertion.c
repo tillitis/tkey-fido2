@@ -66,7 +66,7 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 
 	// If pinUvAuthParam is present and the authenticator is protected, do
 	// verification. If not, continue but set user_verifier = 0.
-	if (GA.pinUvAuthParam_present) {
+	if (GA.pinUvAuthParam_len > 0) {
 		if (GA.pinProtocol == 0) {
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
@@ -155,16 +155,13 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 		device_disable_up(false);
 		ctap_check_retr(ctap_ret);
 
-		// if user presence is collected
-		if (getAssertionState.buf.authData.flags & 0x01) {
-			if (GA.pinUvAuthParam_present) {
-				ctap_client_pin_clear_user_present(
-				    GA.pinProtocol);
-				ctap_client_pin_clear_user_verified(
-				    GA.pinProtocol);
-				ctap_client_pin_clear_PinUvAuthToken_permissions_except_Lbw(
-				    GA.pinProtocol);
-			}
+		// If the "up" option is set to true or not present - clear the
+		// pin flags
+		if (GA.up == 1 || GA.up == 0xff) {
+			ctap_client_pin_clear_user_present(GA.pinProtocol);
+			ctap_client_pin_clear_user_verified(GA.pinProtocol);
+			ctap_client_pin_clear_PinUvAuthToken_permissions_except_Lbw(
+			    GA.pinProtocol);
 		}
 
 		// Update UV-bit
@@ -445,7 +442,7 @@ static CtapStatus parse_get_assertion_request(CTAP_getAssertion *GA,
 
 	memset(GA, 0, sizeof(CTAP_getAssertion));
 	GA->creds = getAssertionState.creds; // Save stack memory
-	GA->up = 0xff;
+	GA->up = 0xff;			     // Show that it is not present
 
 	cbor_ret = cbor_parser_init(request, length,
 				    CborValidateCanonicalFormat, &parser, &it);
@@ -522,37 +519,11 @@ static CtapStatus parse_get_assertion_request(CTAP_getAssertion *GA,
 
 		case GA_Cmd_pinUvAuthParam:
 			printf1(TAG_GA, "GA_Cmd_pinUvAuthParam\n");
-
-			size_t pinSize;
-			if (cbor_value_get_type(&map) != CborByteStringType) {
-				printf2(TAG_ERR, "Error, expecting byte string "
-						 "for map key\n");
-				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
-			}
-			if (cbor_value_get_string_length(&map, &pinSize) !=
-			    CborNoError) {
-				printf2(TAG_ERR, "Error, invalid map data\n");
-				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
-			}
-			if (pinSize == 0) {
-				GA->pinUvAuthParam_empty = 1;
-				break;
-			}
-
-			ctap_ret = ctap_parse_fixed_length_byte_string(
-			    &map, GA->pinUvAuthParam,
-			    PIN_UV_AUTH_PARAM_MAX_SIZE);
-			if (CTAP1_ERR_INVALID_LENGTH !=
-			    ctap_ret.value) // damn microsoft
-			{
-				ctap_check_retr(ctap_ret);
-
-			} else {
-				ctap_ret = (CtapStatus){CTAP2_OK};
-			}
-
+			ctap_ret = ctap_parse_pinUvAuthParam(
+			    &map, &GA->pinUvAuthParam_empty, GA->pinUvAuthParam,
+			    &GA->pinUvAuthParam_len);
 			ctap_check_retr(ctap_ret);
-			GA->pinUvAuthParam_present = 1;
+
 			break;
 
 		case GA_Cmd_pinUvAuthProtocol:

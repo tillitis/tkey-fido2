@@ -63,12 +63,12 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 
 	// TODO:: This needs to be verified against spec
 	if (ctap_client_pin_is_set()) {
-		if (MC.pinUvAuthParam_present == 0) {
+		if (MC.pinUvAuthParam_len == 0) {
 			printf2(TAG_ERR, "Error, pinUvAuthParam is required\n");
 			return (CtapStatus){CTAP2_ERR_PUAT_REQUIRED};
 		}
 
-		if (ctap_client_pin_is_set() || (MC.pinUvAuthParam_present)) {
+		if (ctap_client_pin_is_set() || (MC.pinUvAuthParam_len > 0)) {
 			ctap_ret = ctap_client_pin_verify_auth(
 			    MC.pinUvAuthParam, MC.clientDataHash,
 			    MC.pinProtocol);
@@ -127,8 +127,11 @@ CtapStatus ctap_make_credential(CborEncoder *encoder, uint8_t *request,
 		}
 
 		uint8_t is_rk = 0;
+
+		bool user_verified =
+		    ctap_client_pin_get_user_verified(MC.pinProtocol);
 		if (ctap_check_credential_metadata(&excl_cred->credential.id,
-						   MC.pinUvAuthParam_present, 1,
+						   user_verified, 1,
 						   &is_rk) == 0) {
 
 			if (is_rk) {
@@ -520,27 +523,11 @@ static CtapStatus parse_make_credential(CTAP_makeCredential *MC,
 
 		case MC_Cmd_pinUvAuthParam:
 			printf1(TAG_MC, "MC_Cmd_pinUvAuthParam\n");
+			ctap_ret = ctap_parse_pinUvAuthParam(
+			    &map, &MC->pinUvAuthParam_empty, MC->pinUvAuthParam,
+			    &MC->pinUvAuthParam_len);
+			ctap_check_retr(ctap_ret);
 
-			size_t pinSize;
-			if (cbor_value_get_type(&map) == CborByteStringType &&
-			    cbor_value_get_string_length(&map, &pinSize) ==
-				CborNoError &&
-			    pinSize == 0) {
-				MC->pinUvAuthParam_empty = 1;
-				break;
-			}
-
-			ctap_ret = ctap_parse_fixed_length_byte_string(
-			    &map, MC->pinUvAuthParam,
-			    PIN_UV_AUTH_PARAM_MAX_SIZE);
-			if (CTAP1_ERR_INVALID_LENGTH !=
-			    ctap_ret.value) // damn microsoft
-			{
-				ctap_check_retr(ctap_ret);
-			} else {
-				ctap_ret.value = CTAP2_OK;
-			}
-			MC->pinUvAuthParam_present = 1;
 			break;
 
 		case MC_Cmd_pinUvAuthProtocol:

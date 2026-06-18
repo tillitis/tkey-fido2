@@ -49,13 +49,13 @@ typedef struct {
 	uint8_t up;
 
 	uint8_t pinUvAuthParam[PIN_UV_AUTH_PARAM_MAX_SIZE];
-	uint8_t pinUvAuthParam_present;
+	uint8_t pinUvAuthParam_len;
 	// pinUvAuthParam_empty is true iff an empty bytestring was provided as
-	// pinUvAuthParam. This is exclusive with |pinUvAuthParam_present|. It
+	// pinUvAuthParam. This is exclusive with |pinUvAuthParam_len|. It
 	// exists because an empty pinUvAuthParam is a special signal to block
 	// for touch. See
 	// https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#using-pinToken-in-authenticatorMakeCredential
-	uint8_t pinUvAuthParam_empty;
+	bool pinUvAuthParam_empty;
 	uint8_t pinProtocol;
 	CTAP_extensions extensions;
 	CborParser parser;

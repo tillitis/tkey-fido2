@@ -608,11 +608,19 @@ static CtapStatus parse_credential_management_request(CTAP_credMgmt *CM,
 
 		case CM_Cmd_pinUvAuthParam:
 			printf1(TAG_PARSE, "CM_Cmd_pinUvAuthParam\n");
-			ctap_ret = ctap_parse_fixed_length_byte_string(
-			    &map, CM->pinUvAuthParam,
-			    PIN_UV_AUTH_PARAM_MAX_SIZE);
+
+			bool pinUvAuthToken_empty = false;
+			ctap_ret = ctap_parse_pinUvAuthParam(
+			    &map, &pinUvAuthToken_empty, CM->pinUvAuthParam,
+			    &CM->pinUvAuthParam_len);
 			ctap_check_retr(ctap_ret);
-			CM->pinUvAuthParam_present = 1;
+
+			if (pinUvAuthToken_empty) {
+				// Not supposed to happen here, special case for
+				// MC and GA
+				return (CtapStatus){CTAP1_ERR_INVALID_LENGTH};
+			}
+
 			break;
 		}
 		cbor_ret = cbor_value_advance(&map);
@@ -926,7 +934,7 @@ static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM)
 		return (CtapStatus){CTAP2_OK};
 	}
 
-	if (!CM->pinUvAuthParam_present) {
+	if (CM->pinUvAuthParam_len == 0) {
 		return (CtapStatus){CTAP2_ERR_PUAT_REQUIRED};
 	}
 

@@ -198,7 +198,7 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request,
 	case CP_SubCmd_setPIN:
 		printf1(TAG_CP, "CP_SubCmd_setPIN\n");
 
-		if (!CP.newPinEncSize || !CP.pinUvAuthParam_present ||
+		if (CP.newPinEncSize == 0 || CP.pinUvAuthParam_len == 0 ||
 		    !CP.keyAgreementPresent) {
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
@@ -238,7 +238,7 @@ CtapStatus ctap_client_pin(CborEncoder *encoder, uint8_t *request,
 			return (CtapStatus){CTAP2_ERR_PIN_NOT_SET};
 		}
 
-		if (!CP.newPinEncSize || !CP.pinUvAuthParam_present ||
+		if (CP.newPinEncSize == 0 || CP.pinUvAuthParam_len == 0 ||
 		    !CP.keyAgreementPresent || !CP.pinHashEncPresent) {
 			return (CtapStatus){CTAP2_ERR_MISSING_PARAMETER};
 		}
@@ -846,21 +846,19 @@ static CtapStatus parse_client_pin_request(CTAP_clientPin *CP, uint8_t *request,
 
 		case CP_Cmd_pinUvAuthParam:
 			printf1(TAG_CP, "CP_Cmd_pinUvAuthParam\n");
-			/*
-			 * We don't yet know the protocol when parsing (it may
-			 * appear later in the map), so we accept both sizes.
-			 * The size is validated in ctap_client_pin() once
-			 * pinProtocol is known. Store up to
-			 * PIN_UV_AUTH_PARAM_MAX_SIZE bytes.
-			 */
-			if (cbor_value_get_type(&map) != CborByteStringType) {
-				return (CtapStatus){CTAP2_ERR_INVALID_CBOR};
+
+			bool pinUvAuthToken_empty = false;
+			ctap_ret = ctap_parse_pinUvAuthParam(
+			    &map, &pinUvAuthToken_empty, CP->pinUvAuthParam,
+			    &CP->pinUvAuthParam_len);
+			ctap_check_retr(ctap_ret);
+
+			if (pinUvAuthToken_empty) {
+				// Not supposed to happen here, special case for
+				// MC and GA
+				return (CtapStatus){CTAP1_ERR_INVALID_LENGTH};
 			}
-			sz = PIN_UV_AUTH_PARAM_MAX_SIZE;
-			cbor_ret = cbor_value_copy_byte_string(
-			    &map, CP->pinUvAuthParam, &sz, NULL);
-			cbor_check_ret(cbor_ret);
-			CP->pinUvAuthParam_present = 1;
+
 			break;
 
 		case CP_Cmd_newPinEnc:

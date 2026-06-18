@@ -91,6 +91,8 @@
  * are actually read and compared.
  */
 #define PIN_UV_AUTH_PARAM_MAX_SIZE  32
+#define PIN_UV_AUTH_PARAM_V2_SIZE   32
+#define PIN_UV_AUTH_PARAM_V1_SIZE   16
 
 /* Maximum RP ID length we will accept in a permissions request */
 #define CP_MAX_RPID_LEN             128
@@ -103,7 +105,7 @@ typedef struct {
 	uint8_t keyAgreementPresent;
 	// pinUvAuthParam: 16 bytes for protocol 1, 32 bytes for protocol 2
 	uint8_t pinUvAuthParam[PIN_UV_AUTH_PARAM_MAX_SIZE];
-	uint8_t pinUvAuthParam_present;
+	uint8_t pinUvAuthParam_len;
 	uint8_t newPinEnc[NEW_PIN_ENC_MAX_SIZE];
 	uint8_t newPinEncSize;
 	uint8_t pinHashEnc[32]; // 16 bytes proto-1, 32 bytes proto-2

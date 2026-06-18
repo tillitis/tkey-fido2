@@ -40,6 +40,8 @@ CtapStatus ctap_parse_fixed_length_byte_string(CborValue *map, uint8_t *dst,
 					       unsigned int len);
 CtapStatus ctap_parse_options(CborValue *val, uint8_t *rk, uint8_t *uv,
 			      uint8_t *up);
+CtapStatus ctap_parse_pinUvAuthParam(CborValue *map, bool *empty,
+				     uint8_t *pinUvAuthParam, uint8_t *len);
 CtapStatus
 ctap_parse_pubkey_credential_descriptor(CborValue *arr,
 					CTAP_credentialDescriptor *cred);

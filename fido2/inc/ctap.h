@@ -238,7 +238,7 @@ CtapStatus ctap_cbor_encode_credential_descriptor(CborEncoder *map,
 CtapStatus ctap_cbor_encode_user_entity(CborEncoder *map, CTAP_userEntity *user,
 					int is_verified);
 uint8_t ctap_check_credential_metadata(CredentialId *credential,
-				       uint8_t is_verified,
+				       bool is_verified,
 				       uint8_t is_from_credid_list,
 				       uint8_t *is_rk);
 
