@@ -412,8 +412,6 @@ CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 		authData->head.flags = (1 << 0); // User presence
 	}
 
-	device_set_status(CTAPHID_STATUS_PROCESSING);
-
 	authData->head.flags |= (ctap_client_pin_is_set() << 2);
 
 	if (credInfo != NULL) {
@@ -558,6 +556,8 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 	printf1(TAG_CTAP, "cbor input structure: %d bytes\n", length);
 	printf1(TAG_DUMP, "cbor req:\n");
 	dump_hex1(TAG_DUMP, pkt_raw, length);
+
+	device_set_status(CTAPHID_STATUS_PROCESSING);
 
 	switch (cmd) {
 	case CTAP_MAKE_CREDENTIAL:

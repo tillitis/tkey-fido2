@@ -40,6 +40,8 @@ static void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len,
 						      // do anything...
 	{
 #ifdef ENABLE_U2F
+		device_set_status(CTAPHID_STATUS_PROCESSING);
+
 		switch (req->ins) {
 		case U2F_REGISTER:
 			printf1(TAG_U2F, "U2F_REGISTER\n");
@@ -81,10 +83,10 @@ static void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len,
 			rcode = U2F_SW_INS_NOT_SUPPORTED;
 			break;
 		}
+
+		device_set_status(CTAPHID_STATUS_IDLE);
 #endif
 	}
-
-	device_set_status(CTAPHID_STATUS_IDLE);
 
 end:
 	if (rcode != U2F_SW_NO_ERROR) {
