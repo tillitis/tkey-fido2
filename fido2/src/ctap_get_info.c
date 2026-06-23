@@ -21,7 +21,7 @@ CtapStatus ctap_get_info(CborEncoder *encoder)
 	uint8_t aaguid[16];
 	attestation_read_aaguid(aaguid);
 
-	cbor_ret = cbor_encoder_create_map(encoder, &map, 8);
+	cbor_ret = cbor_encoder_create_map(encoder, &map, 10);
 	cbor_check_ret(cbor_ret);
 	{
 
@@ -183,6 +183,78 @@ CtapStatus ctap_get_info(CborEncoder *encoder)
 		cbor_check_ret(cbor_ret);
 		{
 			cbor_ret = cbor_encode_uint(&map, 128);
+			cbor_check_ret(cbor_ret);
+		}
+
+		cbor_ret = cbor_encode_uint(&map, GI_Resp_transports);
+		cbor_check_ret(cbor_ret);
+		{
+			cbor_ret = cbor_encoder_create_array(&map, &array, 1);
+			cbor_check_ret(cbor_ret);
+			{
+				cbor_ret =
+				    cbor_encode_text_stringz(&array, "usb");
+				cbor_check_ret(cbor_ret);
+			}
+			cbor_ret = cbor_encoder_close_container(&map, &array);
+			cbor_check_ret(cbor_ret);
+		}
+
+		cbor_ret = cbor_encode_uint(&map, GI_Resp_algorithms);
+		cbor_check_ret(cbor_ret);
+		{
+			cbor_ret = cbor_encoder_create_array(&map, &array, 2);
+			cbor_check_ret(cbor_ret);
+			{
+				CborEncoder alg_map;
+
+				/* EdDSA (-8) */
+				cbor_ret = cbor_encoder_create_map(&array,
+								   &alg_map, 2);
+				cbor_check_ret(cbor_ret);
+				{
+					cbor_ret = cbor_encode_text_stringz(
+					    &alg_map, "alg");
+					cbor_check_ret(cbor_ret);
+					cbor_ret = cbor_encode_negative_int(
+					    &alg_map, 8);
+					cbor_check_ret(cbor_ret);
+
+					cbor_ret = cbor_encode_text_stringz(
+					    &alg_map, "type");
+					cbor_check_ret(cbor_ret);
+					cbor_ret = cbor_encode_text_stringz(
+					    &alg_map, "public-key");
+					cbor_check_ret(cbor_ret);
+				}
+				cbor_ret = cbor_encoder_close_container(
+				    &array, &alg_map);
+				cbor_check_ret(cbor_ret);
+
+				/* ES256 (-7) */
+				cbor_ret = cbor_encoder_create_map(&array,
+								   &alg_map, 2);
+				cbor_check_ret(cbor_ret);
+				{
+					cbor_ret = cbor_encode_text_stringz(
+					    &alg_map, "alg");
+					cbor_check_ret(cbor_ret);
+					cbor_ret = cbor_encode_negative_int(
+					    &alg_map, 7);
+					cbor_check_ret(cbor_ret);
+
+					cbor_ret = cbor_encode_text_stringz(
+					    &alg_map, "type");
+					cbor_check_ret(cbor_ret);
+					cbor_ret = cbor_encode_text_stringz(
+					    &alg_map, "public-key");
+					cbor_check_ret(cbor_ret);
+				}
+				cbor_ret = cbor_encoder_close_container(
+				    &array, &alg_map);
+				cbor_check_ret(cbor_ret);
+			}
+			cbor_ret = cbor_encoder_close_container(&map, &array);
 			cbor_check_ret(cbor_ret);
 		}
 	}
