@@ -43,7 +43,7 @@ int main(void)
 	*cpu_mon_last = TK1_RAM_BASE + TK1_RAM_SIZE;
 	*cpu_mon_ctrl = 1;
 
-	led_set(LED_BLUE);
+	led_set(LED_BLACK);
 
 	// clang-format off
 	set_logging_mask(
@@ -75,8 +75,6 @@ int main(void)
 	while (1) {
 		enum ioend ep;
 		uint8_t available;
-
-		led_set(LED_BLUE);
 
 		if (readselect(IO_CDC | IO_FIDO, false, &ep, &available) != 0) {
 			assert(1 == 2);
@@ -167,7 +165,6 @@ int main(void)
 		}
 
 		if (usbhid_recv(hidmsg) > 0) {
-			led_set(LED_GREEN | LED_RED);
 			ctaphid_handle_packet(hidmsg);
 			memset(hidmsg, 0, sizeof(hidmsg));
 		} else {
