@@ -945,9 +945,7 @@ static CtapStatus verify_pin_auth_for_credential_management(CTAP_credMgmt *CM)
 	CtapStatus ctap_ret = ctap_client_pin_verify_auth_ex(
 	    CM->pinUvAuthParam, (uint8_t *)&CM->hashed,
 	    CM->subCommandParamsCborSize + 1, CM->pinProtocol);
-	if (ctap_ret.value != CTAP2_OK) {
-		return ctap_ret;
-	}
+	ctap_check_retr(ctap_ret);
 
 	if (!ctap_client_pin_verify_permissions(
 		CM->pinProtocol, CP_pinUvAuthToken_permissions_cm)) {

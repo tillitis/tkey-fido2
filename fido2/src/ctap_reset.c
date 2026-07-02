@@ -6,6 +6,7 @@
 #include "crypto.h"
 #include "ctap_client_pin.h"
 #include "ctap_errors.h"
+#include "ctap_parse.h"
 #include "device.h"
 
 extern struct _getAssertionState getAssertionState;
@@ -20,10 +21,8 @@ CtapStatus ctap_reset(void)
 	}
 #endif
 
-	CtapStatus ret = ctap2_user_presence_test();
-	if (ret.value != CTAP2_OK) {
-		return (CtapStatus){ret.value};
-	}
+	CtapStatus ctap_ret = ctap2_user_presence_test();
+	ctap_check_retr(ctap_ret);
 
 	ctap_state_init();
 

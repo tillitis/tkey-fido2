@@ -322,9 +322,8 @@ find_supported_pubkey_credential_param(CTAP_makeCredential *MC, CborValue *val)
 	for (i = 0; i < arr_length; i++) {
 		ctap_ret =
 		    parse_pubkey_credential_params(&arr, &credtype, &algtype);
-		if (ctap_ret.value != CTAP2_OK) {
-			return ctap_ret;
-		}
+		ctap_check_retr(ctap_ret);
+
 		cbor_ret = cbor_value_advance(&arr);
 		cbor_check_ret(cbor_ret);
 	}
@@ -661,9 +660,8 @@ static CtapStatus parse_relying_party_entity(struct rpId *rp, CborValue *val)
 
 		if (strcmp(key, "id") == 0) {
 			ctap_ret = ctap_parse_rp_id(rp, &map);
-			if (ctap_ret.value != CTAP2_OK) {
-				return ctap_ret;
-			}
+			ctap_check_retr(ctap_ret);
+
 		} else if (strcmp(key, "name") == 0) {
 			sz = RP_NAME_LIMIT;
 			cbor_ret = cbor_value_copy_text_string(
