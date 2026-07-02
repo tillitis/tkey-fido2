@@ -18,6 +18,7 @@
 
 #define HID_PACKET_SIZE 64
 #define CMD_RESET 0xFE
+#define FLASH_ERROR_DELAY_MS 500
 
 // clang-format off
 //static volatile uint32_t *cdi           = (volatile uint32_t *) TK1_MMIO_TK1_CDI_FIRST;
@@ -32,6 +33,7 @@ static void appreply_nok(struct frame_header hdr);
 static uint8_t genhdr(uint8_t id, uint8_t endpoint, uint8_t status,
 		      enum frame_cmdlen len);
 static void reset(uint8_t reset_type, uint8_t boot_verifier_action);
+static void error_signal_and_exit_app(uint8_t err);
 
 int main(void)
 {
@@ -68,7 +70,10 @@ int main(void)
 	    0);
 	// clang-format on
 
-	device_init();
+	uint8_t err = device_init();
+	if (err != 0) {
+		error_signal_and_exit_app(err);
+	}
 
 	memset(hidmsg, 0, sizeof(hidmsg));
 
@@ -206,4 +211,21 @@ static void reset(uint8_t reset_type, uint8_t boot_verifier_action)
 	rst.next_app_data[0] = boot_verifier_action;
 
 	sys_reset(&rst, 1);
+}
+
+// Signals the error by flashing the LED the number of times as the error value.
+// Then resets into the boot verifier command mode.
+static void error_signal_and_exit_app(uint8_t err)
+{
+	for (uint8_t i = 0; i < err; i++) {
+		led_set(LED_RED);
+		delay(FLASH_ERROR_DELAY_MS);
+		led_set(LED_BLACK);
+		delay(FLASH_ERROR_DELAY_MS);
+	}
+	// Keep debug output after blink to increase the chance that the
+	// USB-controller is ready
+	printf2(TAG_ERR, "device_init failed (%d)\n", err);
+	delay(200);
+	reset(START_FLASH0, 1);
 }

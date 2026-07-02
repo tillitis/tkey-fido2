@@ -10,8 +10,6 @@
 #include "rng.h"
 #include "timer.h"
 
-#include "fs.h"
-
 // clang-format off
 static volatile uint32_t *timer =           (volatile uint32_t *)TK1_MMIO_TIMER_TIMER;
 static volatile uint32_t *timer_prescaler = (volatile uint32_t *)TK1_MMIO_TIMER_PRESCALER;
@@ -26,10 +24,6 @@ void hw_init(void)
 	init_usb();
 #endif
 	rng_init();
-
-	if (fs_init() != 0) {
-		assert(1 == 2);
-	}
 }
 
 void init_millisecond_timer(void)

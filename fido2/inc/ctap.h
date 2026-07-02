@@ -254,7 +254,7 @@ size_t ctap_encode_der_sig(uint8_t const *const in_sigbuf,
 void ctap_flush_state(void);
 size_t ctap_get_credential_id_size(int type);
 void ctap_increment_rk_store(void);
-void ctap_init(void);
+int ctap_init(void);
 CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 			       uint8_t *rp_id_lookup, uint8_t *auth_data_buf,
 			       size_t *len, CTAP_credInfo *credInfo,

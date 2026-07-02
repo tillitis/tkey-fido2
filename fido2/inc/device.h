@@ -202,7 +202,7 @@ int ctap_overwrite_rk(const CTAP_residentKey *rk);
  */
 void device_wink(void);
 
-void device_init(void);
+uint8_t device_init(void);
 void usbhid_init(void);
 void usbhid_close(void);
 int usbhid_recv(uint8_t *msg);

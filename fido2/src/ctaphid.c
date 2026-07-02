@@ -80,7 +80,6 @@ void ctaphid_init(void)
 {
 	state = IDLE;
 	buffer_reset();
-	// ctap_reset_state();
 }
 
 static uint32_t get_new_cid(void)

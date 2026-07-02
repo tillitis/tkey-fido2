@@ -78,15 +78,30 @@ void device_reboot(void)
 	assert(1 == 2);
 }
 
-void device_init(void)
+// Initializes the device
+// Returns zero on success.
+// On error it returns:
+// 2: file system corrupted and non-recoverable
+// 3: app is not allowed to start, wrong version
+uint8_t device_init(void)
 {
 	hw_init();
-	// usbhid_init();
 	ctaphid_init();
-	ctap_init();
+
+	// fs_init should come before ctap_init
+	if (fs_init() != 0) {
+		return 2;
+	}
+
+	if (ctap_init() < 0) {
+		return 3;
+	}
 
 	// For now make make sure the folder RK exists.
-	fs_create_dir("rk");
+	if (fs_create_dir("rk")) {
+		return 2;
+	}
+	return 0;
 }
 
 void usbhid_init(void)

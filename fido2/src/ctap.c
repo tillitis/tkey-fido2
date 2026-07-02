@@ -319,7 +319,8 @@ void ctap_increment_rk_store(void)
 }
 
 //  Run ctap related power-up procedures (init pinToken, generate shared secret)
-void ctap_init(void)
+//  Returns zero on success, -1 if the app is not allowed to start.
+int ctap_init(void)
 {
 	app_version_t app_version = version_get_version();
 	printf1(TAG_GREEN, "Current app version: %d.%d.%d\n", app_version.major,
@@ -346,11 +347,7 @@ void ctap_init(void)
 
 	if (ret < 0) {
 		printf1(TAG_ERR, "App version not allowed to start\n");
-		// TODO: Asses the right response
-		led_set(LED_RED);
-		while (1) {
-			;
-		}
+		return -1;
 	} else if (ret > 0) {
 		printf1(TAG_GREEN, "App version update\n");
 		// If any data migration is needed, it should typically be
@@ -374,6 +371,7 @@ void ctap_init(void)
 	}
 
 	ctap_client_pin_initialize();
+	return 0;
 }
 
 CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
