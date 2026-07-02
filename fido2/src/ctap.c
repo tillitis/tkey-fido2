@@ -541,7 +541,7 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 {
 	CborEncoder encoder;
 	memset(&encoder, 0, sizeof(CborEncoder));
-	CtapStatus status = (CtapStatus){CTAP2_OK};
+	CtapStatus ctap_ret = (CtapStatus){CTAP2_OK};
 	uint8_t cmd = *pkt_raw;
 	pkt_raw++;
 	length--;
@@ -562,11 +562,11 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 	case CTAP_CREDENTIAL_MANAGEMENT:
 	case CTAP_CREDENTIAL_MANAGEMENT_PRE:
 		if (ctap_client_pin_is_locked()) {
-			status = (CtapStatus){CTAP2_ERR_PIN_BLOCKED};
+			ctap_ret = (CtapStatus){CTAP2_ERR_PIN_BLOCKED};
 			goto done;
 		}
 		if (ctap_client_pin_is_boot_locked()) {
-			status = (CtapStatus){CTAP2_ERR_PIN_AUTH_BLOCKED};
+			ctap_ret = (CtapStatus){CTAP2_ERR_PIN_AUTH_BLOCKED};
 			goto done;
 		}
 		break;
@@ -576,7 +576,7 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 	case CTAP_MAKE_CREDENTIAL:
 		printf1(TAG_CTAP, "CTAP_MAKE_CREDENTIAL\n");
 		timestamp();
-		status = ctap_make_credential(&encoder, pkt_raw, length);
+		ctap_ret = ctap_make_credential(&encoder, pkt_raw, length);
 		printf1(TAG_TIME, "make_credential time: %d ms\n", timestamp());
 
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
@@ -586,7 +586,7 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 	case CTAP_GET_ASSERTION:
 		printf1(TAG_CTAP, "CTAP_GET_ASSERTION\n");
 		timestamp();
-		status = ctap_get_assertion(&encoder, pkt_raw, length);
+		ctap_ret = ctap_get_assertion(&encoder, pkt_raw, length);
 		printf1(TAG_TIME, "get_assertion time: %d ms\n", timestamp());
 
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
@@ -597,7 +597,7 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 
 	case CTAP_GET_INFO:
 		printf1(TAG_CTAP, "CTAP_GET_INFO\n");
-		status = ctap_get_info(&encoder);
+		ctap_ret = ctap_get_info(&encoder);
 
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
@@ -606,7 +606,7 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 
 	case CTAP_CLIENT_PIN:
 		printf1(TAG_CTAP, "CTAP_CLIENT_PIN\n");
-		status = ctap_client_pin(&encoder, pkt_raw, length);
+		ctap_ret = ctap_client_pin(&encoder, pkt_raw, length);
 
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 		dump_hex1(TAG_DUMP, buf, resp->length);
@@ -614,17 +614,17 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 
 	case CTAP_RESET:
 		printf1(TAG_CTAP, "CTAP_RESET\n");
-		status = ctap_reset();
+		ctap_ret = ctap_reset();
 		break;
 
 	case CTAP_GET_NEXT_ASSERTION:
 		printf1(TAG_CTAP, "CTAP_NEXT_ASSERTION\n");
 		if (getAssertionState.lastcmd == CTAP_GET_ASSERTION) {
-			status = ctap_get_next_assertion(&encoder);
+			ctap_ret = ctap_get_next_assertion(&encoder);
 			resp->length =
 			    cbor_encoder_get_buffer_size(&encoder, buf);
 			dump_hex1(TAG_DUMP, buf, resp->length);
-			if (status.value == CTAP2_OK) {
+			if (ctap_ret.value == CTAP2_OK) {
 				cmd = CTAP_GET_ASSERTION; // allow for next
 							  // assertion
 			}
@@ -633,14 +633,15 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 			    TAG_ERR,
 			    "unwanted GET_NEXT_ASSERTION.  lastcmd == 0x%02x\n",
 			    getAssertionState.lastcmd);
-			status = (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
+			ctap_ret = (CtapStatus){CTAP2_ERR_NOT_ALLOWED};
 		}
 		break;
 
 	case CTAP_CREDENTIAL_MANAGEMENT:
 	case CTAP_CREDENTIAL_MANAGEMENT_PRE:
 		printf1(TAG_CTAP, "CTAP_CREDENTIAL_MANAGEMENT\n");
-		status = ctap_credential_management(&encoder, pkt_raw, length);
+		ctap_ret =
+		    ctap_credential_management(&encoder, pkt_raw, length);
 
 		resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
@@ -649,14 +650,14 @@ CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp)
 
 	case CTAP_SELECTION:
 		printf1(TAG_CTAP, "CTAP_AUTHENTICATOR_SELECTION\n");
-		status = ctap2_user_presence_test();
-		if (status.value != CTAP2_OK) {
-			status = (CtapStatus){CTAP2_ERR_USER_ACTION_TIMEOUT};
+		ctap_ret = ctap2_user_presence_test();
+		if (ctap_ret.value != CTAP2_OK) {
+			ctap_ret = (CtapStatus){CTAP2_ERR_USER_ACTION_TIMEOUT};
 		}
 		break;
 
 	default:
-		status = (CtapStatus){CTAP1_ERR_INVALID_COMMAND};
+		ctap_ret = (CtapStatus){CTAP1_ERR_INVALID_COMMAND};
 		printf2(TAG_ERR, "Error, invalid cmd: 0x%02x\n", cmd);
 	}
 
@@ -664,15 +665,15 @@ done:
 	device_set_status(CTAPHID_STATUS_IDLE);
 	getAssertionState.lastcmd = cmd;
 
-	if (status.value != CTAP2_OK) {
+	if (ctap_ret.value != CTAP2_OK) {
 		resp->length = 0;
 	}
 
 	printf1(TAG_CTAP,
 		"CBOR output structure: %d bytes. CTAP status: %s (0x%02x)\n",
-		resp->length, ctap_error_string(status), status.value);
+		resp->length, ctap_error_string(ctap_ret), ctap_ret.value);
 
-	return status;
+	return ctap_ret;
 }
 
 void ctap_response_init(CTAP_RESPONSE *resp)
