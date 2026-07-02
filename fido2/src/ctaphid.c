@@ -501,8 +501,6 @@ extern void _cbor_check_ret(CborError ret, int line, const char *filename);
 uint8_t ctaphid_custom_command(size_t len, CTAP_RESPONSE *ctap_resp,
 			       CTAPHID_WRITE_BUFFER *wb);
 
-extern void solo_lock_if_not_already(void);
-
 uint8_t ctaphid_handle_packet(uint8_t *pkt_raw)
 {
 	uint8_t cmd = 0;
