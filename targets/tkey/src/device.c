@@ -247,10 +247,6 @@ int ctap_user_presence_test(uint32_t up_delay)
 	uint32_t time;
 	bool led_on;
 
-#ifdef AUTO_TOUCH
-	return 1;
-#endif
-
 	*touch = 0;
 	do {
 		if (*touch & (1 << TK1_MMIO_TOUCH_STATUS_EVENT_BIT)) {
