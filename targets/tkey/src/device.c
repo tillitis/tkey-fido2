@@ -59,7 +59,7 @@ uint32_t millis(void)
 
 void device_set_status(uint8_t status)
 {
-	if (status != CTAPHID_STATUS_IDLE && __device_status != status) {
+	if (status != CTAPHID_STATUS_IDLE) {
 		ctaphid_update_status(status);
 	}
 	__device_status = status;
@@ -255,8 +255,12 @@ int ctap_user_presence_test(uint32_t up_delay)
 	do {
 		if (*touch & (1 << TK1_MMIO_TOUCH_STATUS_EVENT_BIT)) {
 			led_set(LED_BLACK);
+			device_set_status(CTAPHID_STATUS_PROCESSING);
+
 			return 1;
 		}
+
+		device_set_status(CTAPHID_STATUS_UPNEEDED);
 
 		time = millis();
 		led_on = ((time - start_time) / 100 % 2);

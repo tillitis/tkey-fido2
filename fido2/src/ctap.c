@@ -46,7 +46,6 @@ static void truncate_rpid(uint8_t *stored_rpid, uint8_t *stored_len,
 
 CtapStatus ctap2_user_presence_test(void)
 {
-	device_set_status(CTAPHID_STATUS_UPNEEDED);
 	int ret = ctap_user_presence_test(CTAP2_UP_DELAY_MS);
 	if (ret > 0) {
 		return (CtapStatus){CTAP2_OK};
