@@ -61,6 +61,7 @@ typedef enum {
     CTAP2_ERR_EXTENSION_FIRST         = 0xE0,
     CTAP2_ERR_EXTENSION_LAST          = 0xEF,
     CTAP2_ERR_VENDOR_FIRST            = 0xF0,
+    CTAP2_ERR_USER_PRESENCE_DISABLED  = 0xF1,
     CTAP2_ERR_VENDOR_LAST             = 0xFF,
 } CtapError;
 // clang-format on

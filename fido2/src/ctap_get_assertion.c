@@ -46,8 +46,6 @@ CtapStatus ctap_get_assertion(CborEncoder *encoder, uint8_t *request,
 
 	if (GA.pinUvAuthParam_empty) {
 		ctap_ret = ctap2_user_presence_test();
-		// TODO: should return CTAP2_ERR_OPERATION_DENIED if declined or
-		// timeout. see 6.2.2.2
 		ctap_check_retr(ctap_ret);
 
 		return ctap_client_pin_is_set() == 1

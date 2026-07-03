@@ -47,12 +47,14 @@ static void truncate_rpid(uint8_t *stored_rpid, uint8_t *stored_len,
 CtapStatus ctap2_user_presence_test(void)
 {
 	int ret = ctap_user_presence_test(CTAP2_UP_DELAY_MS);
-	if (ret > 0) {
+	if (ret == 2) {
+		return (CtapStatus){CTAP2_ERR_USER_PRESENCE_DISABLED};
+	} else if (ret == 1) {
 		return (CtapStatus){CTAP2_OK};
-	} else if (ret < 0) {
+	} else if (ret == -1) {
 		return (CtapStatus){CTAP2_ERR_KEEPALIVE_CANCEL};
 	} else {
-		return (CtapStatus){CTAP2_ERR_ACTION_TIMEOUT};
+		return (CtapStatus){CTAP2_ERR_OPERATION_DENIED};
 	}
 }
 
@@ -399,13 +401,13 @@ CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 
 	count = ctap_auth_data_update_count(&authData->head);
 
-	CtapStatus but;
+	CtapStatus ctap_ret;
 
-	but = ctap2_user_presence_test();
-	if (CTAP2_ERR_PROCESSING == but.value) {
+	ctap_ret = ctap2_user_presence_test();
+	if (CTAP2_ERR_USER_PRESENCE_DISABLED == ctap_ret.value) {
 		authData->head.flags = (0 << 0); // User presence disabled
 	} else {
-		ctap_check_retr(but);
+		ctap_check_retr(ctap_ret);
 		authData->head.flags = (1 << 0); // User presence
 	}
 

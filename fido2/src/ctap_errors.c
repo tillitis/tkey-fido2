@@ -111,6 +111,8 @@ const char *ctap_error_string(CtapStatus error)
 		return "CTAP2_ERR_EXTENSION_LAST";
 	case CTAP2_ERR_VENDOR_FIRST:
 		return "CTAP2_ERR_VENDOR_FIRST";
+	case CTAP2_ERR_USER_PRESENCE_DISABLED:
+		return "CTAP2_ERR_USER_PRESENCE_DISABLED";
 	case CTAP2_ERR_VENDOR_LAST:
 		return "CTAP2_ERR_VENDOR_LAST";
 	default:
