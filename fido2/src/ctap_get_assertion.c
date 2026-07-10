@@ -221,7 +221,7 @@ CtapStatus ctap_get_assertion_cbor_encode_assertion_response(
 	cbor_check_ret(cbor_ret);
 
 	ctap_ret = ctap_cbor_encode_credential_descriptor(
-	    map, &cred->credential, cred->type);
+	    map, &cred->credential.id, cred->type);
 	ctap_check_retr(ctap_ret);
 
 	{

@@ -233,7 +233,7 @@ struct _getAssertionState {
 CtapStatus ctap2_user_presence_test(void);
 uint32_t ctap_auth_data_update_count(CTAP_authDataHeader *authData);
 CtapStatus ctap_cbor_encode_credential_descriptor(CborEncoder *map,
-						  struct Credential *cred,
+						  CredentialId *cred_id,
 						  PublicKeyCredentialType type);
 CtapStatus ctap_cbor_encode_user_entity(CborEncoder *map, CTAP_userEntity *user,
 					int is_verified);

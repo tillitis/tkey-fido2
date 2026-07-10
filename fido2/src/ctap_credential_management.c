@@ -292,8 +292,7 @@ cbor_encode_enumerate_credential(CborEncoder *encoder,
 	cbor_check_ret(cbor_ret);
 	{
 		ctap_ret = ctap_cbor_encode_credential_descriptor(
-		    &map, (struct Credential *)enumerated_rk,
-		    PUB_KEY_CRED_PUB_KEY);
+		    &map, &enumerated_rk->id, PUB_KEY_CRED_PUB_KEY);
 		ctap_check_retr(ctap_ret);
 	}
 

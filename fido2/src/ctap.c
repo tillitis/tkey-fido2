@@ -76,7 +76,7 @@ uint32_t ctap_auth_data_update_count(CTAP_authDataHeader *authData)
 }
 
 CtapStatus ctap_cbor_encode_credential_descriptor(CborEncoder *map,
-						  struct Credential *cred,
+						  CredentialId *cred_id,
 						  PublicKeyCredentialType type)
 {
 	CborEncoder desc;
@@ -90,7 +90,7 @@ CtapStatus ctap_cbor_encode_credential_descriptor(CborEncoder *map,
 		cbor_check_ret(cbor_ret);
 
 		cbor_ret = cbor_encode_byte_string(
-		    &desc, (uint8_t *)&cred->id,
+		    &desc, (uint8_t *)cred_id,
 		    ctap_get_credential_id_size((int)type));
 		cbor_check_ret(cbor_ret);
 	}
