@@ -81,92 +81,92 @@ int main(void)
 		enum ioend ep;
 		uint8_t available;
 
-		if (readselect(IO_CDC | IO_FIDO, false, &ep, &available) != 0) {
+		if (readselect(IO_CDC | IO_FIDO, true, &ep, &available) != 0) {
 			assert(1 == 2);
 		}
 
-		if (ep == IO_CDC) {
-			if (available >= 1) {
-				uint8_t c;
-				bool fail = false;
-				read(IO_CDC, &c, 1, 1);
-				struct frame_header hdr = {0};
-				if (frame_parse_hdr(c, &hdr) != 0) {
-					fail = true;
-				}
-
-				// Update available bytes
-				readselect(IO_CDC, true, &ep, &available);
-
-				// Frame parsing failed, discard and continue
-				if (fail) {
-					discard(IO_CDC, available);
-					continue;
-				}
-
-				// Well-behaved apps are supposed to check for a
-				// client attempting to probe for firmware. In
-				// that case destination is firmware and we just
-				// reply NOK, discarding all bytes already read.
-				if (hdr.f_domain == DST_FW) {
-					appreply_nok(hdr);
-					debug_puts("Responded NOK to message "
-						   "meant for FW\n");
-					discard(IO_CDC, available);
-					continue;
-				}
-
-				// Is it for us? If not, continue after having
-				// discarded all bytes.
-				if (hdr.f_domain != DST_SW) {
-					debug_puts("Message not meant for app. "
-						   "Endpoint was 0x");
-					debug_puthex((uint8_t)hdr.f_domain);
-					debug_lf();
-					discard(IO_CDC, available);
-					continue;
-				}
-
-				// For now, only accept a command of length 4
-				// (reset command)
-				if ((hdr.len != 4) || (available != 4)) {
-					discard(IO_CDC, available);
-					continue;
-				}
-
-				uint8_t buf[available];
-				memset(buf, 0, available);
-
-				read(IO_CDC, buf, available, available);
-				switch (buf[0]) {
-				case CMD_RESET:
-					reset(buf[1], buf[2]);
-					break;
-				default:
-					continue;
-					break;
-				}
-				printf2(TAG_ERR, "Device not reset\n");
-				while (1)
-					;
+		if ((ep == IO_CDC) && (available >= 1)) {
+			uint8_t c;
+			bool fail = false;
+			read(IO_CDC, &c, 1, 1);
+			struct frame_header hdr = {0};
+			if (frame_parse_hdr(c, &hdr) != 0) {
+				fail = true;
 			}
+
+			// Update available bytes
+			readselect(IO_CDC, true, &ep, &available);
+
+			// Frame parsing failed, discard and continue
+			if (fail) {
+				discard(IO_CDC, available);
+				continue;
+			}
+
+			// Well-behaved apps are supposed to check for a
+			// client attempting to probe for firmware. In
+			// that case destination is firmware and we just
+			// reply NOK, discarding all bytes already read.
+			if (hdr.f_domain == DST_FW) {
+				appreply_nok(hdr);
+				debug_puts("Responded NOK to message "
+					   "meant for FW\n");
+				discard(IO_CDC, available);
+				continue;
+			}
+
+			// Is it for us? If not, continue after having
+			// discarded all bytes.
+			if (hdr.f_domain != DST_SW) {
+				debug_puts("Message not meant for app. "
+					   "Endpoint was 0x");
+				debug_puthex((uint8_t)hdr.f_domain);
+				debug_lf();
+				discard(IO_CDC, available);
+				continue;
+			}
+
+			// For now, only accept a command of length 4
+			// (reset command)
+			if ((hdr.len != 4) || (available != 4)) {
+				discard(IO_CDC, available);
+				continue;
+			}
+
+			uint8_t buf[available];
+			memset(buf, 0, available);
+
+			read(IO_CDC, buf, available, available);
+			switch (buf[0]) {
+			case CMD_RESET:
+				reset(buf[1], buf[2]);
+				break;
+			default:
+				continue;
+				break;
+			}
+			printf2(TAG_ERR, "Device not reset\n");
+			while (1)
+				;
 		}
 
-		if (available != HID_PACKET_SIZE) {
-			// Discard data
-			printf2(TAG_ERR,
-				"Got incomplete HID frame, discard.\n");
-			read(IO_FIDO, data, sizeof(data), available);
-			continue;
-		}
+		if ((ep == IO_FIDO) && (available >= 1)) {
+			if (available != HID_PACKET_SIZE) {
+				// Discard data
+				printf2(TAG_ERR, "Got incomplete HID "
+						 "frame, discard.\n");
+				discard(IO_FIDO, available);
+				continue;
+			}
 
-		if (read(IO_FIDO, data, sizeof(data), available) !=
-		    HID_PACKET_SIZE) {
-			assert(1 == 2);
-		}
+			if (read(IO_FIDO, data, sizeof(data), available) !=
+			    HID_PACKET_SIZE) {
+				assert(1 == 2);
+			}
 
-		if (fifo_hidmsg_add(data) != 0) {
-			return -1;
+			if (fifo_hidmsg_add(data) != 0) {
+				assert(1 == 2);
+			}
 		}
 
 		if (usbhid_recv(hidmsg) > 0) {
