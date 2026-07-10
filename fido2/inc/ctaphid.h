@@ -46,7 +46,12 @@
 
 #define CTAPHID_BROADCAST_CID 0xffffffff
 
-#define CTAPHID_BUFFER_SIZE 7609
+// For a 1200-byte CBOR payload (maxMsgSize in GetInfo)
+// First (init) packet carries: 64 - 7 = 57 bytes of payload
+// Each continuation packet carries: 64 - 5 = 59 bytes of payload
+// Packets needed: 1 init + ceil((1200 - 57) / 59) = 1 + 20 continuation packets = 21 packets total
+// Total buffer: 21 × 64 = 1344 bytes
+#define CTAPHID_BUFFER_SIZE 1344
 
 #define CAPABILITY_WINK 0x01
 #define CAPABILITY_LOCK 0x02
