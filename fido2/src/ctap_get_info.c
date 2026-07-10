@@ -28,12 +28,9 @@ CtapStatus ctap_get_info(CborEncoder *encoder)
 		cbor_ret = cbor_encode_uint(&map, GI_Resp_versions);
 		cbor_check_ret(cbor_ret);
 		{
-			cbor_ret = cbor_encoder_create_array(&map, &array, 3);
+			cbor_ret = cbor_encoder_create_array(&map, &array, 2);
 			cbor_check_ret(cbor_ret);
 			{
-				cbor_ret =
-				    cbor_encode_text_stringz(&array, "U2F_V2");
-				cbor_check_ret(cbor_ret);
 				cbor_ret = cbor_encode_text_stringz(&array,
 								    "FIDO_2_0");
 				cbor_check_ret(cbor_ret);
