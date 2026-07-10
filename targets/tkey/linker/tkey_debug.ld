@@ -6,9 +6,11 @@
 OUTPUT_ARCH( "riscv" )
 ENTRY(_start)
 
+STACK_SIZE = 11K; /* Define stack size */
+
 MEMORY
 {
-	RAM (rwx)   : ORIGIN = 0x40000000, LENGTH = 0x100000 /* 1 MB */
+	RAM (rwx)   : ORIGIN = 0x40000000, LENGTH = 0x20000 /* 128 KB */
 }
 
 SECTIONS
@@ -18,9 +20,19 @@ SECTIONS
 		*(.text.init)
 	} >RAM
 
+	.stack (NOLOAD) :
+	{
+		. = ALIGN(16);
+		_sstack = .;
+		. += STACK_SIZE;
+		. = ALIGN(16);
+		_estack = .;
+	} >RAM
+
 	.text :
 	{
 		. = ALIGN(4);
+		_stext = .;
 		*(.text)           /* .text sections (code) */
 		*(.text*)          /* .text* sections (code) */
 		*(.rodata)         /* .rodata sections (constants, strings, etc.) */
@@ -39,10 +51,16 @@ SECTIONS
 		. = ALIGN(4);
 		*(.data)           /* .data sections */
 		*(.data*)          /* .data* sections */
-		*(.sdata)          /* .sdata sections */
-		*(.sdata*)         /* .sdata* sections */
 		. = ALIGN(4);
 		_edata = .;
+	} >RAM
+
+	.sdata :
+	{
+		. = ALIGN(4);
+		__global_pointer$ = . + 0x800; /* center of small-data region */
+		*(.sdata)          /* .sdata sections */
+		*(.sdata*)         /* .sdata* sections */
 	} >RAM
 
 	.flag :
@@ -51,7 +69,7 @@ SECTIONS
 	} >RAM
 
 	/* Uninitialized data section */
-	.bss :
+	.bss (NOLOAD) :
 	{
 		. = ALIGN(4);
 		_sbss = .;
@@ -65,7 +83,4 @@ SECTIONS
 		_ebss = .;
 	} >RAM
 
-	_estack = ORIGIN(RAM) + LENGTH(RAM) - 16;
-
-	/* libcrt0/crt0.S inits stack to start just below end of RAM */
 }

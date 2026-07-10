@@ -30,12 +30,10 @@ TARGET_ASFLAGS := \
                   -mcmodel=medany \
                   -ffunction-sections \
                   -fdata-sections \
-                  -fomit-frame-pointer \
-                  -mno-relax
+                  -fomit-frame-pointer
 
+TARGET_ASFLAGS += -mno-relax
 TARGET_ASFLAGS += -Os
-#TARGET_ASFLAGS += -O0
-#TARGET_ASFLAGS += -g3
 
 # Target-specific CFLAGS
 TARGET_CFLAGS := \
@@ -52,7 +50,6 @@ TARGET_CFLAGS := \
                  -fno-builtin-putchar \
                  -ffast-math \
                  -fno-common \
-                 -mno-relax \
                  -Wall \
                  -Werror=implicit-function-declaration
 
@@ -60,10 +57,8 @@ TARGET_CFLAGS := \
 #TARGET_CFLAGS += -pedantic       # Gives lots of new warnings
 #TARGET_CFLAGS += -std=c99        # Gives errors
 
+TARGET_CFLAGS += -mno-relax
 TARGET_CFLAGS += -Os
-# TARGET_CFLAGS += -Os
-#TARGET_CFLAGS += -O0
-#TARGET_CFLAGS += -g3
 TARGET_CFLAGS += -flto
 
 # Target-specific CXXFLAGS
@@ -78,7 +73,7 @@ TARGET_LDFLAGS := \
                   -static \
                   -nostdlib \
                   -flto \
-                  -fuse-ld=$(TARGET_LD) \
+                  -fuse-ld=$(TARGET_LD) \
                   -Wl,--cref,-M \
                   -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
                   -Wl,--gc-sections
@@ -97,8 +92,6 @@ TARGET_OBJDUMPFLAGS := \
 TARGET_DEFINES := \
                   -DuECC_PLATFORM=0
 
-#TARGET_DEFINES += -DTKEY_DEBUG
-#TARGET_DEFINES += -DQEMU_DEBUG
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \

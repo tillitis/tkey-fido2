@@ -1,7 +1,7 @@
 # Target file
 
 # Target name
-TARGET := tkey_uecc_debug.a
+TARGET := tkey_uecc_qemu.a
 
 # Programs to use for the target
 TARGET_AR      := llvm-ar
@@ -32,8 +32,9 @@ TARGET_ASFLAGS := \
                   -fdata-sections \
                   -fomit-frame-pointer
 
-TARGET_ASFLAGS += -mrelax
-TARGET_ASFLAGS += -Oz
+TARGET_ASFLAGS += -mno-relax
+TARGET_ASFLAGS += -O0
+TARGET_ASFLAGS += -g3
 
 # Target-specific CFLAGS
 TARGET_CFLAGS := \
@@ -57,9 +58,9 @@ TARGET_CFLAGS := \
 #TARGET_CFLAGS += -pedantic       # Gives lots of new warnings
 #TARGET_CFLAGS += -std=c99        # Gives errors
 
-TARGET_CFLAGS += -mrelax
-TARGET_CFLAGS += -Oz
-TARGET_CFLAGS += -flto
+TARGET_CFLAGS += -mno-relax
+TARGET_CFLAGS += -O0
+TARGET_CFLAGS += -g3
 
 # Target-specific CXXFLAGS
 TARGET_CXXFLAGS :=
@@ -78,8 +79,6 @@ TARGET_LDFLAGS := \
                   -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
                   -Wl,--gc-sections
 
-TARGET_LDFLAGS += -Wl,--icf=safe
-
 # Target-specific OBJCOPY FLAGS
 TARGET_OBJCOPYFLAGS := \
                        --input-target=elf32-littleriscv \
@@ -94,7 +93,7 @@ TARGET_OBJDUMPFLAGS := \
 TARGET_DEFINES := \
                   -DuECC_PLATFORM=0
 
-TARGET_DEFINES += -DTKEY_DEBUG
+TARGET_DEFINES += -DQEMU_DEBUG
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \

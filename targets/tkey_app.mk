@@ -80,12 +80,16 @@ TARGET_ASFLAGS := \
                   -ffunction-sections \
                   -fdata-sections \
                   -fomit-frame-pointer \
-                  -mno-relax
 
 ifdef QEMU
+TARGET_ASFLAGS += -mno-relax
 TARGET_ASFLAGS += -O0
 TARGET_ASFLAGS += -g3
+else ifdef DEBUG
+TARGET_ASFLAGS += -mrelax # tkey-libs should be built with the same flag
+TARGET_ASFLAGS += -Oz
 else
+TARGET_ASFLAGS += -mno-relax
 TARGET_ASFLAGS += -Os
 endif
 
@@ -104,7 +108,6 @@ TARGET_CFLAGS := \
                  -fno-builtin-putchar \
                  -ffast-math \
                  -fno-common \
-                 -mno-relax \
                  -Wall \
                  -Waddress-of-packed-member \
                  -Wconversion \
@@ -137,9 +140,15 @@ TARGET_CFLAGS := \
 #TARGET_CFLAGS += -std=c99        # Gives errors
 
 ifdef QEMU
+TARGET_CFLAGS += -mno-relax
 TARGET_CFLAGS += -O0
 TARGET_CFLAGS += -g3
+else ifdef DEBUG
+TARGET_CFLAGS += -mrelax # tkey-libs should be built with the same flag
+TARGET_CFLAGS += -Oz
+TARGET_CFLAGS += -flto
 else
+TARGET_CFLAGS += -mno-relax
 TARGET_CFLAGS += -Os
 TARGET_CFLAGS += -flto
 endif
@@ -155,11 +164,19 @@ TARGET_LDFLAGS := \
                   -mcmodel=medany \
                   -static \
                   -nostdlib \
-                  -flto \
                   -fuse-ld=$(TARGET_LD) \
                   -Wl,--cref,-M \
                   -Wl,-mllvm,-mattr=+c,-mllvm,-mattr=+zmmul \
                   -Wl,--gc-sections
+
+ifdef QEMU
+else ifdef DEBUG
+TARGET_LDFLAGS += -flto
+TARGET_LDFLAGS += -Wl,--icf=safe
+TARGET_LDFLAGS += -Wl,--relax-gp    # Enables GP-relative relaxation in lld
+else
+TARGET_LDFLAGS += -flto
+endif
 
 # Target-specific OBJCOPY FLAGS
 TARGET_OBJCOPYFLAGS := \
@@ -235,6 +252,9 @@ TARGET_EXT_LIBS := \
 ifdef QEMU
 TARGET_LINKER_SCRIPT := \
                         targets/tkey/linker/tkey_qemu.ld
+else ifdef DEBUG
+TARGET_LINKER_SCRIPT := \
+                        targets/tkey/linker/tkey_debug.ld
 else
 TARGET_LINKER_SCRIPT := \
                         targets/tkey/linker/tkey.ld
@@ -248,6 +268,8 @@ TARGET_POSTBUILD_CMD :=
 
 # Targets to build before this target is built
 ifdef QEMU
+TARGET_NEEDS_TARGETS := tkey_uecc_qemu.a
+else ifdef DEBUG
 TARGET_NEEDS_TARGETS := tkey_uecc_debug.a
 else
 TARGET_NEEDS_TARGETS := tkey_uecc.a
