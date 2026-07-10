@@ -89,7 +89,7 @@ int attestation_write_key(uint8_t *key, size_t key_size)
 	// Generate nonce
 	rng_get_bytes(att_key.nonce, ATTESTATION_NONCE_SIZE);
 	// Encrypt
-	const uint8_t *encryption_key = crypto_get_key_device_enc();
+	const uint8_t *encryption_key = crypto_get_key_attestation_enc();
 	crypto_aes256_ctr_xcrypt_buffer(encryption_key, att_key.nonce,
 					att_key.key_enc,
 					ATTESTATION_SIGN_KEY_SIZE);

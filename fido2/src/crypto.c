@@ -43,7 +43,8 @@ static att_key_t key_attest = {0};
 static bool attestation_available = false;
 static uint8_t key_attest_sign[ATTESTATION_SIGN_KEY_SIZE];
 
-static uint8_t key_device_enc[CRYPTO_KEY_LEN];
+static uint8_t key_attestation_enc[CRYPTO_KEY_LEN];
+static uint8_t key_pin_enc[CRYPTO_KEY_LEN];
 static uint8_t key_device_mac[CRYPTO_KEY_LEN];
 
 static uint8_t key_cred_priv[CRYPTO_KEY_LEN];
@@ -66,9 +67,14 @@ const uint8_t *crypto_get_key_hmac(void)
 	return key_hmac_ext;
 }
 
-const uint8_t *crypto_get_key_device_enc(void)
+const uint8_t *crypto_get_key_attestation_enc(void)
 {
-	return key_device_enc;
+	return key_attestation_enc;
+}
+
+const uint8_t *crypto_get_key_pin_enc(void)
+{
+	return key_pin_enc;
 }
 
 const uint8_t *crypto_get_key_device_mac(void)
@@ -111,10 +117,15 @@ void crypto_derive_device_keys(void)
 {
 	const uint8_t *device_secret = device_get_bound_secret();
 	// Generate device bound encryption key
-	static const uint8_t info_device_enc[] = "device_enc";
-	crypto_hkdf_expand_sha256(device_secret, info_device_enc,
-				  sizeof(info_device_enc), key_device_enc,
-				  sizeof(key_device_enc));
+	static const uint8_t info_attestation_enc[] = "att_enc";
+	crypto_hkdf_expand_sha256(
+	    device_secret, info_attestation_enc, sizeof(info_attestation_enc),
+	    key_attestation_enc, sizeof(key_attestation_enc));
+
+	static const uint8_t info_pin_enc[] = "pin_enc";
+	crypto_hkdf_expand_sha256(device_secret, info_pin_enc,
+				  sizeof(info_pin_enc), key_pin_enc,
+				  sizeof(key_pin_enc));
 
 	// Generate device bound mac key
 	static const uint8_t info_device_mac[] = "device_mac";
@@ -291,7 +302,7 @@ void crypto_ecc256_load_attestation_key(void)
 {
 	// Decrypt attestation key
 	memmove(key_attest_sign, key_attest.key_enc, ATTESTATION_SIGN_KEY_SIZE);
-	crypto_aes256_ctr_xcrypt_buffer(key_device_enc, key_attest.nonce,
+	crypto_aes256_ctr_xcrypt_buffer(key_attestation_enc, key_attest.nonce,
 					key_attest_sign,
 					ATTESTATION_SIGN_KEY_SIZE);
 

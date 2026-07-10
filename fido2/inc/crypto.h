@@ -14,7 +14,8 @@
 const uint8_t *crypto_get_key_mac(void);
 const uint8_t *crypto_get_key_meta(void);
 const uint8_t *crypto_get_key_hmac(void);
-const uint8_t *crypto_get_key_device_enc(void);
+const uint8_t *crypto_get_key_attestation_enc(void);
+const uint8_t *crypto_get_key_pin_enc(void);
 const uint8_t *crypto_get_key_device_mac(void);
 
 int secure_memeq(const void *a, const void *b, size_t n);

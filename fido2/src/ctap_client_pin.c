@@ -1036,7 +1036,7 @@ static void store_pin(uint8_t *pin, size_t len)
 	ctap_generate_rng(STATE.pin_hash_iv, STATE_PIN_HASH_IV_SIZE);
 
 	// Encrypt and store in state
-	const uint8_t *key = crypto_get_key_device_enc();
+	const uint8_t *key = crypto_get_key_pin_enc();
 	crypto_aes256_init(key, STATE.pin_hash_iv);
 	crypto_aes256_encrypt(pin_hash, STATE_PIN_HASH_SIZE);
 	memcpy(STATE.pin_hash_enc, pin_hash, STATE_PIN_HASH_SIZE);
@@ -1168,7 +1168,7 @@ static int verify_against_stored_pin(uint8_t *pin_hash)
 	uint8_t stored_pin[STATE_PIN_HASH_SIZE];
 	memcpy(stored_pin, STATE.pin_hash_enc, STATE_PIN_HASH_SIZE);
 
-	const uint8_t *key = crypto_get_key_device_enc();
+	const uint8_t *key = crypto_get_key_pin_enc();
 	crypto_aes256_init(key, STATE.pin_hash_iv);
 	crypto_aes256_decrypt(stored_pin, STATE_PIN_HASH_SIZE);
 	int ret = secure_memeq(pin_hash, stored_pin, STATE_PIN_HASH_SIZE);
