@@ -137,11 +137,12 @@ typedef struct {
 } __attribute__((packed)) CTAP_userEntity;
 
 typedef struct {
-	uint8_t tag[CREDENTIAL_TAG_SIZE];
+	uint8_t version;
 	uint8_t rp_id_lookup[CREDENTIAL_TAG_SIZE]; //  = hmac(key, rp_id_hash)
 	uint8_t nonce[CREDENTIAL_NONCE_SIZE];
 	uint8_t protected_metadata[CREDENTIAL_METADATA_SIZE];
 	uint32_t count;
+	uint8_t tag[CREDENTIAL_TAG_SIZE]; // mac over entire, should be last
 } __attribute__((packed)) CredentialId;
 
 struct __attribute__((packed)) Credential {
@@ -156,6 +157,7 @@ typedef struct {
 } __attribute__((packed)) rpEntity;
 
 typedef struct {
+	uint8_t version;
 	CredentialId id;
 	CTAP_userEntity user;
 
@@ -163,12 +165,11 @@ typedef struct {
 	rpEntity rp;
 	uint8_t user_id_lookup[CREDENTIAL_TAG_SIZE]; // hmac(key, id)
 	uint8_t rk_nonce[CREDENTIAL_NONCE_SIZE];
-	uint8_t rk_tag[CREDENTIAL_TAG_SIZE];
+	uint8_t rk_tag[CREDENTIAL_TAG_SIZE]; // mac of entire rk, should be last
 } __attribute__((packed)) CTAP_residentKey;
 
-#define RK_HMAC_SIZE                                                           \
-	(sizeof(CTAP_userEntity) + sizeof(rpEntity) + CREDENTIAL_TAG_SIZE +    \
-	 CREDENTIAL_NONCE_SIZE)
+// Entire RK except for the mac field
+#define RK_HMAC_SIZE (sizeof(CTAP_residentKey) - CREDENTIAL_TAG_SIZE)
 
 typedef struct {
 	PublicKeyCredentialType type;
@@ -259,7 +260,7 @@ CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 			       uint8_t *rp_id_lookup, uint8_t *auth_data_buf,
 			       size_t *len, CTAP_credInfo *credInfo,
 			       CTAP_extensions *extensions);
-void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
+void ctap_make_auth_tag(uint8_t *verison, uint8_t *rp_id_lookup, uint8_t *nonce,
 			uint8_t *metadata, uint32_t count, uint8_t *tag);
 CtapStatus ctap_request(uint8_t *pkt_raw, size_t length, CTAP_RESPONSE *resp);
 void ctap_response_init(CTAP_RESPONSE *resp);

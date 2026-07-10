@@ -910,9 +910,8 @@ static CtapStatus update_credential_user_info(CredentialId *id,
 	ctap_xcrypt_buf(rk_buf->rk_nonce, &rk_buf->user, &rk_buf->user,
 			sizeof(CTAP_userEntity) + sizeof(rpEntity));
 
-	// Make hmac over the reset of the rk, that we can later
-	// verify
-	ctap_compute_mac(&rk_buf->user, RK_HMAC_SIZE, rk_buf->rk_tag,
+	// Make hmac over the rk, that we can later verify
+	ctap_compute_mac(&rk_buf, RK_HMAC_SIZE, rk_buf->rk_tag,
 			 CREDENTIAL_TAG_SIZE);
 
 	// overwrite in flash

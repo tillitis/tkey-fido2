@@ -189,8 +189,8 @@ int8_t u2f_authenticate_credential(struct u2f_key_handle *kh,
 			printf1(TAG_U2F, "APPID does not match rpIdHash.\n");
 			return 0;
 		}
-		ctap_make_auth_tag(appid, cred->nonce, cred->protected_metadata,
-				   cred->count, tag);
+		ctap_make_auth_tag(&cred->version, appid, cred->nonce,
+				   cred->protected_metadata, cred->count, tag);
 
 		if (memcmp(cred->tag, tag, CREDENTIAL_TAG_SIZE) == 0) {
 			return 1;

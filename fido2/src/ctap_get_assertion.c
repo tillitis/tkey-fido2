@@ -350,9 +350,9 @@ static size_t build_filtered_credential_list(CTAP_getAssertion *GA,
 
 			// Verify credential mac
 			uint8_t local_tag[16];
-			ctap_make_auth_tag(rp_id_lookup, rk.id.nonce,
-					   rk.id.protected_metadata,
-					   rk.id.count, local_tag);
+			ctap_make_auth_tag(
+			    &rk.id.version, rp_id_lookup, rk.id.nonce,
+			    rk.id.protected_metadata, rk.id.count, local_tag);
 
 			if (memcmp(rk.id.tag, local_tag, CREDENTIAL_TAG_SIZE) !=
 			    0) {
@@ -382,8 +382,7 @@ static size_t build_filtered_credential_list(CTAP_getAssertion *GA,
 			}
 
 			// Verify mac over the residential key.
-			if (!ctap_verify_mac(rk.rk_tag, &rk.user,
-					     RK_HMAC_SIZE)) {
+			if (!ctap_verify_mac(rk.rk_tag, &rk, RK_HMAC_SIZE)) {
 				printf1(TAG_GREEN,
 					"rk failed mac verification\n");
 				continue;

@@ -206,7 +206,8 @@ int ctap_credential_belongs_to_rp(uint8_t *rp_id_lookup, uint8_t *rp_id_hash,
 		// Deliberately use the rp_id_lookup from the request, not the
 		// credential, to make sure this request comes from the right
 		// RP.
-		ctap_make_auth_tag(rp_id_lookup, desc->credential.id.nonce,
+		ctap_make_auth_tag(&desc->credential.id.version, rp_id_lookup,
+				   desc->credential.id.nonce,
 				   desc->credential.id.protected_metadata,
 				   desc->credential.id.count, tag);
 		return (secure_memeq(desc->credential.id.tag, tag,
@@ -448,13 +449,16 @@ CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 				CREDENTIAL_METADATA_SIZE);
 
 		authData->attest.id.count = count;
+		// Credential ID version
+		authData->attest.id.version = 0;
 
 		memmove(authData->attest.id.rp_id_lookup, rp_id_lookup,
 			CREDENTIAL_TAG_SIZE);
 
 		// Make a tag we can later check to make sure this is a token we
 		// made
-		ctap_make_auth_tag(authData->attest.id.rp_id_lookup,
+		ctap_make_auth_tag(&authData->attest.id.version,
+				   authData->attest.id.rp_id_lookup,
 				   authData->attest.id.nonce,
 				   authData->attest.id.protected_metadata,
 				   count, authData->attest.id.tag);
@@ -465,6 +469,8 @@ CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 			if (STATE.rk_stored >= ctap_max_number_of_rks()) {
 				return (CtapStatus){CTAP2_ERR_KEY_STORE_FULL};
 			}
+			// Version of the residential key
+			rk.version = 0x00;
 			// Fill credential
 			memmove(&rk.id, &authData->attest.id,
 				sizeof(CredentialId));
@@ -491,9 +497,8 @@ CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 					sizeof(CTAP_userEntity) +
 					    sizeof(rpEntity));
 
-			// Make hmac over the reset of the rk, that we can later
-			// verify
-			ctap_compute_mac(&rk.user, RK_HMAC_SIZE, rk.rk_tag,
+			// Make hmac over the rk, that we can later verify
+			ctap_compute_mac(&rk, RK_HMAC_SIZE, rk.rk_tag,
 					 CREDENTIAL_TAG_SIZE);
 
 			int ret = ctap_overwrite_rk(&rk);
@@ -521,7 +526,7 @@ CtapStatus ctap_make_auth_data(struct rpId *rp, uint8_t *rp_id_hash,
 	return (CtapStatus){CTAP2_OK};
 }
 
-void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
+void ctap_make_auth_tag(uint8_t *version, uint8_t *rp_id_lookup, uint8_t *nonce,
 			uint8_t *metadata, uint32_t count, uint8_t *tag)
 {
 	uint8_t hashbuf[32];
@@ -530,6 +535,7 @@ void ctap_make_auth_tag(uint8_t *rp_id_lookup, uint8_t *nonce,
 	const uint8_t *mac_key = crypto_get_key_mac();
 
 	crypto_sha256_hmac_init(mac_key, CRYPTO_KEY_LEN);
+	crypto_sha256_update(version, 1);
 	crypto_sha256_update(rp_id_lookup, CREDENTIAL_TAG_SIZE);
 	crypto_sha256_update(nonce, CREDENTIAL_NONCE_SIZE);
 	crypto_sha256_update(metadata, CREDENTIAL_METADATA_SIZE);
@@ -795,7 +801,7 @@ int ctap_verify_rk_exists(const CredentialId *input_cred)
 
 		// Verify rk_tag, so the credential still is considered
 		// valid No need to decrypt
-		if (!ctap_verify_mac(lookup_rk.rk_tag, &lookup_rk.user,
+		if (!ctap_verify_mac(lookup_rk.rk_tag, &lookup_rk,
 				     RK_HMAC_SIZE)) {
 			printf1(TAG_GREEN,
 				"verify_rk_exists: failed rk_tag verification "
