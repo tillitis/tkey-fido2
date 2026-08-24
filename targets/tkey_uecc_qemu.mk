@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tillitis AB <tillitis.se>
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 # Target file
 
 # Target name
@@ -147,4 +150,3 @@ $(TARGET)_LINKER_SCRIPT  := $(addprefix -T,$(TARGET_LINKER_SCRIPT))
 $(TARGET)_PREBUILD_CMD   := $(TARGET_PREBUILD_CMD)
 $(TARGET)_POSTBUILD_CMD  := $(TARGET_POSTBUILD_CMD)
 $(TARGET)_NEEDS_TARGETS  := $(TARGET_NEEDS_TARGETS)
-
