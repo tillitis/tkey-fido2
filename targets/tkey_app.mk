@@ -50,13 +50,6 @@ TARGET_SRCS := \
                targets/tkey/src/rng.c                             \
                targets/tkey/src/fs.c                              \
                targets/tkey/libc/newlib/libc/search/qsort.c       \
-               targets/tkey/libc/newlib/libc/string/memcmp.c      \
-               targets/tkey/libc/newlib/libc/string/memcpy.c      \
-               targets/tkey/libc/newlib/libc/string/memmove.c     \
-               targets/tkey/libc/newlib/libc/string/memset.c      \
-               targets/tkey/libc/newlib/libc/string/strcmp.c      \
-               targets/tkey/libc/newlib/libc/string/strlen.c      \
-               targets/tkey/libc/newlib/libc/string/strncmp.c     \
                targets/tkey/libc/abort.c                          \
                targets/tkey/libc/exit.c                           \
                targets/tkey/libc/stdio.c                          \
