@@ -35,3 +35,12 @@ path = [
 ]
 SPDX-FileCopyrightText = "2025 Tillitis AB <tillitis.se>"
 SPDX-License-Identifier = "BSD-2-Clause"
+
+[[annotations]]
+path = [
+     "lfs/DESIGN.md",
+     "lfs/SPEC.md",
+     "lfs/README.md",
+]
+SPDX-FileCopyrightText = "2022 The littlefs authors"
+SPDX-License-Identifier = "BSD-3-Clause"
