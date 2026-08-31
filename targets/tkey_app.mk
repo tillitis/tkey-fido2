@@ -50,13 +50,6 @@ TARGET_SRCS := \
                targets/tkey/src/rng.c                             \
                targets/tkey/src/fs.c                              \
                targets/tkey/libc/newlib/libc/search/qsort.c       \
-               targets/tkey/libc/newlib/libc/string/memcmp.c      \
-               targets/tkey/libc/newlib/libc/string/memcpy.c      \
-               targets/tkey/libc/newlib/libc/string/memmove.c     \
-               targets/tkey/libc/newlib/libc/string/memset.c      \
-               targets/tkey/libc/newlib/libc/string/strcmp.c      \
-               targets/tkey/libc/newlib/libc/string/strlen.c      \
-               targets/tkey/libc/newlib/libc/string/strncmp.c     \
                targets/tkey/libc/abort.c                          \
                targets/tkey/libc/exit.c                           \
                targets/tkey/libc/stdio.c                          \
@@ -237,15 +230,14 @@ TARGET_INCLUDES := \
                    -Itinycbor/src \
                    -I$(LIBDIR)/include \
                    -I$(LIBDIR)/monocypher \
-                   -I$(LIBDIR)/littlefs
+                   -Ilfs
 
 # Target-specific EXTERNAL LIBRARIES to be included
 TARGET_EXT_LIBS := \
                    $(LIBDIR)/libcrt0.a \
                    $(LIBDIR)/libcommon.a \
                    $(LIBDIR)/libsyscall.a \
-                   $(LIBDIR)/libmonocypher.a \
-                   $(LIBDIR)/liblfs.a
+                   $(LIBDIR)/libmonocypher.a
 
 # Target-specific LINKER SCRIPT
 
@@ -272,7 +264,7 @@ TARGET_NEEDS_TARGETS := tkey_uecc_qemu.a
 else ifdef DEBUG
 TARGET_NEEDS_TARGETS := tkey_uecc_debug.a
 else
-TARGET_NEEDS_TARGETS := tkey_uecc.a
+TARGET_NEEDS_TARGETS := tkey_uecc.a tkey_lfs.a
 endif
 
 # Add the target to the global list of targets
@@ -308,4 +300,3 @@ $(TARGET)_LINKER_SCRIPT  := $(addprefix -T,$(TARGET_LINKER_SCRIPT))
 $(TARGET)_PREBUILD_CMD   := $(TARGET_PREBUILD_CMD)
 $(TARGET)_POSTBUILD_CMD  := $(TARGET_POSTBUILD_CMD)
 $(TARGET)_NEEDS_TARGETS  := $(TARGET_NEEDS_TARGETS)
-
