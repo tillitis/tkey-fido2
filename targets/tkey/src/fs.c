@@ -37,9 +37,8 @@ static int lfs_prog_wrapper(const struct lfs_config *c, lfs_block_t block,
 {
 	uint32_t abs_offset = (block * c->block_size) + off;
 
-	// Safety check for 128KB limit
-	if (abs_offset + size > 128 * 1024)
-		return LFS_ERR_NOSPC;
+	// Firwmare checks both size and offset to not exceed the storage area
+	// limit
 
 	// With prog_size=256, off is always % 256 == 0 and size is always % 256
 	// == 0
@@ -52,10 +51,7 @@ static int lfs_prog_wrapper(const struct lfs_config *c, lfs_block_t block,
 static int lfs_erase_wrapper(const struct lfs_config *c, lfs_block_t block)
 {
 	uint32_t abs_offset = block * c->block_size;
-
-	// Must erase multiples of 4096 bytes
-	if (c->block_size % 4096 != 0)
-		return -1; // unsupported configuration
+	// Firmware checks that the erase is a multiples of 4096 bytes
 
 	int ret = sys_erase(abs_offset, c->block_size);
 	return (ret < 0) ? -1 : 0;
