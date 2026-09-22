@@ -4,7 +4,7 @@
 # Target file
 
 # Target name
-TARGET := tkey_uecc_qemu.a
+TARGET := tkey_lfs.a
 
 # Programs to use for the target
 TARGET_AR      := llvm-ar
@@ -15,9 +15,12 @@ TARGET_LD      := lld
 TARGET_OBJCOPY := llvm-objcopy # Set if a binary file should be created
 TARGET_OBJDUMP := llvm-objdump # Set if a dump file should be created
 
+LIBDIR := ../tkey-libs
+
 # Source files for the target
 TARGET_SRCS := \
-               crypto/micro-ecc/uECC.c
+               lfs/lfs.c \
+               lfs/lfs_util.c \
 
 # Target-specific ARFLAGS
 TARGET_ARFLAGS := \
@@ -36,8 +39,7 @@ TARGET_ASFLAGS := \
                   -fomit-frame-pointer
 
 TARGET_ASFLAGS += -mno-relax
-TARGET_ASFLAGS += -O0
-TARGET_ASFLAGS += -g3
+TARGET_ASFLAGS += -Os
 
 # Target-specific CFLAGS
 TARGET_CFLAGS := \
@@ -62,8 +64,8 @@ TARGET_CFLAGS := \
 #TARGET_CFLAGS += -std=c99        # Gives errors
 
 TARGET_CFLAGS += -mno-relax
-TARGET_CFLAGS += -O0
-TARGET_CFLAGS += -g3
+TARGET_CFLAGS += -Os
+TARGET_CFLAGS += -flto
 
 # Target-specific CXXFLAGS
 TARGET_CXXFLAGS :=
@@ -94,13 +96,16 @@ TARGET_OBJDUMPFLAGS := \
 
 # Target-specific DEFINES
 TARGET_DEFINES := \
-                  -DuECC_PLATFORM=0
-
-TARGET_DEFINES += -DQEMU_DEBUG
+                    -D LFS_NO_MALLOC \
+                    -D LFS_NO_DEBUG \
+                    -D LFS_NO_WARN \
+                    -D LFS_NO_ERROR
 
 # Target-specific INCLUDES
 TARGET_INCLUDES := \
-                   -Icrypto/micro-ecc
+                    -Ilfs/ \
+                    -I$(LIBDIR)/include \
+                    -Itargets/tkey/libc/include
 
 # Target-specific EXTERNAL LIBRARIES to be included
 TARGET_EXT_LIBS :=
