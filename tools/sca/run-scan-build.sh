@@ -121,8 +121,11 @@ if [ -f "$CWD"/scan-build_exceptions.txt ]
 then
     while read -r LINE;
     do
+        # Skip lines beginning with '#' (optionally preceded by whitespace)
+        [[ $LINE =~ ^[[:space:]]*# ]] && continue
+
         EXCEPTION=$LINE
-        
+
         # Filter exception line from potentially bad characters
         EXCEPTION=$(echo $EXCEPTION | sed 's/#//g')
         EXCEPTION=$(echo $EXCEPTION | sed 's/&//g')
@@ -132,7 +135,7 @@ then
         EXCEPTION=$(echo $EXCEPTION | sed 's/\$//g')
         EXCEPTION=$(echo $EXCEPTION | sed 's/(//g')
         EXCEPTION=$(echo $EXCEPTION | sed 's/)//g')
-        
+
         # Add exception line to the project exceptions string
         PROJECT_EXCEPTIONS="$PROJECT_EXCEPTIONS # '$EXCEPTION'"
     done < "$CWD"/scan-build_exceptions.txt

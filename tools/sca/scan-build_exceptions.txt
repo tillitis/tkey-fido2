@@ -1,2 +1,3 @@
+# <issue_type_regex>:<filename_regex>:<function_regex>:<reason_string>
 .*:crypto/micro-ecc/.*:.*:Ignore uECC issues
 .*:tinycbor/.*:.*:Ignore TinyCBOR issues
