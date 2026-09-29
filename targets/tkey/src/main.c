@@ -9,7 +9,6 @@
 #include "fifo.h"
 #include "log.h"
 
-#include "frame.h"
 #include "tkey/debug.h"
 #include "tkey/led.h"
 #include "tkey/proto.h"
@@ -30,10 +29,10 @@ static volatile uint32_t *app_size      = (volatile uint32_t *) TK1_MMIO_TK1_APP
 // clang-format on
 
 static void appreply_nok(struct frame_header hdr);
-static uint8_t genhdr(uint8_t id, uint8_t endpoint, uint8_t status,
-		      enum frame_cmdlen len);
-static void reset(uint8_t reset_type, uint8_t boot_verifier_action);
+static void reset(uint32_t type, uint8_t next_app_data[126],
+		  uint8_t next_app_len);
 static void error_signal_and_exit_app(uint8_t err);
+static int cdc_handle_frame(uint8_t *available, enum ioend *ep);
 
 int main(void)
 {
@@ -85,72 +84,19 @@ int main(void)
 			assert(1 == 2);
 		}
 
-		if ((ep == IO_CDC) && (available >= 1)) {
-			uint8_t c;
-			bool fail = false;
-			read(IO_CDC, &c, 1, 1);
-			struct frame_header hdr = {0};
-			if (frame_parse_hdr(c, &hdr) != 0) {
-				fail = true;
-			}
-
-			// Update available bytes
-			readselect(IO_CDC, true, &ep, &available);
-
-			// Frame parsing failed, discard and continue
-			if (fail) {
-				discard(IO_CDC, available);
-				continue;
-			}
-
-			// Well-behaved apps are supposed to check for a
-			// client attempting to probe for firmware. In
-			// that case destination is firmware and we just
-			// reply NOK, discarding all bytes already read.
-			if (hdr.f_domain == DST_FW) {
-				appreply_nok(hdr);
-				debug_puts("Responded NOK to message "
-					   "meant for FW\n");
-				discard(IO_CDC, available);
-				continue;
-			}
-
-			// Is it for us? If not, continue after having
-			// discarded all bytes.
-			if (hdr.f_domain != DST_SW) {
-				debug_puts("Message not meant for app. "
-					   "Endpoint was 0x");
-				debug_puthex((uint8_t)hdr.f_domain);
-				debug_lf();
-				discard(IO_CDC, available);
-				continue;
-			}
-
-			// For now, only accept a command of length 4
-			// (reset command)
-			if ((hdr.len != 4) || (available != 4)) {
-				discard(IO_CDC, available);
-				continue;
-			}
-
-			uint8_t buf[available];
-			memset(buf, 0, available);
-
-			read(IO_CDC, buf, available, available);
-			switch (buf[0]) {
-			case CMD_RESET:
-				reset(buf[1], buf[2]);
-				break;
-			default:
-				continue;
-				break;
-			}
-			printf2(TAG_ERR, "Device not reset\n");
-			while (1)
-				;
+		if (available == 0) {
+			continue;
 		}
 
-		if ((ep == IO_FIDO) && (available >= 1)) {
+		if (ep == IO_CDC) {
+			int ret = cdc_handle_frame(&available, &ep);
+			if (ret < 0) {
+				discard(IO_CDC, available);
+				continue;
+			}
+		}
+
+		if (ep == IO_FIDO) {
 			if (available != HID_PACKET_SIZE) {
 				// Discard data
 				printf2(TAG_ERR, "Got incomplete HID "
@@ -185,32 +131,106 @@ int main(void)
 	return 0;
 }
 
+static int cdc_handle_frame(uint8_t *available, enum ioend *ep)
+{
+
+	uint8_t c;
+	bool fail = false;
+	read(IO_CDC, &c, 1, 1);
+	struct frame_header hdr = {0};
+	if (frame_parse_hdr(c, &hdr) != 0) {
+		fail = true;
+	}
+
+	// Update available bytes
+	readselect(IO_CDC, true, ep, available);
+
+	// Frame parsing failed, discard and continue
+	if (fail) {
+		return -1;
+	}
+	// Well-behaved apps are supposed to check for a
+	// client attempting to probe for firmware. In
+	// that case destination is firmware and we just
+	// reply NOK, discarding all bytes already read.
+	if (hdr.f_domain == DST_FW) {
+		appreply_nok(hdr);
+		debug_puts("Responded NOK to message "
+			   "meant for FW\n");
+		return -1;
+	}
+
+	// Is it for us? If not, continue after having
+	// discarded all bytes.
+	if (hdr.f_domain != DST_SW) {
+		debug_puts("Message not meant for app. "
+			   "Endpoint was 0x");
+		debug_puthex((uint8_t)hdr.f_domain);
+		debug_lf();
+		return -1;
+	}
+
+	uint8_t buf[CMDLEN_MAXBYTES] = {0};
+
+	for (uint8_t n = 0; n < hdr.len;) {
+		if (readselect(IO_CDC, false, ep, available) < 0) {
+			return -1;
+		}
+
+		// Read as much as is available of what we expect from
+		// the frame.
+		*available = *available > (hdr.len - n) ? ((uint8_t)hdr.len - n)
+							: *available;
+
+		int nbytes =
+		    read(IO_CDC, &buf[n], CMDLEN_MAXBYTES - n, *available);
+		if (nbytes < 0) {
+			return -1;
+		}
+
+		n += nbytes;
+	}
+
+	switch (buf[0]) {
+	case CMD_RESET:
+		if (hdr.len != 128) {
+			return -1;
+		}
+		reset(buf[1], buf + 2, (uint8_t)hdr.len - 2);
+
+		// Should not be reached
+		assert(1 == 2);
+		break;
+	default:
+		// Unknown command, respond with NOK.
+		appreply_nok(hdr);
+		break;
+	}
+	return 0;
+}
+
 // Send reply frame with response status Not OK (NOK==1), shortest length
 static void appreply_nok(struct frame_header hdr)
 {
 	uint8_t buf[2];
 	enum ioend dst = IO_CDC;
 
-	buf[0] = genhdr(hdr.id, (uint8_t)hdr.f_domain, 0x1, LEN_1);
+	frame_gen_hdr(hdr.id, (uint8_t)hdr.f_domain, FRAME_STATUS_NOK, 1,
+		      &buf[0]);
 	buf[1] = 0; // Not used, but smallest payload is 1 byte
 
-	write(dst, buf, 2);
+	write(dst, buf, sizeof(buf));
 }
 
-static uint8_t genhdr(uint8_t id, uint8_t endpoint, uint8_t status,
-		      enum frame_cmdlen len)
+static void reset(uint32_t type, uint8_t next_app_data[126],
+		  uint8_t next_app_len)
 {
-	return (uint8_t)((id << 5) | (endpoint << 3) | (status << 2) |
-			 (uint8_t)len);
-}
 
-static void reset(uint8_t reset_type, uint8_t boot_verifier_action)
-{
 	struct reset rst = {0};
-	rst.type = reset_type;
-	rst.next_app_data[0] = boot_verifier_action;
+	rst.type = type;
+	memcpy(rst.next_app_data, next_app_data, next_app_len);
 
-	sys_reset(&rst, 1);
+	sys_reset(&rst, next_app_len);
 }
 
 // Signals the error by flashing the LED the number of times as the error value.
@@ -227,5 +247,6 @@ static void error_signal_and_exit_app(uint8_t err)
 	// USB-controller is ready
 	printf2(TAG_ERR, "device_init failed (%d)\n", err);
 	delay(200);
-	reset(START_FLASH0, 1);
+	uint8_t buf = 1;
+	reset(START_FLASH0, &buf, sizeof(buf));
 }
