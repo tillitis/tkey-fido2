@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Tillitis AB <tillitis.se>
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "tkey/debug.h"
 #include <assert.h>
 #include <stdint.h>
 #include <tkey/io.h>
@@ -17,11 +18,32 @@ static volatile uint32_t *timer_ctrl =      (volatile uint32_t *)TK1_MMIO_TIMER_
 // clang-format on
 #define CPUFREQ 24000000
 
+#ifdef TKEY_DEBUG
+static uint32_t millis(void)
+{
+	uint32_t timer_val = *timer;
+	if (timer_val <= 1) {
+		assert(1 == 2);
+	}
+	return TIMER_MAX - timer_val;
+}
+
+static void delay(uint32_t ms)
+{
+	uint32_t time = millis();
+	while ((millis() - time) < ms)
+		;
+}
+#endif
+
 void hw_init(void)
 {
 	init_millisecond_timer();
 #ifndef QEMU_DEBUG
 	init_usb();
+#endif
+#ifdef TKEY_DEBUG
+	delay(2000);
 #endif
 	rng_init();
 }
