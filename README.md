@@ -9,6 +9,34 @@ change.
 The FIDO2 device app is a fork of Solokeys [Solo1
 firmware](https://github.com/solokeys/solo1/)
 
+## Supported authenticator features
+
+The following table summarizes the capabilities advertised by the current
+application through the CTAP2 `authenticatorGetInfo` command. It is intended
+as a quick reference for clients; it is not a statement of FIDO Alliance
+certification.
+
+| Capability | Value |
+| --- | --- |
+| CTAP versions | `FIDO_2_0`, `FIDO_2_1` |
+| Extensions | `credProtect`, `hmac-secret` |
+| Transports | USB HID |
+| Public-key algorithms | EdDSA (`-8`), ES256 (`-7`) |
+| PIN/UV protocols | 1, 2 |
+| Resident/discoverable credentials (`rk`) | Supported |
+| User presence (`up`) | Supported |
+| Platform authenticator (`plat`) | Not supported (external USB token) |
+| Credential management (`credMgmt`) | Supported |
+| Client PIN (`clientPin`) | Reported dynamically; set a PIN to enable it |
+| User verification (`uv`) | Not supported |
+| Maximum credentials in an allow list | 20 |
+| Maximum credential ID length | 128 bytes |
+
+The app currently exposes the CTAP commands needed for make-credential,
+get-assertion (including multiple assertions), get-info, client-PIN, reset,
+authenticator selection, and credential management. The biometric,
+large-blob, and vendor command families are not advertised as supported.
+
 ## Building
 
 The build scripts assume that the [TKey device
